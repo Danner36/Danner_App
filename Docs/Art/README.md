@@ -18,14 +18,10 @@
 
 Only the current step exposes its primary action. Step 3 contains no explanatory or technical status copy. A completed step changes appearance, each transition automatically scrolls the next highlighted card into view, and activating YouTube's `Next` control automatically returns to step 4. The app hub anchors the Danner logo at one-third screen height and its compact module row at two-thirds screen height.
 
-## Recovered reference
-
-The original APK's gray, purple, centered screen remains documented in [../../reference/Apk_Inventory.md](../../reference/Apk_Inventory.md). It is preserved as recovery evidence rather than the active UI specification.
-
 ## Media
 
-- `media/ic_launcher_danner.jpg` is the recovered 1079 by 1079 Danner green and white launcher image.
+- `media/ic_launcher_danner.jpg` is the canonical 1079 by 1079 Danner green and white launcher image.
 - `app/assets/youtube-tv-logo-vecteezy.jpg` is the requested [YouTube TV artwork by Sagor Roy on Vecteezy](https://www.vecteezy.com/vector-art/72969349-youtube-tv-logo-icon-high-resolution). Its source page marks the asset as attribution-required and editorial-use-only.
 - `app/assets/cleveland-guardians-logo.jpg` is the requested winged-baseball mark sourced from the [official Cleveland Guardians page](https://www.mlb.com/guardians/fans/cleteamname).
 
-The Danner image is copied into `app/assets/` for Android and iOS launcher and splash builds. Both sub-app marks are packaged locally and do not require menu-time network access.
+The Danner image is copied into `app/assets/` for Android and iOS launcher and splash builds. Both sub-app marks are packaged locally and do not require menu-time network access. The legacy APK's visual inventory is isolated in [../../reference/Apk_Inventory.md](../../reference/Apk_Inventory.md) and is not part of the current interface specification.

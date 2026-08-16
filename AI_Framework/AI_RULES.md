@@ -29,7 +29,7 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 ## Edits and communication
 
 - Summarize the implementation scope before editing.
-- Documentation writes require owner approval. The owner approved full documentation alignment for this reconstruction.
+- Documentation writes require owner approval.
 - Keep changes surgical when a local edit is sufficient.
 - Report what was attempted and request device verification for behavior that cannot be proven locally.
 - Provide a sorted, repository-relative list of touched paths at handoff.
@@ -37,7 +37,7 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 
 ## Product constraints
 
-- Preserve the original app's YouTube TV playback-area purpose while using the parent-friendly guided interface on Android and iPhone.
+- Preserve the app's YouTube TV playback-area purpose and parent-friendly guided interface on Android and iPhone.
 - Allowed verification URL: `https://tv.youtube.com/verify` and redirects initiated by that page.
 - Default the selected destination to Tripoli, Iowa at `42.808371, -92.2578433`.
 - Let the destination be chosen from the bundled U.S. map or offline city search, display the nearest town or city rather than coordinates, and save the point locally for later launches.

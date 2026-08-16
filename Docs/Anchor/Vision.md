@@ -5,7 +5,7 @@ Phase: MVP
 
 ## Product
 
-Danner Apps is a cross-platform reconstruction and expansion of the original `Youtube Fix` APK for parents who can follow clear directions but do not want to manage developer settings or a separate GPS app. The logo-only main menu centers the Danner mark one-third down the screen and a compact module row two-thirds down. Its disabled Cleveland Guardians tile stays left for later work; its frequently used rightmost YouTube TV tile launches `TV Location`. Android and iPhone then use the same guided setup and open YouTube TV's current-playback-area verification page inside the app.
+Danner Apps is a cross-platform app for parents who can follow clear directions but do not want to manage developer settings or a separate GPS app. The logo-only main menu centers the Danner mark one-third down the screen and a compact module row two-thirds down. Its disabled Cleveland Guardians tile stays left for later work; its frequently used rightmost YouTube TV tile launches `TV Location`. Android and iPhone use the same guided setup and open YouTube TV's current-playback-area verification page inside the app.
 
 ## Current experience
 

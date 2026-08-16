@@ -2,11 +2,11 @@
 
 ## Project
 
-`Danner_App` is a cross-platform Expo reconstruction of the original `Youtube Fix` Android APK. Its logo-only app hub opens `TV Location` from a YouTube TV artwork tile and reserves a disabled Cleveland Guardians tile for a later module. Android and iPhone share the same parent-friendly four-step YouTube TV flow. Destination selection uses a bundled nationwide map and offline city search without changing device GPS.
+`Danner_App` is a cross-platform Expo app for managing YouTube TV playback-area updates. Its logo-only app hub opens `TV Location` from a YouTube TV artwork tile and reserves a disabled Cleveland Guardians tile for a later module. Android and iPhone share the same parent-friendly four-step flow. Destination selection uses a bundled nationwide map and offline city search without changing device GPS.
 
 ## Phase
 
-The logo-tile hub, guided redesign, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, and Android/iOS production bundle compilation are implemented. Physical Apple signing, live target-device and TV validation of the revised automatic return, and distribution remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
+The logo-tile hub, guided flow, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, and Android/iOS production bundle compilation are implemented. Physical Apple signing, live target-device and TV validation of automatic return, and distribution remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
 
 ## Context hierarchy
 

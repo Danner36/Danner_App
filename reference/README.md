@@ -1,10 +1,10 @@
-# reference
+# Reference
 
-Recovered original app material. This directory is evidence, not product source.
+Legacy APK reference material. This directory is not current product source.
 
 ## Contents
 
-- [app-debug.apk](app-debug.apk) is the original debuggable Android package.
-- [Apk_Inventory.md](Apk_Inventory.md) records manifest, resource, code, and emulator facts recovered from it.
+- [app-debug.apk](app-debug.apk) is the legacy debuggable Android package.
+- [Apk_Inventory.md](Apk_Inventory.md) records its manifest, resource, code, and emulator facts.
 
-The reconstructed cross-platform source is under `app/`.
+The current cross-platform product source is under `app/`.

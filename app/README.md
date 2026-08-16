@@ -38,4 +38,4 @@ The checked-in offline map already runs without a network connection. `npm run b
 - `metro.config.js` packages the generated offline HTML map as an app asset.
 - `android/` and `ios/` are generated locally and ignored.
 
-Android native metadata preserves package `com.example.location_helper`, version `1.0`, code 1, and minimum SDK 29. Compile and target SDK 36 use the current maintained toolchain.
+Android native metadata uses package `com.example.location_helper`, version `1.0`, code 1, minimum SDK 29, and compile and target SDK 36.

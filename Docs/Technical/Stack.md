@@ -20,7 +20,7 @@ Phase: MVP
 - `react-native-safe-area-context` preserves readable system-bar insets.
 - `expo-status-bar`, `expo-navigation-bar`, and `expo-system-ui` keep light system chrome.
 - `expo-splash-screen` uses the Danner launcher art on `#F7F7F2`.
-- `expo-build-properties` preserves the original Android minimum SDK while using current compile and target SDKs.
+- `expo-build-properties` sets Android minimum, compile, and target SDK versions.
 
 The app has no location library, no Android intent launcher, no mock-location native module, and no configured Android or iOS location permission.
 
@@ -31,7 +31,7 @@ The app has no location library, no Android intent launcher, no mock-location na
 | Android | `com.example.location_helper` |
 | iOS | `com.danner.locationhelper` |
 
-Android keeps the recovered version name `1.0`, version code 1, and minimum SDK 29. Compile and target SDK 36 replace the APK's SDK 33 build target so the reconstruction uses the maintained Android toolchain.
+Android uses version name `1.0`, version code 1, minimum SDK 29, and compile and target SDK 36.
 
 ## Source layout
 
@@ -45,7 +45,7 @@ Android keeps the recovered version name `1.0`, version code 1, and minimum SDK 
 | `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources |
 | `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
 | `app/android/` | Locally generated and ignored native project |
-| `reference/` | Original APK and recovered facts |
+| `reference/` | Legacy APK and its technical inventory |
 
 ## Commands
 

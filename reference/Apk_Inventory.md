@@ -1,9 +1,8 @@
-Status: LOCKED
-Phase: MVP
+Status: REFERENCE
 
-# APK inventory
+# Legacy APK inventory
 
-Facts recovered directly from `app-debug.apk` with Android SDK tools, JADX, and a Pixel 7 API 34 emulator.
+Facts extracted directly from `app-debug.apk` with Android SDK tools, JADX, and a Pixel 7 API 34 emulator.
 
 ## Package
 
@@ -30,7 +29,7 @@ Facts recovered directly from `app-debug.apk` with Android SDK tools, JADX, and 
 
 `res/layout/activity_main.xml` is a centered vertical `LinearLayout` with background `#CCCCCC`.
 
-| ID | Type | Recovered value |
+| ID | Type | Value |
 |----|------|-----------------|
 | `textViewDanners` | `TextView` | `Danners`, 36sp, cursive, bold, black |
 | `btn_fake_gps` | `Button` | `1. Fake GPS to Tripoli`, 20sp |
@@ -41,13 +40,13 @@ Facts recovered directly from `app-debug.apk` with Android SDK tools, JADX, and 
 
 The title has 16dp padding, 16dp top and bottom margins, a `#CCCCCC` background, and match-parent width. The reminder has 16dp padding and match-parent width.
 
-## Recovered Kotlin behavior
+## Kotlin behavior
 
 - Both GPS buttons start an explicit `android.intent.action.MAIN` intent.
 - Component package: `com.blogspot.newapphorizons.fakegps`
 - Component activity: `com.blogspot.newapphorizons.fakegps.MainActivity`
 - The verification button calls `webView.loadUrl("https://tv.youtube.com/verify")`.
-- The original code does not make the initially hidden WebView visible.
+- The legacy code does not make the initially hidden WebView visible.
 - No click handler requests runtime location permission.
 
 ## Emulator reference
@@ -67,7 +66,7 @@ The Material 3 controls render purple with white text on the light emulator them
 ## Launcher assets
 
 - Product icon: `res/mipmap-hdpi-v4/ic_launcher_danner.jpg`
-- Recovered build copy: `Docs/Art/media/ic_launcher_danner.jpg`
+- Reference image copy: `Docs/Art/media/ic_launcher_danner.jpg`
 - Default Android Studio adaptive robot icons also remain in the APK.
 
 ## Template leftovers
