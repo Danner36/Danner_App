@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Danner Apps",
+    "slug": "danner-app",
+    "scheme": "dannerapp",
+    "version": "1.0",
+    "orientation": "default",
+    "icon": "./assets/ic_launcher_danner.jpg",
+    "backgroundColor": "#F7F7F2",
+    "primaryColor": "#1F6F55",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.danner.locationhelper",
+      "buildNumber": "1"
+    },
+    "android": {
+      "package": "com.example.location_helper",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.INTERNET"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-status-bar",
+        {
+          "style": "dark"
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "backgroundColor": "#00000000",
+          "style": "dark",
+          "position": "absolute"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F7F7F2",
+          "image": "./assets/ic_launcher_danner.jpg",
+          "imageWidth": 240,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 29,
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36
+          }
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}

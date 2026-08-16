@@ -1,0 +1,56 @@
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Editors / local
+.vscode/
+*.swp
+*.swo
+*~
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets/
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Expo / React Native
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+*.orig.*
+ios/Pods/
+ios/build/
+android/.gradle/
+android/app/build/
+android/local.properties
+android/.cxx/
+
+# Deploy artifacts
+deploy/*
+!deploy/.gitkeep
+
+# Logs and local data
+*.log
+
+# Cursor / agent local (keep rules)
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/ai-rules-first.mdc

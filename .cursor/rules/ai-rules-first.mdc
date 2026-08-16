@@ -1,0 +1,8 @@
+---
+description: Read AI_RULES before any other repository work
+alwaysApply: true
+---
+
+# AI rules first
+
+Before any other work in this repository, read [AI_Framework/AI_RULES.md](AI_Framework/AI_RULES.md) in full and follow it.
