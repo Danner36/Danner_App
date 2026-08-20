@@ -29,5 +29,19 @@
       "allowInsecureHttp": false,
       "trustedHosts": []
     }
+    
+    "REAL DEAL",
+    {
+      "gameDates": [
+        "2026-08-20"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://thestreameast.top/mlb/cleveland-guardians-san-francisco-giants/43970688",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    }
   ]
 }
