@@ -1,0 +1,66 @@
+{
+  "wins": 60,
+  "losses": 64,
+  "liveGame": {
+    "abstractState": "Live",
+    "gamePk": 999000001,
+    "gameDate": "2026-08-16T17:40:00Z",
+    "gameNumber": 1,
+    "status": "Top 5th",
+    "isHome": true,
+    "guardiansScore": 4,
+    "opponentName": "Detroit Tigers",
+    "opponentScore": 2,
+    "officialDate": "2026-08-16"
+  },
+  "upcomingGames": [
+    {
+      "abstractState": "Preview",
+      "gamePk": 999000002,
+      "gameDate": "2026-08-18T22:40:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": true,
+      "guardiansScore": 0,
+      "opponentName": "San Francisco Giants",
+      "opponentScore": 0,
+      "officialDate": "2026-08-18"
+    },
+    {
+      "abstractState": "Preview",
+      "gamePk": 999000003,
+      "gameDate": "2026-08-22T00:40:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": false,
+      "guardiansScore": 0,
+      "opponentName": "Colorado Rockies",
+      "opponentScore": 0,
+      "officialDate": "2026-08-21"
+    }
+  ],
+  "streams": [
+    {
+      "allowInsecureHttp": true,
+      "gamePk": 999000001,
+      "kind": "direct",
+      "url": "http://10.0.2.2:8108/http-media/v3/prog_index.m3u8"
+    },
+    {
+      "gamePk": 999000001,
+      "kind": "direct",
+      "url": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+    },
+    {
+      "gamePk": 999000001,
+      "kind": "youtube",
+      "url": "https://www.youtube.com/watch?v=qjtzooqcjgA"
+    },
+    {
+      "allowInsecureHttp": true,
+      "gamePk": 999000001,
+      "kind": "web",
+      "url": "http://10.0.2.2:8108/popup-player"
+    }
+  ]
+}

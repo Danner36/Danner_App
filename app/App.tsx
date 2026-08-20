@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   BackHandler,
   Image,
   Modal,
@@ -20,7 +21,10 @@ import {
   SafeAreaView,
 } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import { GuardiansScreen } from './GuardiansScreen';
+import { getProvisioningExpirationTimestamp } from './modules/danner-provisioning-profile/src';
 import { OfflineUsMap } from './OfflineUsMap';
+import { getProvisioningWarning } from './provisioningWarning';
 
 const VERIFY_URL = 'https://tv.youtube.com/verify';
 const DESTINATION_STORAGE_KEY = 'danner.destination.v1';
@@ -36,7 +40,7 @@ type Destination = {
   longitude: number;
 };
 
-type AppScreen = 'menu' | 'tv-location';
+type AppScreen = 'guardians' | 'menu' | 'tv-location';
 type StepNumber = 1 | 2 | 3 | 4;
 type StepStatus = 'complete' | 'current' | 'upcoming';
 type ButtonVariant = 'primary' | 'secondary';
@@ -868,9 +872,63 @@ function StepCard({
   );
 }
 
-function MainMenu({ onOpenTvLocation }: { onOpenTvLocation: () => void }) {
+function MainMenu({
+  onOpenGuardians,
+  onOpenTvLocation,
+}: {
+  onOpenGuardians: () => void;
+  onOpenTvLocation: () => void;
+}) {
+  const [provisioningExpiration, setProvisioningExpiration] = useState<
+    number | undefined
+  >();
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  const readProvisioningExpiration = useCallback(() => {
+    setProvisioningExpiration(getProvisioningExpirationTimestamp());
+    setCurrentTime(Date.now());
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios') {
+      return;
+    }
+
+    readProvisioningExpiration();
+    const clock = setInterval(() => setCurrentTime(Date.now()), 60_000);
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (nextState) => {
+        if (nextState === 'active') {
+          readProvisioningExpiration();
+        }
+      },
+    );
+
+    return () => {
+      clearInterval(clock);
+      appStateSubscription.remove();
+    };
+  }, [readProvisioningExpiration]);
+
+  const provisioningWarning = getProvisioningWarning(
+    provisioningExpiration,
+    currentTime,
+  );
+
   return (
     <View style={styles.menuScreen}>
+      {provisioningWarning ? (
+        <View accessibilityRole="alert" style={styles.menuExpiryWarning}>
+          <Text style={styles.menuExpiryWarningTitle}>
+            {provisioningWarning.title}
+          </Text>
+          <Text style={styles.menuExpiryWarningInstruction}>
+            {provisioningWarning.instruction}
+          </Text>
+        </View>
+      ) : null}
+
       <Image
         accessibilityLabel="Danner logo"
         resizeMode="contain"
@@ -880,11 +938,14 @@ function MainMenu({ onOpenTvLocation }: { onOpenTvLocation: () => void }) {
 
       <View style={styles.subAppRow}>
         <Pressable
-          accessibilityLabel="Cleveland Guardians, coming later"
+          accessibilityLabel="Cleveland Guardians"
+          accessibilityHint="Opens Guardians scores, record, schedule, and authorized live video"
           accessibilityRole="button"
-          accessibilityState={{ disabled: true }}
-          disabled
-          style={styles.subAppTile}
+          onPress={onOpenGuardians}
+          style={({ pressed }) => [
+            styles.subAppTile,
+            pressed && styles.subAppTilePressed,
+          ]}
         >
           <Image
             resizeMode="cover"
@@ -1380,7 +1441,7 @@ export default function App() {
       Platform.OS !== 'android' ||
       showVerify ||
       mapPickerVisible ||
-      appScreen !== 'tv-location'
+      appScreen === 'menu'
     ) {
       return;
     }
@@ -1433,7 +1494,12 @@ export default function App() {
       <StatusBar style="dark" />
       <SafeAreaView edges={['top', 'bottom']} style={styles.systemSafeArea}>
         {appScreen === 'menu' ? (
-          <MainMenu onOpenTvLocation={() => setAppScreen('tv-location')} />
+          <MainMenu
+            onOpenGuardians={() => setAppScreen('guardians')}
+            onOpenTvLocation={() => setAppScreen('tv-location')}
+          />
+        ) : appScreen === 'guardians' ? (
+          <GuardiansScreen onBack={() => setAppScreen('menu')} />
         ) : showVerify ? (
           <VerifyView destination={destination} onClose={closeVerify} />
         ) : (
@@ -1486,6 +1552,27 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: '33.333%',
     width: 210,
+  },
+  menuExpiryWarning: {
+    alignItems: 'center',
+    left: 24,
+    position: 'absolute',
+    right: 24,
+    top: '33.333%',
+    transform: [{ translateY: -158 }],
+  },
+  menuExpiryWarningInstruction: {
+    color: '#5A4137',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+  menuExpiryWarningTitle: {
+    color: '#A32626',
+    fontSize: 16,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   subAppRow: {
     alignItems: 'center',

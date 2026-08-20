@@ -2,11 +2,11 @@
 
 ## Project
 
-`Danner_App` is a cross-platform Expo app for managing YouTube TV playback-area updates. Its logo-only app hub opens `TV Location` from a YouTube TV artwork tile and reserves a disabled Cleveland Guardians tile for a later module. Android and iPhone share the same parent-friendly four-step flow. Destination selection uses a bundled nationwide map and offline city search without changing device GPS.
+`Danner_App` is a cross-platform Expo app for Danner family tools. Its logo-only hub opens a Cleveland Guardians dashboard from the left artwork tile and `TV Location` from the right YouTube TV tile. The Guardians module loads the current record, today's or an active game, score, and remaining schedule from MLB. Today's game receives a countdown and approved icon-only Play controls become available 15 minutes before game time. Playback sources come from root `guardians_streams.json` on GitHub and match by date and game number. HTTPS is the default and each cleartext HTTP source requires an explicit opt-in. Android and iPhone share the same parent-friendly TV Location flow, bundled nationwide map, and offline city search without changing device GPS.
 
 ## Phase
 
-The logo-tile hub, guided flow, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, and Android/iOS production bundle compilation are implemented. Physical Apple signing, live target-device and TV validation of automatic return, and distribution remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
+The logo-tile hub, iPhone final-48-hour signing warning, Guardians today countdown, live score, date-matched remote source list, native direct-media player, isolated approved-page player with popup and redirect gating, explicit HTTP-source support, repo-only today/ready/delayed/live harness, guided TV Location flow, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, Android/iOS production bundle compilation, and portable iPhone setup and recovery links are implemented. Guardians production playback awaits an entry in `guardians_streams.json`. The delivery target is direct installation only; production Android signing, a SideStore-compatible iPhone IPA, release publication, silent charger-triggered SideStore renewal, and physical target-device and TV validation remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
 
 ## Context hierarchy
 

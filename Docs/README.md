@@ -2,12 +2,12 @@
 
 ## Scope
 
-Product intent, current guided behavior, visual specification, shared stack, production work, validation status, and legacy APK reference material.
+Product intent, current Guardians and TV Location behavior, visual specification, shared stack, production work, validation status, and legacy APK reference material.
 
 ## Subfolders
 
 - `Anchor/` contains product intent and platform boundaries.
-- `Domain/` contains destination selection and the four-step playback-area flow.
+- `Domain/` contains the Guardians dashboard, authorized playback rules, destination selection, and the four-step playback-area flow.
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
 - `Production/` contains current capability, delivery, and validation status.
@@ -17,6 +17,7 @@ Product intent, current guided behavior, visual specification, shared stack, pro
 | Topic | Source |
 |-------|--------|
 | Product intent and platform boundaries | [Anchor/Vision.md](Anchor/Vision.md) |
+| Guardians data, schedule, and playback | [Domain/Guardians.md](Domain/Guardians.md) |
 | App hub, destination selection, and playback-area flow | [Domain/Playback.md](Domain/Playback.md) |
 | Runtime, dependencies, and builds | [Technical/Stack.md](Technical/Stack.md) |
 | Visual specification and launcher art | [Art/README.md](Art/README.md) |

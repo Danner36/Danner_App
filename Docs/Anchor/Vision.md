@@ -5,7 +5,11 @@ Phase: MVP
 
 ## Product
 
-Danner Apps is a cross-platform app for parents who can follow clear directions but do not want to manage developer settings or a separate GPS app. The logo-only main menu centers the Danner mark one-third down the screen and a compact module row two-thirds down. Its disabled Cleveland Guardians tile stays left for later work; its frequently used rightmost YouTube TV tile launches `TV Location`. Android and iPhone use the same guided setup and open YouTube TV's current-playback-area verification page inside the app.
+Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a compact module row two-thirds down. The left Cleveland Guardians tile opens live baseball information and approved video playback; the frequently used rightmost YouTube TV tile launches `TV Location`. Android and iPhone share both modules.
+
+## Guardians experience
+
+The Guardians screen retrieves the current record, today's or an active game, score, and remaining schedule whenever it opens. It refreshes every minute, supports pull-to-refresh, omits completed games, and presents all start times in the phone's time zone. Today's game is promoted above the schedule with a one-second countdown. Delay states are explicit. Icon-only Play controls become eligible 15 minutes before game time and appear only for date- and game-number-matched entries fetched from root `guardians_streams.json` on GitHub. Direct video uses the native player and approved player pages use an isolated WebView. HTTPS is the default, with a separate opt-in required on every cleartext HTTP source.
 
 ## Current experience
 
@@ -22,11 +26,15 @@ The interface uses large type and controls, one highlighted current step, progre
 - Android package `com.example.location_helper`
 - Android version `1.0`, version code 1, and minimum SDK 29
 - iOS bundle `com.danner.locationhelper`
+- Direct installation through a signed Android APK or a SideStore-renewed iPhone IPA using a free dedicated Apple Account; no app-store delivery or paid Apple Developer membership
+
+On iPhone, the hub reads the embedded development profile. During its final 48 hours, a short warning appears above the Danner logo and tells the parent to connect to Wi-Fi and charge the phone. Routine SideStore renewal is intended to run through a silent charger-triggered Shortcuts automation; physical-device validation remains required because iOS and SideStore control the background signing operation.
 
 Both platforms inject the selected destination into the embedded verification page's browser Geolocation API. This creates a meaningful iPhone path without requiring either platform to replace its system location.
 
 ## Boundaries
 
+- Guardians video is limited to exact links in `guardians_streams.json`, matched to an MLB official date and game number. HTTPS is the default, and cleartext HTTP must be enabled on the individual entry. The app does not discover or substitute stream sources.
 - The app does not modify device location or implement a system mock-location provider.
 - The app does not request foreground or background location permission.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico with offline place search, state outlines, and major highways; it does not contain neighborhood streets or satellite imagery.

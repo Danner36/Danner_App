@@ -3,20 +3,43 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-08-16
+Last updated: 2026-08-20
 
 | Check | Status | Evidence |
 |-------|--------|----------|
 | TypeScript | Pass | `npm run typecheck` |
 | Expo package compatibility | Pass | `npx expo install --check` |
 | npm advisory scan | Review | `npm audit` reports 19 transitive Expo, React Native, Metro, and Xcode-tooling advisories; its proposed automatic fixes downgrade the compatible framework stack and were not applied |
-| Expo platform config | Pass | Public config reports `Danner Apps` on Android and iOS with no location permission configured |
-| Android prebuild | Pass | Expo generated the ignored native project |
-| Android standalone release APK | Pass | Gradle `app:assembleRelease` completed 367 tasks and embedded the production JavaScript bundle |
+| Expo platform config | Pass | Resolved config reports `Danner Apps` on Android and iOS, no location permission, and iOS ATS media, WebView, and local-network exceptions plus its local-network usage description |
+| Android prebuild | Pass | Expo regenerated the ignored native project; its manifest contains Internet permission and `android:usesCleartextTraffic="true"` with no fine or coarse location permission |
+| Android standalone release APK | Pass | Gradle `assembleRelease` completed and embedded the production JavaScript bundle |
 | Standalone emulator launch | Pass | Release APK opened the Danner app hub on Pixel 7 API 34 with Metro stopped and no listener on port 8081 |
 | Parent-friendly app hub | Pass | At 1080 by 2400, the 210dp logo remains centered at one-third usable-screen height; the 101.2dp tiles render 265 px wide with a 74 px gap, a centered row, and centers at the two-thirds target |
+| iPhone signing warning implementation | Pass | The Apple-only local Expo module resolves as pod `DannerProvisioningProfile`, extracts the embedded plist `ExpirationDate`, and returns no value when a profile is absent; the menu checks at launch, on foregrounding, and once per minute while open |
+| iPhone signing warning state tests | Pass | Repository-only assertions cover no profile, invalid profile time, more than 48 hours, exactly 48 hours, one day, hourly, final-hour, and expired messages without packaging test controls or fixtures into the app |
+| iPhone signing warning presentation | Review | Source positions the final-48-hour two-line warning above the unchanged one-third-positioned Danner logo and says `Connect to Wi-Fi and charge phone to fix`; an actual expiring SideStore profile is still required for iPhone visual confirmation |
+| Android signing-warning isolation | Pass | A newly assembled release APK installed and opened on Pixel 7 API 34; its hierarchy contains only the Danner logo and two module tiles, with no expiration timer, warning, or signing text |
+| SideStore profile renewal and warning reset | Pending | Requires a physical iPhone signed through SideStore to prove that a locked-phone charger automation renews both profiles and that Danner Apps reads the renewed expiration after returning to the foreground |
 | YouTube TV hub tile | Pass | The requested locally bundled artwork fills the active rightmost tile and opens `TV Location` |
-| Guardians placeholder | Pass | The requested official winged-baseball artwork fills the left tile at full color; Android accessibility reports it disabled and tapping it leaves the menu unchanged |
+| Guardians hub tile | Pass | The requested winged-baseball artwork fills the active left tile; the tile is wired to the Guardians dashboard on both platform bundles |
+| Guardians live-data response | Pass | The installed release returned Cleveland's 61-66 record, today's San Francisco matchup at 1:10 PM Eastern, and the remaining schedule on 2026-08-20 |
+| Guardians featured game and schedule | Pass | Today's game was promoted above the schedule; filtering removed completed and featured games and sorted all retained games by MLB start timestamp |
+| Guardians today countdown | Pass | The standalone release displayed `TODAY`, `STARTS IN`, a one-second 2-hour countdown, and `Video starts 15 minutes before game time.` with no early Play control |
+| Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB and source data on mount, refreshes every 60 seconds, and exposes pull-to-refresh plus retry |
+| Guardians Android interaction | Pass | Installed release rendered the current featured game, record, and Eastern-time schedule at 1080 by 2400, showed no harness controls, and ran with Metro stopped |
+| Guardians source schema | Pass | Parser checks accepted all six required fields, ignored the in-stream placeholder example, matched one URL across multiple dates and doubleheader numbers, rejected missing or extra fields, rejected HTTP without an entry opt-in, and required no owner-entered MLB identifier or source name |
+| Guardians GitHub source retrieval | Pass | Production bundles contain the raw `main/guardians_streams.json` URL; the screen checks on open, pull-to-refresh, and every 60 seconds, uses an 8-second timeout, and stores the last valid production document for offline fallback |
+| Guardians authorized-source gate | Pass | Only a valid `direct`, `youtube`, or `web` entry whose `gameDates` and `gameNumbers` match the featured MLB game can create a Watch action; HTTPS is the default and HTTP requires `allowInsecureHttp: true` on that entry |
+| Guardians live-game harness isolation | Pass | Fixture JSON, HTTP proxy path, remote Apple HLS sample, MLB YouTube ID, popup-test page text, synthetic game identifiers, and emulator harness URL are absent from the Android and iOS production exports and the release APK |
+| Guardians simulated live state | Pass | Development harness rendered `LIVE`, Guardians 4, Detroit 2, `Top 5th`, four icon-only Play controls, record, and remaining schedule on Pixel 7 API 34 |
+| Guardians simulated today state | Pass | Development harness rendered a game 45 minutes away with a one-second countdown and the 15-minute message while hiding every Watch action |
+| Guardians simulated ready state | Pass | Development harness rendered a game 10 minutes away with its countdown and four icon-only Play controls |
+| Guardians simulated delayed state | Pass | Development harness rendered `DELAYED`, `Delayed Start`, and `The game is delayed.` with no countdown or premature Watch action |
+| Guardians native direct playback | Pass | Both the remote HTTPS HLS fixture and the fixed local HTTP HLS proxy played in `expo-video` with native controls and no webpage or JavaScript; Close returned to the live card |
+| Guardians isolated YouTube playback | Pass | The official MLB archive played through the privacy-enhanced embed after the script-free app-origin wrapper supplied YouTube's required referrer; Close returned to the live card |
+| Guardians approved-page isolation | Pass | Web playback is incognito and disables files, file bridging, location, shared and third-party cookies, and downloads while limiting top-level navigation to exact configured hosts; cleartext navigation and mixed content remain disabled unless the selected source opts in |
+| Guardians popup and redirect gate | Pass | On the opted-in HTTP test page, Pixel 7 API 34 retained the original player after unapproved popup and redirect requests, promoted an approved popup into the same isolated player, and followed its approved redirect; the official HTTPS MLB YouTube archive continued playing afterward |
+| Guardians production live playback | Pending | Root `guardians_streams.json` contains only its inactive placeholder example; a date-matched authorized URL is still required for target-device validation |
 | Parent-friendly guided home | Pass | Large cards, progress, current-step emphasis, completion, retry, and QR-code instructions render at 1080 by 2400 |
 | Simplified step 3 | Pass | Installed release hierarchy and capture show only `Update on this phone` and the `Update the TV location` button, with no explanatory or bridge-status copy |
 | TV-specific step 4 | Pass | Installed release says the `Welcome to...` message appears on the TV before returning to the TV main screen and selecting `Live` |
@@ -36,10 +59,13 @@ Last updated: 2026-08-16
 | YouTube area result | Pass | YouTube accepted the injected pair and displayed `Welcome to the Cedar Rapids/Waterloo/Dubuque area` |
 | YouTube `Next` automation and return | Review | The embedded script limits activation to `tv.youtube.com` pages containing the playback-area prompt and an exact `Next` control, observes automatic or manual activation, then returns to step 4 after 800 ms; target-device and TV validation remains |
 | Android Back navigation | Pass | Hardware Back returned from verification and highlighted step 4 with confirm and retry actions |
-| Cross-platform production export | Pass | Expo export bundled 606 iOS modules and 607 Android modules, including both hub logos and the same offline map asset |
+| Cross-platform production export | Pass | Expo export bundled 619 iOS modules and 619 Android modules, including native video support, the Guardians dashboard, both hub logos, and the same offline map asset; test markers and visible source-label text are absent from both bundles |
 | Requested artwork terms | Review | The supplied Vecteezy page labels its YouTube TV artwork attribution-required and editorial-use-only; the source and author are recorded in the art documentation for this owner-directed build |
-| iOS native build | Pending | EAS CLI reports `Not logged in`; requires an Expo account plus Apple signing, or macOS with Apple signing |
-| Physical iPhone and TV | Pending | Requires a signed iPhone build and confirmation of automatic step return plus the target TV's welcome and reloaded-channel results |
+| Direct-install configuration | Review | Android preview and production produce APK files. The selected no-fee iPhone path is a SideStore-compatible IPA renewed with a dedicated free Apple Account; IPA production and its AltSource entry remain pending |
+| Portable iPhone recovery links | Pass | `release/IPHONE_SETUP.md` points to the official LocalDevVPN App Store listing, current SideStore installation and release pages, current iLoader release, and Danner release page; third-party binaries are not copied into the repository |
+| iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
+| iOS native build | Pending | Windows resolved the Apple native module and bundled the iOS JavaScript, but a device-installable IPA still requires a macOS build environment before SideStore performs free device signing |
+| Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 
 ## Android release artifact checked
 
@@ -48,18 +74,24 @@ Last updated: 2026-08-16
 - Minimum SDK: 29
 - Target and compile SDK: 36
 - App label: `Danner Apps`
-- Release APK size: 84,264,784 bytes
-- Release APK SHA-256: `762DBC4A04F2EA4F57B5AA1FB9C537AEBD2BF673E8D716A1DBE5972E3E65204D`
+- Release APK size: 91,712,537 bytes
+- Release APK SHA-256: `7EAFA84D8902A237C14BFF2AEAFC162E7ADB186A0D203B66FC02DB2DFA56C40B`
 - Generated path: `app/android/app/build/outputs/apk/release/app-release.apk`
-- Signing: generated development keystore for local validation; production signing remains pending
+- Signing: generated development keystore for local validation; stable direct-install signing remains pending
 
 The generated `app/android/` directory is intentionally ignored and can be regenerated from `app.json`.
 
 ## Current behavior confirmed
 
-- Android and iOS share the Danner app hub, `TV Location` flow, offline map, and verification implementation.
+- Android and iOS share the Danner app hub, Guardians dashboard and player, `TV Location` flow, offline map, and verification implementation.
+- Opening Guardians fetches current MLB data and root `guardians_streams.json`; today's or a live game receives its own featured card and is omitted from the remaining schedule.
+- Today's scheduled game counts down every second. Icon-only Play controls become eligible 15 minutes before game time. Missing video states that it is not ready and continues checking each minute.
+- Guardians playback remains unavailable in production until the inactive example is copied and a date- and game-number-matched URL is committed to root `guardians_streams.json`. HTTPS works by default; an HTTP source must opt in explicitly.
+- Direct media bypasses webpage execution; YouTube and other approved player pages use separate isolated WebView paths with exact-host redirect and popup gates. An HTTP opt-in does not relax those gates.
+- Test fixtures and test media URLs remain outside production artifacts, and the release build restored MLB data with no simulated live card or test buttons.
 - Tripoli is the default; searched cities and dropped map points persist with their nearest-place label across launches.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico without map-network access or satellite imagery.
 - The app does not launch Fake GPS, modify device sensors, or request location permission.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected Tripoli coordinates.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.

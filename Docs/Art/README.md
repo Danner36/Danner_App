@@ -7,7 +7,7 @@
 - Heading navy: `#15354A`
 - Logo-only main menu with the 210dp Danner script logo centered one-third down the usable screen
 - Two 101.2dp image tiles with a 28dp gap centered in a row two-thirds down the usable screen
-- Disabled Cleveland Guardians logo tile on the left, reserved for a later module
+- Active Cleveland Guardians logo tile on the left
 - Active, rightmost YouTube TV artwork tile with no title or description
 - White cards with an emphasized green border around the current step
 - Large body copy, 58dp minimum primary actions, numbered step markers, and a four-part progress bar
@@ -17,6 +17,8 @@
 - Completion, retry, and validation states use text in addition to color
 
 Only the current step exposes its primary action. Step 3 contains no explanatory or technical status copy. A completed step changes appearance, each transition automatically scrolls the next highlighted card into view, and activating YouTube's `Next` control automatically returns to step 4. The app hub anchors the Danner logo at one-third screen height and its compact module row at two-thirds screen height.
+
+The Guardians dashboard uses its navy and red palette, a prominent today/live card, a large countdown, a high-contrast season-record card, and one scroll containing the remaining schedule. Delayed, postponed, suspended, and canceled states use amber plus direct text. Controls and status text do not rely on color alone.
 
 ## Media
 
