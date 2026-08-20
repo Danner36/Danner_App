@@ -61,10 +61,11 @@ Last updated: 2026-08-20
 | Android Back navigation | Pass | Hardware Back returned from verification and highlighted step 4 with confirm and retry actions |
 | Cross-platform production export | Pass | Expo export bundled 619 iOS modules and 619 Android modules, including native video support, the Guardians dashboard, both hub logos, and the same offline map asset; test markers and visible source-label text are absent from both bundles |
 | Requested artwork terms | Review | The supplied Vecteezy page labels its YouTube TV artwork attribution-required and editorial-use-only; the source and author are recorded in the art documentation for this owner-directed build |
-| Direct-install configuration | Review | Android preview and production produce APK files. The selected no-fee iPhone path is a SideStore-compatible IPA renewed with a dedicated free Apple Account; IPA production and its AltSource entry remain pending |
+| Direct-install configuration | Pass | Tag-triggered GitHub jobs build the Android APK and unsigned iPhone device IPA on their native toolchains; SideStore applies the dedicated free Apple Account signature during iPhone installation |
 | Portable iPhone recovery links | Pass | `release/IPHONE_SETUP.md` points to the official LocalDevVPN App Store listing, current SideStore installation and release pages, current iLoader release, and Danner release page; third-party binaries are not copied into the repository |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
-| iOS native build | Pending | Windows resolved the Apple native module and bundled the iOS JavaScript, but a device-installable IPA still requires a macOS build environment before SideStore performs free device signing |
+| iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
+| GitHub release publication | Pass | Public release `v1.0.0` was created after both platform jobs passed and contains the APK, IPA, iPhone setup guide, and generated SHA-256 checksum file |
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 
 ## Android release artifact checked
@@ -77,9 +78,20 @@ Last updated: 2026-08-20
 - Release APK size: 91,712,537 bytes
 - Release APK SHA-256: `7EAFA84D8902A237C14BFF2AEAFC162E7ADB186A0D203B66FC02DB2DFA56C40B`
 - Generated path: `app/android/app/build/outputs/apk/release/app-release.apk`
-- Signing: generated development keystore for local validation; stable direct-install signing remains pending
+- Signing: Expo-generated debug keystore used by the direct family APK; store-grade signing is outside this direct-delivery scope
 
 The generated `app/android/` directory is intentionally ignored and can be regenerated from `app.json`.
+
+## GitHub release artifacts checked
+
+- Release: [Danner Apps v1.0.0](https://github.com/Danner36/Danner_App/releases/tag/v1.0.0)
+- Android asset: `Danner-Apps-Android.apk`
+- Android asset size: 91,712,537 bytes
+- iPhone asset: `Danner-Apps-iOS.ipa`
+- iPhone asset size: 8,923,213 bytes
+- Setup asset: `IPHONE_SETUP.md`
+- Integrity asset: `SHA256SUMS.txt`
+- Release state: published; not draft; not prerelease
 
 ## Current behavior confirmed
 
