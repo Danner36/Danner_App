@@ -4,9 +4,18 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing release tag to build and publish
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 jobs:
   android:
@@ -31,7 +40,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-          cache: gradle
 
       - name: Install packages
         run: npm ci
@@ -144,11 +152,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: >-
-          gh release create "${GITHUB_REF_NAME}"
+          gh release create "${RELEASE_TAG}"
           release-assets/Danner-Apps-Android.apk
           release-assets/Danner-Apps-iOS.ipa
           release-assets/IPHONE_SETUP.md
           release-assets/SHA256SUMS.txt
           --verify-tag
-          --title "Danner Apps ${GITHUB_REF_NAME}"
+          --title "Danner Apps ${RELEASE_TAG}"
           --notes-file release/RELEASE_NOTES.md
