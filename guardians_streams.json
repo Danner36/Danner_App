@@ -28,8 +28,7 @@
       "url": "https://media.example.com/game/master.m3u8",
       "allowInsecureHttp": false,
       "trustedHosts": []
-    }
-    
+    },
     "REAL DEAL",
     {
       "gameDates": [
