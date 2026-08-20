@@ -1,0 +1,154 @@
+name: Build and publish Danner Apps
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Generate Android project
+        run: npx expo prebuild --platform android --clean
+
+      - name: Build APK
+        run: ./android/gradlew --no-daemon -p android app:assembleRelease
+
+      - name: Name APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk ../Danner-Apps-Android.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-release
+          path: Danner-Apps-Android.apk
+          if-no-files-found: error
+
+  ios:
+    name: Build SideStore IPA
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Generate iPhone project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build unsigned device app
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json, sys; data=json.load(sys.stdin); print(next(item for item in data["workspace"]["schemes"] if not item.startswith("Pods-")))')"
+          xcodebuild \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/danner-ios" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Package IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_path="$(find "$RUNNER_TEMP/danner-ios/Build/Products/Release-iphoneos" -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
+          mkdir -p "$RUNNER_TEMP/danner-payload/Payload"
+          cp -R "$app_path" "$RUNNER_TEMP/danner-payload/Payload/"
+          cd "$RUNNER_TEMP/danner-payload"
+          /usr/bin/ditto -c -k --sequesterRsrc --keepParent Payload "$GITHUB_WORKSPACE/Danner-Apps-iOS.ipa"
+          unzip -t "$GITHUB_WORKSPACE/Danner-Apps-iOS.ipa"
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-release
+          path: Danner-Apps-iOS.ipa
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs:
+      - android
+      - ios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v5
+        with:
+          name: android-release
+          path: release-assets
+
+      - name: Download iPhone IPA
+        uses: actions/download-artifact@v5
+        with:
+          name: ios-release
+          path: release-assets
+
+      - name: Add setup guide and checksums
+        run: |
+          cp release/IPHONE_SETUP.md release-assets/IPHONE_SETUP.md
+          cd release-assets
+          sha256sum Danner-Apps-Android.apk Danner-Apps-iOS.ipa > SHA256SUMS.txt
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "${GITHUB_REF_NAME}"
+          release-assets/Danner-Apps-Android.apk
+          release-assets/Danner-Apps-iOS.ipa
+          release-assets/IPHONE_SETUP.md
+          release-assets/SHA256SUMS.txt
+          --verify-tag
+          --title "Danner Apps ${GITHUB_REF_NAME}"
+          --notes-file release/RELEASE_NOTES.md
