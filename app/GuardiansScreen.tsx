@@ -27,7 +27,7 @@ const VIDEO_LEAD_TIME_MS = 15 * 60_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
 const REMOTE_GUARDIANS_SOURCES_URL =
   'https://raw.githubusercontent.com/Danner36/Danner_App/main/guardians_streams.json';
-const SOURCES_STORAGE_KEY = 'danner.guardians.sources.v1';
+const SOURCES_STORAGE_KEY = 'danner.guardians.sources.v2';
 const GUARDIANS_TEST_URL = process.env.EXPO_PUBLIC_GUARDIANS_TEST_URL;
 const GUARDIANS_TEST_SOURCES_URL =
   process.env.EXPO_PUBLIC_GUARDIANS_SOURCES_URL;
@@ -321,8 +321,7 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
 
 function sourcesUrlWithCacheBust(url: string): string {
   const separator = url.includes('?') ? '&' : '?';
-  const refresh = Math.floor(Date.now() / REFRESH_INTERVAL_MS);
-  return `${url}${separator}refresh=${refresh}`;
+  return `${url}${separator}refresh=${Date.now()}`;
 }
 
 async function fetchGuardiansSources(): Promise<PlayableGuardiansStream[]> {
@@ -338,7 +337,12 @@ async function fetchGuardiansSources(): Promise<PlayableGuardiansStream[]> {
     const response = await fetch(
       sourcesUrlWithCacheBust(GUARDIANS_SOURCES_URL),
       {
-        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
         signal: controller.signal,
       },
     );
