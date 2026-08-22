@@ -18,7 +18,7 @@
 
 Only the current step exposes its primary action. Step 3 contains no explanatory or technical status copy. A completed step changes appearance, each transition automatically scrolls the next highlighted card into view, and activating YouTube's `Next` control automatically returns to step 4. The app hub anchors the Danner logo at one-third screen height and its compact module row at two-thirds screen height.
 
-The Guardians dashboard uses its navy and red palette, a prominent today/live card, a large countdown, a high-contrast season-record card, and one scroll containing the remaining schedule. Delayed, postponed, suspended, and canceled states use amber plus direct text. Controls and status text do not rely on color alone.
+The Guardians dashboard uses its navy and red palette, a prominent today/live card, a large countdown, a compact season record under the Guardians title, and one scroll containing the remaining schedule. The park-style scoreboard appears only while a game is live. Direct sources expose a 68dp Listen control beside Play; it turns into a stop control while audio is playing. Delayed, postponed, suspended, and canceled states use amber plus direct text. Controls and status text do not rely on color alone.
 
 ## Media
 

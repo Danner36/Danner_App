@@ -16,7 +16,9 @@
 
 ## Included
 
-- Cleveland Guardians record, current game, score, countdown, remaining schedule, and approved playback
+- Cleveland Guardians record, current game, countdown, remaining schedule, and approved playback
+- Live park-style scoreboard during a game, with faster score updates
+- Listen control for approved direct streams
 - YouTube TV location workflow
 - Offline United States location map
 - iPhone SideStore expiration warning

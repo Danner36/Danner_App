@@ -14,6 +14,7 @@
     "test:guardians:android:live": "node ../tests/guardians/run-android.mjs live",
     "test:guardians:android:ready": "node ../tests/guardians/run-android.mjs ready",
     "test:guardians:server": "node ../tests/guardians/server.mjs",
+    "test:offline-map": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/offline-map/run.mjs",
     "test:provisioning-warning": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/provisioning-warning/run.mjs",
     "typecheck": "tsc --noEmit"
   },
@@ -29,6 +30,7 @@
     "expo-video": "~57.0.2",
     "react": "19.2.3",
     "react-native": "0.86.2",
+    "react-native-google-cast": "^4.9.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-webview": "13.16.1"
   },

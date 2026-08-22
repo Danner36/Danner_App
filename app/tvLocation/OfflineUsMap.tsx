@@ -9,7 +9,7 @@ type MapDestination = {
   longitude: number;
 };
 
-const OFFLINE_MAP_ASSET = require('./assets/offline-us-map.html') as number;
+const OFFLINE_MAP_ASSET = require('../assets/offline-us-map.html') as number;
 const OFFLINE_MAP_JSON = '__OFFLINE_MAP_DATA__';
 
 function createOfflineMapHtml(destination: MapDestination): string {
@@ -67,8 +67,8 @@ function createOfflineMapHtml(destination: MapDestination): string {
             position: absolute; text-align: center; transform: translateX(-50%); z-index: 6;
           }
           .pin {
-            height: 58px; left: 50%; pointer-events: none; position: absolute;
-            top: 50%; transform: translate(-50%, -49px); width: 42px; z-index: 7;
+            height: auto; left: 50%; pointer-events: none; position: absolute;
+            top: 50%; transform: translate(-50%, -100%); width: 42px; z-index: 7;
           }
           .pin-head {
             align-items: center; background: #1f6f55; border: 3px solid white;
@@ -113,15 +113,9 @@ function createOfflineMapHtml(destination: MapDestination): string {
             const map = document.getElementById('map');
             const search = document.getElementById('search');
             const results = document.getElementById('results');
-            const parameters = new URLSearchParams(window.location.search);
-            const parameterLatitude = Number(parameters.get('latitude'));
-            const parameterLongitude = Number(parameters.get('longitude'));
             let zoom = 8;
-            let center = locationToGrid(
-              Number.isFinite(parameterLatitude) ? parameterLatitude : ${initialLatitude},
-              Number.isFinite(parameterLongitude) ? parameterLongitude : ${initialLongitude}
-            );
-            let selectedLabel = parameters.get('label') || ${initialLabel};
+            let center;
+            let selectedLabel;
             let dragStart;
             let moved = false;
             let renderFrame;
@@ -135,12 +129,40 @@ function createOfflineMapHtml(destination: MapDestination): string {
               };
             }
 
-            function gridToLocation() {
-              const longitude = center.x / GRID * 360 - 180;
-              const mercatorY = Math.PI * (1 - 2 * center.y / GRID);
+            function gridPointToLocation(x, y) {
+              const longitude = x / GRID * 360 - 180;
+              const mercatorY = Math.PI * (1 - 2 * y / GRID);
               const latitude = Math.atan(Math.sinh(mercatorY)) * 180 / Math.PI;
               return { latitude: latitude, longitude: longitude };
             }
+
+            function gridToLocation() {
+              return gridPointToLocation(center.x, center.y);
+            }
+
+            function readStart() {
+              const injected = window.__DANNER_MAP_START || {};
+              const hash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+              const query = new URLSearchParams(window.location.search);
+              function readValue(key) {
+                if (injected[key] !== undefined && injected[key] !== null && injected[key] !== '') {
+                  return injected[key];
+                }
+                return hash.get(key) || query.get(key);
+              }
+              const latitude = Number(readValue('latitude'));
+              const longitude = Number(readValue('longitude'));
+              const label = readValue('label');
+              return {
+                latitude: Number.isFinite(latitude) ? latitude : ${initialLatitude},
+                longitude: Number.isFinite(longitude) ? longitude : ${initialLongitude},
+                label: typeof label === 'string' && label.trim() ? label.trim() : ${initialLabel}
+              };
+            }
+
+            const start = readStart();
+            center = locationToGrid(start.latitude, start.longitude);
+            selectedLabel = start.label;
 
             function worldSize() {
               return TILE_SIZE * Math.pow(2, zoom);
@@ -174,22 +196,40 @@ function createOfflineMapHtml(destination: MapDestination): string {
               } catch (_) {}
             }
 
+            function placeRadiusKm(place) {
+              if (place[4] > 1000000000000) return 18;
+              return Math.max(1.5, Math.min(40, Math.sqrt(Math.max(place[4], 0) / Math.PI) / 1000));
+            }
+
+            function distanceKm(first, second) {
+              let dLon = second.longitude - first.longitude;
+              if (dLon > 180) dLon -= 360;
+              if (dLon < -180) dLon += 360;
+              const x = dLon * Math.cos(first.latitude * Math.PI / 180);
+              const y = second.latitude - first.latitude;
+              return Math.sqrt(x * x + y * y) * 111.32;
+            }
+
             function nearestPlace() {
+              const point = gridToLocation();
               let nearest;
-              let nearestDistance = Infinity;
+              let nearestKm = Infinity;
+              let covering;
+              let coveringScore = -1;
               for (let index = 0; index < DATA.places.length; index += 1) {
                 const place = DATA.places[index];
-                let differenceX = place[2] - center.x;
-                if (differenceX > GRID / 2) differenceX -= GRID;
-                if (differenceX < -GRID / 2) differenceX += GRID;
-                const differenceY = place[3] - center.y;
-                const distance = differenceX * differenceX + differenceY * differenceY;
-                if (distance < nearestDistance) {
+                const location = gridPointToLocation(place[2], place[3]);
+                const kilometers = distanceKm(point, location);
+                if (kilometers < nearestKm) {
                   nearest = place;
-                  nearestDistance = distance;
+                  nearestKm = kilometers;
+                }
+                if (kilometers <= placeRadiusKm(place) && place[4] > coveringScore) {
+                  covering = place;
+                  coveringScore = place[4];
                 }
               }
-              return nearest;
+              return covering || nearest;
             }
 
             function placeLabel(place) {
@@ -400,13 +440,15 @@ function createOfflineMapHtml(destination: MapDestination): string {
                 results.style.display = 'none';
                 return;
               }
-              const matches = [];
-              for (let index = 0; index < DATA.places.length && matches.length < 8; index += 1) {
+              const nameStarts = [];
+              const nameContains = [];
+              for (let index = 0; index < DATA.places.length; index += 1) {
                 const place = DATA.places[index];
-                const state = DATA.stateNames[place[1]];
-                const text = (place[0] + ' ' + state[0] + ' ' + state[1]).toLowerCase();
-                if (text.indexOf(query) !== -1) matches.push(place);
+                const name = place[0].toLowerCase();
+                if (name.startsWith(query)) nameStarts.push(place);
+                else if (name.includes(query)) nameContains.push(place);
               }
+              const matches = nameStarts.concat(nameContains).slice(0, 8);
               for (let index = 0; index < matches.length; index += 1) {
                 const place = matches[index];
                 const button = document.createElement('button');
@@ -431,6 +473,12 @@ function createOfflineMapHtml(destination: MapDestination): string {
               if (results.childElementCount) results.style.display = 'block';
             });
             window.addEventListener('resize', scheduleRender);
+            window.__dannerApplyStart = function (latitude, longitude, label) {
+              if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
+              center = locationToGrid(latitude, longitude);
+              if (typeof label === 'string' && label.trim()) selectedLabel = label.trim();
+              render();
+            };
             render();
             send('ready');
           })();
@@ -469,19 +517,39 @@ export function OfflineUsMap({
     };
   }, []);
 
+  const startPayload = useMemo(
+    () => ({
+      label: destination.label,
+      latitude: destination.latitude,
+      longitude: destination.longitude,
+    }),
+    [destination.label, destination.latitude, destination.longitude],
+  );
+
   const source = useMemo(
     () => {
       if (!assetUri) {
         return undefined;
       }
       const query = new URLSearchParams({
-        label: destination.label,
-        latitude: String(destination.latitude),
-        longitude: String(destination.longitude),
+        label: startPayload.label,
+        latitude: String(startPayload.latitude),
+        longitude: String(startPayload.longitude),
       });
-      return { uri: `${assetUri}?${query.toString()}` };
+      return { uri: `${assetUri}#${query.toString()}` };
     },
-    [assetUri, destination.label, destination.latitude, destination.longitude],
+    [assetUri, startPayload],
+  );
+
+  const beforeContentScript = useMemo(
+    () => `window.__DANNER_MAP_START=${JSON.stringify(startPayload)};true;`,
+    [startPayload],
+  );
+
+  const afterLoadScript = useMemo(
+    () =>
+      `if(typeof window.__dannerApplyStart==='function'){window.__dannerApplyStart(${JSON.stringify(startPayload.latitude)},${JSON.stringify(startPayload.longitude)},${JSON.stringify(startPayload.label)});}true;`,
+    [startPayload],
   );
 
   useEffect(() => {
@@ -555,6 +623,8 @@ export function OfflineUsMap({
         allowingReadAccessToURL={assetUri}
         automaticallyAdjustContentInsets={false}
         bounces={false}
+        injectedJavaScript={afterLoadScript}
+        injectedJavaScriptBeforeContentLoaded={beforeContentScript}
         javaScriptEnabled
         onMessage={onMessage}
         originWhitelist={['*']}

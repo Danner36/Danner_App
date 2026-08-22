@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
+  AppState,
   Image,
   Modal,
   Pressable,
@@ -19,9 +20,23 @@ import {
   guardiansStreamsFromDocument,
   type PlayableGuardiansStream,
 } from './guardiansSources';
+import { WEB_AIRPLAY_INJECTION } from './webAirPlayInjection';
+import { GuardiansAudioPlayer } from './GuardiansAudioPlayer';
+import {
+  GuardiansCastButton,
+  castContentTypeForUrl,
+} from './GuardiansCastButton';
+import { GuardiansScoreboard } from './GuardiansScoreboard';
+import {
+  fetchLiveScoreboard,
+  liveScoreboardFromHarness,
+  liveScoreboardFromMlb,
+  type LiveScoreboard,
+} from './mlbLinescore';
 
 const GUARDIANS_TEAM_ID = 114;
 const REFRESH_INTERVAL_MS = 60_000;
+const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
 const VIDEO_LEAD_TIME_MS = 15 * 60_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
@@ -48,6 +63,7 @@ type MlbGame = {
   gameDate?: string;
   gameNumber?: number;
   gamePk?: number;
+  linescore?: unknown;
   officialDate?: string;
   status?: {
     abstractGameState?: string;
@@ -70,6 +86,7 @@ type GuardiansGame = {
   opponentName: string;
   opponentScore: number;
   officialDate: string;
+  scoreboard?: LiveScoreboard;
 };
 
 type GuardiansSnapshot = {
@@ -119,6 +136,7 @@ function guardiansGameFromMlb(game: MlbGame): GuardiansGame | undefined {
     opponentScore: opponent.score ?? 0,
     officialDate:
       game.officialDate ?? localDateString(new Date(game.gameDate)),
+    scoreboard: liveScoreboardFromMlb(game.linescore),
   };
 }
 
@@ -147,7 +165,27 @@ function guardiansGameFromHarness(value: unknown): GuardiansGame | undefined {
     return undefined;
   }
 
-  return game as GuardiansGame;
+  const parsed: GuardiansGame = {
+    abstractState: game.abstractState,
+    gameDate: game.gameDate,
+    gameNumber: game.gameNumber,
+    gamePk: game.gamePk,
+    guardiansScore: game.guardiansScore,
+    isHome: game.isHome,
+    officialDate: game.officialDate,
+    opponentName: game.opponentName,
+    opponentScore: game.opponentScore,
+    status: game.status,
+  };
+  if (game.scoreboard !== undefined) {
+    const scoreboard = liveScoreboardFromHarness(game.scoreboard);
+    if (!scoreboard) {
+      return undefined;
+    }
+    parsed.scoreboard = scoreboard;
+  }
+
+  return parsed;
 }
 
 type GameInterruption = 'canceled' | 'delayed' | 'postponed' | 'suspended';
@@ -217,6 +255,37 @@ function snapshotFromGames(
       ? remainingGames.filter((game) => game.gamePk !== featuredGame.gamePk)
       : remainingGames,
     wins,
+  };
+}
+
+function snapshotWithPreservedScoreboard(
+  previous: GuardiansSnapshot | undefined,
+  next: GuardiansSnapshot,
+): GuardiansSnapshot {
+  const previousGame = previous?.featuredGame;
+  const nextGame = next.featuredGame;
+  if (
+    !previousGame?.scoreboard ||
+    !nextGame ||
+    previousGame.gamePk !== nextGame.gamePk
+  ) {
+    return next;
+  }
+
+  const incoming = nextGame.scoreboard;
+  const kept = previousGame.scoreboard;
+  return {
+    ...next,
+    featuredGame: {
+      ...nextGame,
+      scoreboard: incoming
+        ? {
+            ...incoming,
+            batterNumber: incoming.batterNumber ?? kept.batterNumber,
+            pitcherNumber: incoming.pitcherNumber ?? kept.pitcherNumber,
+          }
+        : kept,
+    },
   };
 }
 
@@ -460,6 +529,7 @@ function youtubePlayerHtml(embedUrl: string): string {
 function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
   const isYoutube = stream.kind === 'youtube';
+  const isWeb = stream.kind === 'web';
   const allowedNavigationHosts = isYoutube
     ? [...stream.allowedNavigationHosts, 'danner.app']
     : stream.allowedNavigationHosts;
@@ -469,6 +539,7 @@ function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
       allowedNavigationHosts,
       stream.allowInsecureHttp === true,
     );
+  const webAirPlayInjection = isWeb ? WEB_AIRPLAY_INJECTION : undefined;
 
   useEffect(() => {
     setPromotedPopupUrl(undefined);
@@ -478,12 +549,15 @@ function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
     <WebView
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}
+      allowsAirPlayForMediaPlayback={isWeb}
       allowsFullscreenVideo
       allowsInlineMediaPlayback
       allowUniversalAccessFromFileURLs={false}
       cacheEnabled={false}
       geolocationEnabled={false}
       incognito
+      injectedJavaScript={webAirPlayInjection}
+      injectedJavaScriptBeforeContentLoaded={webAirPlayInjection}
       javaScriptEnabled
       javaScriptCanOpenWindowsAutomatically={false}
       mediaPlaybackRequiresUserAction={false}
@@ -557,7 +631,15 @@ function StreamPlayer({
           <Text numberOfLines={1} style={styles.playerTitle}>
             Guardians game
           </Text>
-          <View style={styles.headerSpacer} />
+          {stream?.kind === 'direct' ? (
+            <GuardiansCastButton
+              contentType={castContentTypeForUrl(stream.playbackUrl)}
+              playbackUrl={stream.playbackUrl}
+              visible
+            />
+          ) : (
+            <View style={styles.headerSpacer} />
+          )}
         </View>
 
         {stream ? (
@@ -614,14 +696,22 @@ function interruptionMessage(interruption: GameInterruption): string {
 }
 
 function FeaturedGameCard({
+  audioError,
   game,
+  listeningStream,
   nowMs,
+  onListen,
   onSelectStream,
+  onStopListen,
   streams,
 }: {
+  audioError?: string;
   game: GuardiansGame;
+  listeningStream?: PlayableStream;
   nowMs: number;
+  onListen: (stream: PlayableStream) => void;
   onSelectStream: (stream: PlayableStream) => void;
+  onStopListen: () => void;
   streams: PlayableStream[];
 }) {
   const interruption = gameInterruption(game.status);
@@ -635,32 +725,39 @@ function FeaturedGameCard({
     (isLive ||
       nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
   const visibleStreams = videoWindowOpen ? streams : [];
+  const isTodayScheduled = !isLive && !interruption;
   const badgeText = interruption
     ? interruption.toUpperCase()
     : isLive
       ? 'LIVE'
-      : 'TODAY';
+      : `TODAY ${gameTimeLabel(game.gameDate)}`;
+  const matchupText = isTodayScheduled
+    ? game.isHome
+      ? `Home vs ${game.opponentName}`
+      : `Away v ${game.opponentName}`
+    : `Guardians ${game.isHome ? 'vs' : 'at'} ${game.opponentName}`;
 
   return (
     <View
       style={[
         styles.liveCard,
-        !isLive && !interruption && styles.todayCard,
+        isTodayScheduled && styles.todayCard,
         interruption && styles.interruptedCard,
       ]}
     >
       <View
         style={[
           styles.liveBadge,
-          !isLive && !interruption && styles.todayBadge,
+          isTodayScheduled && styles.todayBadge,
           interruption && styles.interruptedBadge,
         ]}
       >
         {isLive && !interruption ? <View style={styles.liveDot} /> : null}
         <Text
+          numberOfLines={1}
           style={[
             styles.liveBadgeText,
-            !isLive && !interruption && styles.todayBadgeText,
+            isTodayScheduled && styles.todayBadgeText,
             interruption && styles.interruptedBadgeText,
           ]}
         >
@@ -668,14 +765,10 @@ function FeaturedGameCard({
         </Text>
       </View>
 
-      <Text style={styles.liveMatchup}>
-        Guardians {game.isHome ? 'vs' : 'at'} {game.opponentName}
-      </Text>
-      <Text style={styles.liveStatus}>
-        {isLive || interruption
-          ? game.status
-          : `Today at ${gameTimeLabel(game.gameDate)}`}
-      </Text>
+      <Text style={styles.liveMatchup}>{matchupText}</Text>
+      {isLive || interruption ? (
+        <Text style={styles.liveStatus}>{game.status}</Text>
+      ) : null}
 
       {interruption ? (
         <View accessibilityRole="alert" style={styles.interruptionBox}>
@@ -685,7 +778,13 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
-      {isLive ? (
+      {isLive && game.scoreboard ? (
+        <GuardiansScoreboard
+          isHome={game.isHome}
+          opponentName={game.opponentName}
+          scoreboard={game.scoreboard}
+        />
+      ) : isLive ? (
         <View style={styles.scoreBox}>
           <View style={styles.scoreRow}>
             <Text style={styles.scoreTeam}>Guardians</Text>
@@ -716,26 +815,70 @@ function FeaturedGameCard({
 
       {visibleStreams.length > 0 ? (
         <View style={styles.watchButtons}>
-          {visibleStreams.map((stream, index) => (
-            <Pressable
-              accessibilityHint="Plays the approved video inside the app"
-              accessibilityLabel={
-                visibleStreams.length > 1
-                  ? `Play video ${index + 1}`
-                  : 'Play video'
-              }
-              accessibilityRole="button"
-              key={`${stream.gameDates.join(',')}-${stream.gameNumbers.join(',')}-${stream.url}`}
-              onPress={() => onSelectStream(stream)}
-              style={({ pressed }) => [
-                styles.watchButton,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.watchIcon}>▶</Text>
-            </Pressable>
-          ))}
+          {visibleStreams.map((stream, index) => {
+            const streamKey = `${stream.gameDates.join(',')}-${stream.gameNumbers.join(',')}-${stream.url}`;
+            const isListening =
+              listeningStream?.playbackUrl === stream.playbackUrl &&
+              listeningStream.kind === stream.kind;
+            return (
+              <View key={streamKey} style={styles.watchPair}>
+                <Pressable
+                  accessibilityHint="Plays the approved video inside the app"
+                  accessibilityLabel={
+                    visibleStreams.length > 1
+                      ? `Play video ${index + 1}`
+                      : 'Play video'
+                  }
+                  accessibilityRole="button"
+                  onPress={() => onSelectStream(stream)}
+                  style={({ pressed }) => [
+                    styles.watchButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.watchIcon}>▶</Text>
+                </Pressable>
+                {stream.kind === 'direct' ? (
+                  <Pressable
+                    accessibilityHint={
+                      isListening
+                        ? 'Stops the game audio'
+                        : 'Plays game audio without showing video'
+                    }
+                    accessibilityLabel={
+                      isListening
+                        ? 'Stop audio'
+                        : visibleStreams.filter(
+                            (entry) => entry.kind === 'direct',
+                          ).length > 1
+                          ? `Listen to audio ${index + 1}`
+                          : 'Listen to audio'
+                    }
+                    accessibilityRole="button"
+                    onPress={() =>
+                      isListening ? onStopListen() : onListen(stream)
+                    }
+                    style={({ pressed }) => [
+                      styles.watchButton,
+                      isListening && styles.listeningButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Text style={styles.watchIcon}>
+                      {isListening ? '■' : '♪'}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            );
+          })}
         </View>
+      ) : null}
+
+      {audioError ? (
+        <Text accessibilityRole="alert" style={styles.noStreamText}>
+          {audioError}
+        </Text>
       ) : null}
 
       {videoWindowOpen && visibleStreams.length === 0 ? (
@@ -756,6 +899,8 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
   const [nowMs, setNowMs] = useState(Date.now());
   const [refreshing, setRefreshing] = useState(false);
   const [selectedStream, setSelectedStream] = useState<PlayableStream>();
+  const [listeningStream, setListeningStream] = useState<PlayableStream>();
+  const [audioError, setAudioError] = useState<string>();
 
   const load = useCallback(async (showRefresh = false) => {
     if (showRefresh) {
@@ -767,7 +912,9 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         fetchGuardiansSnapshot(),
         fetchGuardiansSources(),
       ]);
-      setSnapshot(nextSnapshot);
+      setSnapshot((current) =>
+        snapshotWithPreservedScoreboard(current, nextSnapshot),
+      );
       setAuthorizedStreams(nextStreams);
       setError(undefined);
     } catch (loadError) {
@@ -794,6 +941,69 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     );
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    const featured = snapshot?.featuredGame;
+    if (featured?.abstractState !== 'Live') {
+      return;
+    }
+    if (__DEV__ && GUARDIANS_TEST_URL) {
+      return;
+    }
+
+    let cancelled = false;
+    const gamePk = featured.gamePk;
+
+    const refreshScoreboard = async () => {
+      if (AppState.currentState !== 'active') {
+        return;
+      }
+
+      const scoreboard = await fetchLiveScoreboard(gamePk);
+      if (cancelled || !scoreboard) {
+        return;
+      }
+
+      setSnapshot((current) => {
+        const currentFeatured = current?.featuredGame;
+        if (!currentFeatured || currentFeatured.gamePk !== gamePk) {
+          return current;
+        }
+
+        const isHome = currentFeatured.isHome;
+        return {
+          ...current,
+          featuredGame: {
+            ...currentFeatured,
+            guardiansScore: isHome
+              ? scoreboard.home.runs
+              : scoreboard.away.runs,
+            opponentScore: isHome
+              ? scoreboard.away.runs
+              : scoreboard.home.runs,
+            scoreboard,
+            status: scoreboard.status || currentFeatured.status,
+          },
+        };
+      });
+    };
+
+    void refreshScoreboard();
+    const interval = setInterval(
+      () => void refreshScoreboard(),
+      LIVE_SCOREBOARD_INTERVAL_MS,
+    );
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refreshScoreboard();
+      }
+    });
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      appState.remove();
+    };
+  }, [snapshot?.featuredGame?.abstractState, snapshot?.featuredGame?.gamePk]);
 
   const featuredStreams = useMemo(
     () =>
@@ -842,12 +1052,20 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
             <Image
               accessibilityLabel="Cleveland Guardians"
               resizeMode="cover"
-              source={require('./assets/cleveland-guardians-logo.jpg')}
+              source={require('../assets/cleveland-guardians-logo.jpg')}
               style={styles.heroLogo}
             />
             <Text accessibilityRole="header" style={styles.heroTitle}>
               Guardians
             </Text>
+            {snapshot ? (
+              <Text
+                accessibilityLabel={`Season record ${snapshot.wins} wins, ${snapshot.losses} losses`}
+                style={styles.heroRecord}
+              >
+                {snapshot.wins}–{snapshot.losses}
+              </Text>
+            ) : null}
           </View>
 
           {!snapshot && !error ? (
@@ -876,22 +1094,30 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
 
           {snapshot?.featuredGame ? (
             <FeaturedGameCard
+              audioError={audioError}
               game={snapshot.featuredGame}
+              listeningStream={listeningStream}
               nowMs={nowMs}
-              onSelectStream={setSelectedStream}
+              onListen={(stream) => {
+                setSelectedStream(undefined);
+                setAudioError(undefined);
+                setListeningStream(stream);
+              }}
+              onSelectStream={(stream) => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+                setSelectedStream(stream);
+              }}
+              onStopListen={() => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+              }}
               streams={featuredStreams}
             />
           ) : null}
 
           {snapshot ? (
             <>
-              <View style={styles.recordCard}>
-                <Text style={styles.sectionLabel}>SEASON RECORD</Text>
-                <Text style={styles.recordText}>
-                  {snapshot.wins} – {snapshot.losses}
-                </Text>
-              </View>
-
               <View style={styles.scheduleHeader}>
                 <Text style={styles.sectionTitle}>Upcoming games</Text>
               </View>
@@ -933,6 +1159,15 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         onClose={() => setSelectedStream(undefined)}
         stream={selectedStream}
       />
+      {listeningStream ? (
+        <GuardiansAudioPlayer
+          onFailed={() => {
+            setListeningStream(undefined);
+            setAudioError('Audio could not start.');
+          }}
+          stream={listeningStream}
+        />
+      ) : null}
     </View>
   );
 }
@@ -987,6 +1222,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.6,
     marginTop: 12,
+  },
+  heroRecord: {
+    color: '#5A6870',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    marginTop: 4,
   },
   loadingCard: {
     alignItems: 'center',
@@ -1081,6 +1323,7 @@ const styles = StyleSheet.create({
   },
   todayBadgeText: {
     color: '#0B2B4C',
+    letterSpacing: 0.4,
   },
   interruptedBadgeText: {
     color: '#8A4B00',
@@ -1176,6 +1419,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 16,
   },
+  watchPair: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
   watchButton: {
     alignItems: 'center',
     backgroundColor: '#E31937',
@@ -1183,6 +1431,9 @@ const styles = StyleSheet.create({
     height: 68,
     justifyContent: 'center',
     width: 68,
+  },
+  listeningButton: {
+    backgroundColor: '#0B2B4C',
   },
   watchIcon: {
     color: '#FFFFFF',
@@ -1198,29 +1449,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textAlign: 'center',
   },
-  recordCard: {
-    alignItems: 'center',
-    backgroundColor: '#0B2B4C',
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-  },
-  sectionLabel: {
-    color: '#B9C7D3',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.3,
-  },
-  recordText: {
-    color: '#FFFFFF',
-    fontSize: 42,
-    fontWeight: '900',
-    letterSpacing: 1,
-    marginTop: 5,
-  },
   scheduleHeader: {
     marginBottom: 11,
-    marginTop: 27,
+    marginTop: 8,
   },
   sectionTitle: {
     color: '#0B2B4C',

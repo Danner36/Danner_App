@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   PROVISIONING_WARNING_INSTRUCTION,
   getProvisioningWarning,
-} from '../../app/provisioningWarning.ts';
+} from '../../app/hub/provisioningWarning.ts';
 
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;

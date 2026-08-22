@@ -11,7 +11,24 @@
     "guardiansScore": 4,
     "opponentName": "Detroit Tigers",
     "opponentScore": 2,
-    "officialDate": "2026-08-16"
+    "officialDate": "2026-08-16",
+    "scoreboard": {
+      "status": "Top 5th",
+      "balls": 3,
+      "strikes": 0,
+      "outs": 2,
+      "batterNumber": "42",
+      "pitcherNumber": "31",
+      "innings": [
+        { "num": 1, "away": 0, "home": 0 },
+        { "num": 2, "away": 0, "home": 0 },
+        { "num": 3, "away": 1, "home": 2 },
+        { "num": 4, "away": 1, "home": 1 },
+        { "num": 5, "away": 0 }
+      ],
+      "away": { "runs": 2, "hits": 5, "errors": 1 },
+      "home": { "runs": 4, "hits": 7, "errors": 0 }
+    }
   },
   "upcomingGames": [
     {
@@ -61,6 +78,13 @@
       "gamePk": 999000001,
       "kind": "web",
       "url": "http://10.0.2.2:8108/popup-player"
+    },
+    {
+      "allowInsecureHttp": true,
+      "gamePk": 999000001,
+      "kind": "web",
+      "trustedHosts": [],
+      "url": "http://10.0.2.2:8108/native-hls-player"
     }
   ]
 }

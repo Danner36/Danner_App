@@ -13,8 +13,9 @@ Phase: MVP
 
 ## Native integrations
 
-- `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled.
-- `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`.
+- `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled. iPhone native controls include AirPlay for those URLs.
+- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources only. The default receiver `CC1AD845` loads the JSON playback URL. `web` and `youtube` sources do not show this control.
+- `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages enable WKWebView AirPlay and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
 - `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians source document.
 - `expo-asset` installs and opens the generated offline map HTML on Android and iOS.
@@ -24,7 +25,7 @@ Phase: MVP
 - `expo-build-properties` sets Android minimum, compile, and target SDK versions and enables the native cleartext-traffic capability. The source allowlist still rejects HTTP unless the individual entry opts in.
 - `modules/danner-provisioning-profile/` is an Apple-only local Expo module. Its Swift implementation extracts the embedded provisioning plist and returns the real `ExpirationDate`; the menu checks again whenever the app becomes active and once per minute while open.
 
-iOS declares ATS media, WebView, and local-network exceptions so opted-in home-network sources can load, plus the local-network usage message displayed by iOS. These native capabilities do not bypass the app's per-source validation or exact-host navigation gate.
+iOS declares ATS media, WebView, and local-network exceptions so opted-in home-network sources can load, plus the local-network usage message displayed by iOS and `UIBackgroundModes` audio for AirPlay routing. These native capabilities do not bypass the app's per-source validation or exact-host navigation gate.
 
 The app has no location library, no Android intent launcher, no mock-location native module, and no configured Android or iOS location permission.
 
@@ -41,11 +42,11 @@ Android uses version name `1.0`, version code 1, minimum SDK 29, and compile and
 
 | Path | Role |
 |------|------|
-| `app/App.tsx` | Danner app hub, module navigation, guided home, destination storage, browser injection, and verification view |
+| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / Guardians / TV Location switch |
+| `app/hub/` | Logo-only menu and iPhone signing-warning text |
+| `app/guardians/` | MLB data retrieval, today/live promotion, countdown, delay state, source refresh and cache, schedule, and video player |
+| `app/tvLocation/` | Guided home, destination storage, bundled map, browser injection, and verification view |
 | `guardians_streams.json` | Owner-edited, GitHub-hosted playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
-| `app/GuardiansScreen.tsx` | MLB data retrieval, today/live promotion, countdown, delay state, source refresh and cache, schedule, and video player |
-| `app/guardiansSources.ts` | Strict source-document schema, date and game-number matching, playback types, host rules, and URL validation |
-| `app/OfflineUsMap.tsx` | Offline map template, canvas interaction, place search, and native message bridge |
 | `app/app.json` | Android and iOS native configuration |
 | `app/eas.json` | Existing internal-distribution development, preview, and production profiles; Android outputs APK while the selected family-iPhone delivery path is SideStore |
 | `app/modules/danner-provisioning-profile/` | iOS embedded-profile expiration reader used by the final-48-hour main-menu warning |
@@ -56,7 +57,7 @@ Android uses version name `1.0`, version code 1, minimum SDK 29, and compile and
 | `.github/workflows/release.yml` | Tag-triggered Android and iPhone builds plus GitHub Release publication after both artifacts pass |
 | `release/` | Required GitHub release set and portable iPhone first-install and recovery card linking to official LocalDevVPN, SideStore, iLoader, and Danner release locations |
 | `reference/` | Legacy APK and its technical inventory |
-| `tests/guardians/` | Development-only simulated live game, remote test links, local server, and Android runner |
+| `tests/offline-map/` | Pin coordinates, city labels, and offline city search against the bundled Census place list |
 
 ## Commands
 
@@ -75,6 +76,7 @@ npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
 npm run test:guardians:android:live
 npm run test:provisioning-warning
+npm run test:offline-map
 cd android
 .\gradlew.bat app:assembleRelease
 ```

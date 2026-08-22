@@ -173,6 +173,32 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === 'GET' &&
+    requestUrl.pathname === '/native-hls-player'
+  ) {
+    response.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+    });
+    response.end(`<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </head>
+        <body style="background:#000;margin:0">
+          <video
+            controls
+            playsinline
+            src="https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+            style="height:100vh;width:100%"
+            x-webkit-airplay="allow"
+          ></video>
+        </body>
+      </html>`);
+    return;
+  }
+
   if (request.method === 'GET' && request.url === '/popup-player') {
     response.writeHead(200, {
       'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",

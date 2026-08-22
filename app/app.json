@@ -20,13 +20,19 @@
           "NSAllowsArbitraryLoadsInWebContent": true,
           "NSAllowsLocalNetworking": true
         },
-        "NSLocalNetworkUsageDescription": "Danner Apps connects to home video streams on your local network."
+        "NSLocalNetworkUsageDescription": "Danner Apps connects to home video streams on your local network.",
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
       "package": "com.example.location_helper",
       "versionCode": 1,
       "permissions": [
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.ACCESS_WIFI_STATE",
+        "android.permission.CHANGE_WIFI_MULTICAST_STATE",
         "android.permission.INTERNET"
       ]
     },
@@ -66,7 +72,19 @@
         }
       ],
       "expo-asset",
-      "expo-video"
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true
+        }
+      ],
+      [
+        "react-native-google-cast",
+        {
+          "expandedController": false,
+          "receiverAppId": "CC1AD845"
+        }
+      ]
     ]
   }
 }

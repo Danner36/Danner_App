@@ -64,9 +64,10 @@ const MAJOR_PLACE_ORDER = [
   'Cedar Rapids|IA',
   'Waterloo|IA',
 ];
-const MAJOR_PLACE_RANK = new Map(
-  MAJOR_PLACE_ORDER.map((place, index) => [place, index]),
-);
+const REPRESENTATIVE_POINTS = {
+  'Anchorage|AK': [-149.9003, 61.2181],
+  'San Francisco|CA': [-122.4194, 37.7749],
+};
 
 const STATE_NAMES = [
   ['AL', 'Alabama'],
@@ -272,9 +273,12 @@ function buildPlaces(gazetteerText) {
       ) {
         return undefined;
       }
-      const [x, y] = quantizeCoordinate([longitude, latitude]);
       const name = cleanPlaceName(values[indexes.name]);
       const state = values[indexes.state];
+      const representative = REPRESENTATIVE_POINTS[`${name}|${state}`];
+      const [x, y] = quantizeCoordinate(
+        representative ?? [longitude, latitude],
+      );
       const majorRank = MAJOR_PLACE_RANK.get(`${name}|${state}`);
       const sortScore =
         majorRank === undefined
@@ -335,7 +339,76 @@ function buildStates(geoJson) {
     .filter(Boolean);
 }
 
+function applyRepresentativePoints(places, stateNames) {
+  for (const place of places) {
+    const state = stateNames[place[1]];
+    if (!state) {
+      continue;
+    }
+    const representative = REPRESENTATIVE_POINTS[`${place[0]}|${state[0]}`];
+    if (!representative) {
+      continue;
+    }
+    const [x, y] = quantizeCoordinate(representative);
+    place[2] = x;
+    place[3] = y;
+  }
+}
+
+async function writeMapAssets(output) {
+  applyRepresentativePoints(output.places, output.stateNames);
+  const projectDirectory = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '..',
+  );
+  const assetsDirectory = path.join(projectDirectory, 'assets');
+  const jsonPath = path.join(assetsDirectory, 'offline-us-map.json');
+  const serialized = JSON.stringify(output);
+  await mkdir(assetsDirectory, { recursive: true });
+  await writeFile(jsonPath, serialized);
+
+  const mapComponentPath = path.join(
+    projectDirectory,
+    'tvLocation',
+    'OfflineUsMap.tsx',
+  );
+  const mapComponent = await readFile(mapComponentPath, 'utf8');
+  const templateMatch = mapComponent.match(
+    /return `(<!doctype html>[\s\S]*?)`;\r?\n}/,
+  );
+  if (!templateMatch) {
+    throw new Error('The offline map HTML template was not found.');
+  }
+  const bundledHtml = templateMatch[1]
+    .replace('${OFFLINE_MAP_JSON}', serialized.replace(/</g, '\\u003c'))
+    .replace('${initialLatitude}', '42.808371')
+    .replace('${initialLongitude}', '-92.2578433')
+    .replace('${initialLabel}', JSON.stringify('Tripoli, Iowa'));
+  const htmlOutputPath = path.join(assetsDirectory, 'offline-us-map.html');
+  await writeFile(htmlOutputPath, bundledHtml);
+  process.stdout.write(
+    `Wrote ${jsonPath}\nWrote ${htmlOutputPath}\n` +
+      `${output.states.length} states, ${output.roads.length} road lines, ` +
+      `${output.places.length} places, ` +
+      `${(Buffer.byteLength(serialized) / 1024 / 1024).toFixed(2)} MiB\n`,
+  );
+}
+
 async function main() {
+  if (process.argv.includes('--reuse-json')) {
+    const projectDirectory = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '..',
+    );
+    const jsonPath = path.join(
+      projectDirectory,
+      'assets',
+      'offline-us-map.json',
+    );
+    await writeMapAssets(JSON.parse(await readFile(jsonPath, 'utf8')));
+    return;
+  }
+
   const [gazetteerZip, roadsBuffer, statesBuffer] = await Promise.all([
     download(GAZETTEER_URL),
     download(ROADS_URL),
@@ -353,7 +426,7 @@ async function main() {
     );
   }
 
-  const output = {
+  await writeMapAssets({
     version: 1,
     vintage: 2025,
     gridMax: MAP_GRID_MAX,
@@ -361,38 +434,7 @@ async function main() {
     states: buildStates(statesGeoJson),
     roads: buildRoads(roadsGeoJson),
     places: buildPlaces(gazetteerText),
-  };
-  const projectDirectory = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    '..',
-  );
-  const assetsDirectory = path.join(projectDirectory, 'assets');
-  const outputPath = path.join(assetsDirectory, 'offline-us-map.json');
-  const serialized = JSON.stringify(output);
-  await mkdir(assetsDirectory, { recursive: true });
-  await writeFile(outputPath, serialized);
-
-  const mapComponentPath = path.join(projectDirectory, 'OfflineUsMap.tsx');
-  const mapComponent = await readFile(mapComponentPath, 'utf8');
-  const templateMatch = mapComponent.match(
-    /return `(<!doctype html>[\s\S]*?)`;\r?\n}/,
-  );
-  if (!templateMatch) {
-    throw new Error('The offline map HTML template was not found.');
-  }
-  const bundledHtml = templateMatch[1]
-    .replace('${OFFLINE_MAP_JSON}', serialized.replace(/</g, '\\u003c'))
-    .replace('${initialLatitude}', '42.808371')
-    .replace('${initialLongitude}', '-92.2578433')
-    .replace('${initialLabel}', JSON.stringify('Tripoli, Iowa'));
-  const htmlOutputPath = path.join(assetsDirectory, 'offline-us-map.html');
-  await writeFile(htmlOutputPath, bundledHtml);
-  process.stdout.write(
-    `Wrote ${outputPath}\nWrote ${htmlOutputPath}\n` +
-      `${output.states.length} states, ${output.roads.length} road lines, ` +
-      `${output.places.length} places, ` +
-      `${(Buffer.byteLength(serialized) / 1024 / 1024).toFixed(2)} MiB\n`,
-  );
+  });
 }
 
 await main();
