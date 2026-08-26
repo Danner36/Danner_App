@@ -899,8 +899,11 @@ function FeaturedGameCard({
           {showGetVideo ? (
             <Pressable
               accessibilityHint="Finds the approved Guardians video for this game"
-              accessibilityLabel="Get video"
+              accessibilityLabel={
+                getVideoBusy ? 'Getting video' : 'Get video'
+              }
               accessibilityRole="button"
+              accessibilityState={{ busy: getVideoBusy, disabled: getVideoBusy }}
               disabled={getVideoBusy}
               onPress={onGetVideo}
               style={({ pressed }) => [
@@ -916,9 +919,15 @@ function FeaturedGameCard({
               )}
             </Pressable>
           ) : null}
-          <Text style={styles.noStreamText}>
+          <Text
+            accessibilityLiveRegion="polite"
+            accessibilityRole={
+              getVideoStatus === 'failed' ? 'alert' : 'text'
+            }
+            style={styles.noStreamText}
+          >
             {getVideoStatus === 'finding'
-              ? 'Finding video…'
+              ? 'Getting video. This could take a minute.'
               : getVideoStatus === 'failed'
                 ? 'Could not find video.'
                 : 'Video is not ready yet. The app checks again automatically.'}

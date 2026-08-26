@@ -7,7 +7,7 @@ import {
 const GET_VIDEO_URL = process.env.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL;
 const FAMILY_PIN = process.env.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN;
 const TEST_URL = process.env.EXPO_PUBLIC_GUARDIANS_TEST_URL;
-const POLL_INTERVAL_MS = 15_000;
+const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 300_000;
 
 export function isGetVideoAvailable(): boolean {
