@@ -17,6 +17,7 @@
 ## Included
 
 - Cleveland Guardians record, current game, countdown, remaining schedule, and approved playback
+- Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
 - YouTube TV location workflow
