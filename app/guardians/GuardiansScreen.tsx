@@ -20,6 +20,11 @@ import {
   guardiansStreamsFromDocument,
   type PlayableGuardiansStream,
 } from './guardiansSources';
+import {
+  isGetVideoAvailable,
+  pollForStream,
+  requestGetVideo,
+} from './guardiansGetVideo';
 import { WEB_AIRPLAY_INJECTION } from './webAirPlayInjection';
 import { GuardiansAudioPlayer } from './GuardiansAudioPlayer';
 import {
@@ -698,20 +703,28 @@ function interruptionMessage(interruption: GameInterruption): string {
 function FeaturedGameCard({
   audioError,
   game,
+  getVideoBusy,
+  getVideoStatus,
   listeningStream,
   nowMs,
+  onGetVideo,
   onListen,
   onSelectStream,
   onStopListen,
+  showGetVideo,
   streams,
 }: {
   audioError?: string;
   game: GuardiansGame;
+  getVideoBusy: boolean;
+  getVideoStatus?: 'finding' | 'failed';
   listeningStream?: PlayableStream;
   nowMs: number;
+  onGetVideo: () => void;
   onListen: (stream: PlayableStream) => void;
   onSelectStream: (stream: PlayableStream) => void;
   onStopListen: () => void;
+  showGetVideo: boolean;
   streams: PlayableStream[];
 }) {
   const interruption = gameInterruption(game.status);
@@ -882,9 +895,35 @@ function FeaturedGameCard({
       ) : null}
 
       {videoWindowOpen && visibleStreams.length === 0 ? (
-        <Text style={styles.noStreamText}>
-          Video is not ready yet. The app checks again automatically.
-        </Text>
+        <View style={styles.getVideoBlock}>
+          {showGetVideo ? (
+            <Pressable
+              accessibilityHint="Finds the approved Guardians video for this game"
+              accessibilityLabel="Get video"
+              accessibilityRole="button"
+              disabled={getVideoBusy}
+              onPress={onGetVideo}
+              style={({ pressed }) => [
+                styles.getVideoButton,
+                getVideoBusy && styles.getVideoButtonBusy,
+                pressed && !getVideoBusy && styles.pressed,
+              ]}
+            >
+              {getVideoBusy ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.getVideoButtonText}>Get video</Text>
+              )}
+            </Pressable>
+          ) : null}
+          <Text style={styles.noStreamText}>
+            {getVideoStatus === 'finding'
+              ? 'Finding video…'
+              : getVideoStatus === 'failed'
+                ? 'Could not find video.'
+                : 'Video is not ready yet. The app checks again automatically.'}
+          </Text>
+        </View>
       ) : null}
     </View>
   );
@@ -901,6 +940,9 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
   const [selectedStream, setSelectedStream] = useState<PlayableStream>();
   const [listeningStream, setListeningStream] = useState<PlayableStream>();
   const [audioError, setAudioError] = useState<string>();
+  const [getVideoStatus, setGetVideoStatus] = useState<
+    'idle' | 'finding' | 'failed'
+  >('idle');
 
   const load = useCallback(async (showRefresh = false) => {
     if (showRefresh) {
@@ -1016,6 +1058,29 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     [authorizedStreams, snapshot?.featuredGame],
   );
 
+  useEffect(() => {
+    if (featuredStreams.length > 0 && getVideoStatus !== 'idle') {
+      setGetVideoStatus('idle');
+    }
+  }, [featuredStreams.length, getVideoStatus]);
+
+  const handleGetVideo = useCallback(async () => {
+    const game = snapshot?.featuredGame;
+    if (!game || getVideoStatus === 'finding') {
+      return;
+    }
+
+    setGetVideoStatus('finding');
+    try {
+      await requestGetVideo();
+      const found = await pollForStream(game, fetchGuardiansSources);
+      await load(true);
+      setGetVideoStatus(found ? 'idle' : 'failed');
+    } catch {
+      setGetVideoStatus('failed');
+    }
+  }, [getVideoStatus, load, snapshot?.featuredGame]);
+
   return (
     <View style={styles.screen}>
       <ScrollView
@@ -1096,8 +1161,13 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
             <FeaturedGameCard
               audioError={audioError}
               game={snapshot.featuredGame}
+              getVideoBusy={getVideoStatus === 'finding'}
+              getVideoStatus={
+                getVideoStatus === 'idle' ? undefined : getVideoStatus
+              }
               listeningStream={listeningStream}
               nowMs={nowMs}
+              onGetVideo={() => void handleGetVideo()}
               onListen={(stream) => {
                 setSelectedStream(undefined);
                 setAudioError(undefined);
@@ -1112,6 +1182,7 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
                 setListeningStream(undefined);
                 setAudioError(undefined);
               }}
+              showGetVideo={isGetVideoAvailable()}
               streams={featuredStreams}
             />
           ) : null}
@@ -1448,6 +1519,27 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 14,
     textAlign: 'center',
+  },
+  getVideoBlock: {
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  getVideoButton: {
+    alignItems: 'center',
+    backgroundColor: '#0B2B4C',
+    borderRadius: 13,
+    justifyContent: 'center',
+    minHeight: 52,
+    minWidth: 180,
+    paddingHorizontal: 22,
+  },
+  getVideoButtonBusy: {
+    backgroundColor: '#41556B',
+  },
+  getVideoButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '900',
   },
   scheduleHeader: {
     marginBottom: 11,

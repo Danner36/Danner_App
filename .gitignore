@@ -49,6 +49,15 @@ deploy/*
 # Logs and local data
 *.log
 
+# Guardians stream pipeline local config
+scripts/guardians-stream-pipeline/config.json
+scripts/guardians-stream-pipeline/node_modules/
+scripts/guardians-stream-pipeline/.probe-output/
+
+# Cloudflare Workers local
+workers/**/node_modules/
+workers/**/.wrangler/
+
 # Cursor / agent local (keep rules)
 .cursor/*
 !.cursor/rules/

@@ -79,6 +79,23 @@ function youtubeVideoId(url: string): string | undefined {
   return undefined;
 }
 
+function isValidGoozWebUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.toLowerCase().endsWith('gooz.aapmains.net')) {
+      return true;
+    }
+    const match = parsed.pathname.match(/\/new-stream-embed\/([^/?#]+)/);
+    if (!match) {
+      return false;
+    }
+    const segment = match[1];
+    return Boolean(segment && /\d/.test(segment));
+  } catch {
+    return false;
+  }
+}
+
 export function playableGuardiansStream(
   stream: AuthorizedGuardiansStream,
 ): PlayableGuardiansStream | undefined {
@@ -135,6 +152,9 @@ export function playableGuardiansStream(
 
     if (stream.kind === 'web') {
       if (stream.trustedHosts.length > MAX_TRUSTED_HOSTS) {
+        return undefined;
+      }
+      if (!isValidGoozWebUrl(stream.url)) {
         return undefined;
       }
       const trustedHosts = [

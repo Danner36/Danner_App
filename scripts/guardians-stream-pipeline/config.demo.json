@@ -1,0 +1,24 @@
+{
+  "teamId": 114,
+  "leadMinutes": 15,
+  "postStartGraceMinutes": 180,
+  "probeTimeoutSeconds": 90,
+  "extract": {
+    "baseUrl": "https://www.example.com/live",
+    "hrefNeedle": "cleveland-guardians",
+    "timeoutSeconds": 90
+  },
+  "playback": {
+    "defaultKind": "web",
+    "preferDirectMedia": false,
+    "allowInsecureHttp": false,
+    "trustedHosts": []
+  },
+  "github": {
+    "owner": "Danner36",
+    "repo": "Danner_App",
+    "branch": "main",
+    "streamsPath": "guardians_streams.json",
+    "commitMessagePrefix": "guardians: update stream for"
+  }
+}

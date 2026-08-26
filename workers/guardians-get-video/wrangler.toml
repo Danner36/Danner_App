@@ -1,0 +1,7 @@
+name = "guardians-get-video"
+main = "src/index.js"
+# Cloudflare runtime pin only. Does not limit Guardians game dates.
+compatibility_date = "2026-08-25"
+
+[vars]
+GITHUB_REPO = "Danner36/Danner_App"

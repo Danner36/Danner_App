@@ -1,0 +1,65 @@
+name: Guardians stream pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Extract and log without writing guardians_streams.json
+        required: false
+        type: boolean
+        default: false
+      force:
+        description: Run even outside the 15-minute pregame window
+        required: false
+        type: boolean
+        default: false
+  repository_dispatch:
+    types: [guardians-get-video]
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    name: Extract and publish Guardians stream
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/guardians-stream-pipeline/package-lock.json
+
+      - name: Install pipeline packages
+        working-directory: scripts/guardians-stream-pipeline
+        run: npm ci
+
+      - name: Install Playwright browser
+        working-directory: scripts/guardians-stream-pipeline
+        run: npx playwright install chromium --with-deps
+
+      - name: Write pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          GUARDIANS_STREAM_PIPELINE_CONFIG: ${{ secrets.GUARDIANS_STREAM_PIPELINE_CONFIG }}
+        run: |
+          if [ -z "$GUARDIANS_STREAM_PIPELINE_CONFIG" ]; then
+            echo "GUARDIANS_STREAM_PIPELINE_CONFIG secret is not set; using config.example.json."
+            cp config.example.json config.json
+          else
+            printf '%s' "$GUARDIANS_STREAM_PIPELINE_CONFIG" > config.json
+          fi
+
+      - name: Run pipeline
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GUARDIANS_STREAM_CONFIG: config.json
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+        run: node run.mjs
