@@ -21,8 +21,8 @@ npx wrangler secret put GITHUB_TOKEN
 | `FAMILY_PIN` | Cloudflare Worker secret | Must match the app build PIN |
 | `GITHUB_TOKEN` | Cloudflare Worker secret | PAT that can send `repository_dispatch` to `Danner_App` (classic `repo` scope, or fine-grained Actions write on that repo) |
 | `GUARDIANS_STREAM_PIPELINE_CONFIG` | GitHub repo secret | JSON with `extract.baseUrl` and `extract.hrefNeedle`. Copy from `scripts/guardians-stream-pipeline/config.example.json` and set the real listing URL |
-| `EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL` | EAS / production app env | Worker origin, for example `https://guardians-get-video.<account>.workers.dev` with no trailing slash |
-| `EXPO_PUBLIC_GUARDIANS_FAMILY_PIN` | EAS / production app env | Same value as `FAMILY_PIN` |
+| `EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL` | GitHub Actions secret for `release.yml` | Worker origin, for example `https://guardians-get-video.<account>.workers.dev` with no trailing slash |
+| `EXPO_PUBLIC_GUARDIANS_FAMILY_PIN` | GitHub Actions secret for `release.yml` | Same value as `FAMILY_PIN` |
 
 ## Check
 

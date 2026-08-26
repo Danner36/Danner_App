@@ -51,6 +51,9 @@ export function isWithinGetVideoWindow(game, now, leadMinutes) {
   if (isGameOver(game) || isBlockedGame(game)) {
     return false;
   }
+  if (game.abstractState === 'Live') {
+    return true;
+  }
   const startMs = new Date(game.gameDate).getTime();
   const leadMs = leadMinutes * 60_000;
   return now.getTime() >= startMs - leadMs;

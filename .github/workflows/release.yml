@@ -45,9 +45,15 @@ jobs:
         run: npm ci
 
       - name: Generate Android project
+        env:
+          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
+          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
         run: npx expo prebuild --platform android --clean
 
       - name: Build APK
+        env:
+          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
+          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
         run: ./android/gradlew --no-daemon -p android app:assembleRelease
 
       - name: Name APK
@@ -81,9 +87,15 @@ jobs:
         run: npm ci
 
       - name: Generate iPhone project
+        env:
+          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
+          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
         run: npx expo prebuild --platform ios --clean
 
       - name: Build unsigned device app
+        env:
+          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
+          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
         shell: bash
         run: |
           set -euo pipefail
