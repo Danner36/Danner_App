@@ -188,13 +188,6 @@ final class LiveHlsEngine {
     encoderWidth = width
     encoderHeight = height
     let refcon = Unmanaged.passUnretained(self).toOpaque()
-    let callback: VTCompressionOutputCallback = { refcon, _, status, _, sampleBuffer in
-      guard status == noErr, let refcon, let sampleBuffer else {
-        return
-      }
-      let engine = Unmanaged<LiveHlsEngine>.fromOpaque(refcon).takeUnretainedValue()
-      engine.handleEncodedVideo(sampleBuffer)
-    }
     var session: VTCompressionSession?
     let result = VTCompressionSessionCreate(
       allocator: kCFAllocatorDefault,
@@ -204,7 +197,7 @@ final class LiveHlsEngine {
       encoderSpecification: nil,
       imageBufferAttributes: nil,
       compressedDataAllocator: nil,
-      outputCallback: callback,
+      outputCallback: liveHlsCompressionCallback,
       refcon: refcon,
       compressionSessionOut: &session
     )
@@ -241,7 +234,7 @@ final class LiveHlsEngine {
     compressionSession = session
   }
 
-  private func handleEncodedVideo(_ sample: CMSampleBuffer) {
+  fileprivate func handleEncodedVideo(_ sample: CMSampleBuffer) {
     let seconds = CMTimeGetSeconds(CMSampleBufferGetPresentationTimeStamp(sample))
     let keyframe = Self.isKeyframe(sample)
     if keyframe {
@@ -430,13 +423,13 @@ final class LiveHlsEngine {
     var pointer: UnsafeMutablePointer<ifaddrs>? = first
     while let current = pointer {
       let interface = current.pointee
-      if interface.ifa_addr.pointee.sa_family == UInt8(AF_INET) {
+      if let addr = interface.ifa_addr, addr.pointee.sa_family == sa_family_t(AF_INET) {
         let name = String(cString: interface.ifa_name)
         if name.hasPrefix("en") {
           var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
           getnameinfo(
-            interface.ifa_addr,
-            socklen_t(interface.ifa_addr.pointee.sa_len),
+            addr,
+            socklen_t(addr.pointee.sa_len),
             &hostname,
             socklen_t(hostname.count),
             nil,
@@ -466,4 +459,18 @@ final class LiveHlsEngine {
     }
     return scenes.first?.windows.first
   }
+}
+
+private func liveHlsCompressionCallback(
+  refcon: UnsafeMutableRawPointer?,
+  _: UnsafeMutableRawPointer?,
+  status: OSStatus,
+  _: VTEncodeInfoFlags,
+  sampleBuffer: CMSampleBuffer?
+) {
+  guard status == noErr, let refcon, let sampleBuffer else {
+    return
+  }
+  let engine = Unmanaged<LiveHlsEngine>.fromOpaque(refcon).takeUnretainedValue()
+  engine.handleEncodedVideo(sampleBuffer)
 }

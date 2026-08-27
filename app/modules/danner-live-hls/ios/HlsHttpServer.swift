@@ -28,7 +28,7 @@ final class HlsHttpServer {
           switch state {
           case .ready:
             ready.signal()
-          case .failed:
+          case .failed(_):
             failed = true
             ready.signal()
           default:

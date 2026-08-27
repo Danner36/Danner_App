@@ -10,7 +10,7 @@ final class PcmToAacEncoder {
   private let outputSampleRate: Float64 = 44_100
   private let framesPerPacket: UInt32 = 1024
 
-  private struct FillContext {
+  fileprivate struct FillContext {
     var bytes: UnsafeMutableRawPointer?
     var byteCount: UInt32 = 0
     var channels: UInt32 = 2
@@ -117,24 +117,7 @@ final class PcmToAacEncoder {
         )
         let result = AudioConverterFillComplexBuffer(
           converter,
-          { _, ioPackets, ioData, _, userData in
-            guard let userData else {
-              ioPackets.pointee = 0
-              return 1
-            }
-            let fill = userData.assumingMemoryBound(to: FillContext.self)
-            if fill.pointee.consumed {
-              ioPackets.pointee = 0
-              return 1
-            }
-            let buffers = UnsafeMutableAudioBufferListPointer(ioData)
-            buffers[0].mData = fill.pointee.bytes
-            buffers[0].mDataByteSize = fill.pointee.byteCount
-            buffers[0].mNumberChannels = fill.pointee.channels
-            ioPackets.pointee = fill.pointee.frames
-            fill.pointee.consumed = true
-            return noErr
-          },
+          pcmToAacInputCallback,
           &context,
           &packetCount,
           &bufferList,
@@ -210,4 +193,29 @@ final class PcmToAacEncoder {
     }
     return Data(bytes: pointer, count: length)
   }
+}
+
+private func pcmToAacInputCallback(
+  _: AudioConverterRef,
+  ioPackets: UnsafeMutablePointer<UInt32>,
+  ioData: UnsafeMutablePointer<AudioBufferList>,
+  _: UnsafeMutablePointer<UnsafeMutablePointer<AudioStreamPacketDescription>?>?,
+  userData: UnsafeMutableRawPointer?
+) -> OSStatus {
+  guard let userData else {
+    ioPackets.pointee = 0
+    return 1
+  }
+  let fill = userData.assumingMemoryBound(to: PcmToAacEncoder.FillContext.self)
+  if fill.pointee.consumed {
+    ioPackets.pointee = 0
+    return 1
+  }
+  let buffers = UnsafeMutableAudioBufferListPointer(ioData)
+  buffers[0].mData = fill.pointee.bytes
+  buffers[0].mDataByteSize = fill.pointee.byteCount
+  buffers[0].mNumberChannels = fill.pointee.channels
+  ioPackets.pointee = fill.pointee.frames
+  fill.pointee.consumed = true
+  return noErr
 }
