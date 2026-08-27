@@ -31,6 +31,7 @@ import {
   GuardiansCastButton,
   castContentTypeForUrl,
 } from './GuardiansCastButton';
+import { GuardiansTvRouteButton } from './GuardiansTvRouteButton';
 import { GuardiansScoreboard } from './GuardiansScoreboard';
 import {
   fetchLiveScoreboard,
@@ -398,9 +399,12 @@ function sourcesUrlWithCacheBust(url: string): string {
   return `${url}${separator}refresh=${Date.now()}`;
 }
 
-async function fetchGuardiansSources(): Promise<PlayableGuardiansStream[]> {
-  const shouldCache =
+async function fetchGuardiansSources(options?: {
+  allowStaleCache?: boolean;
+}): Promise<PlayableGuardiansStream[]> {
+  const persistRemote =
     GUARDIANS_SOURCES_URL === REMOTE_GUARDIANS_SOURCES_URL;
+  const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -430,14 +434,14 @@ async function fetchGuardiansSources(): Promise<PlayableGuardiansStream[]> {
       throw new Error('The approved video list is invalid.');
     }
 
-    if (shouldCache) {
+    if (persistRemote) {
       try {
         await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
       } catch {}
     }
     return streams;
   } catch {
-    if (shouldCache) {
+    if (allowStaleCache) {
       try {
         const cachedDocument = await AsyncStorage.getItem(SOURCES_STORAGE_KEY);
         if (cachedDocument) {
@@ -642,6 +646,8 @@ function StreamPlayer({
               playbackUrl={stream.playbackUrl}
               visible
             />
+          ) : stream?.kind === 'web' ? (
+            <GuardiansTvRouteButton visible />
           ) : (
             <View style={styles.headerSpacer} />
           )}
@@ -953,31 +959,37 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     'idle' | 'finding' | 'failed'
   >('idle');
 
-  const load = useCallback(async (showRefresh = false) => {
-    if (showRefresh) {
-      setRefreshing(true);
-    }
+  const load = useCallback(
+    async (
+      showRefresh = false,
+      sourceOptions?: { allowStaleCache?: boolean },
+    ) => {
+      if (showRefresh) {
+        setRefreshing(true);
+      }
 
-    try {
-      const [nextSnapshot, nextStreams] = await Promise.all([
-        fetchGuardiansSnapshot(),
-        fetchGuardiansSources(),
-      ]);
-      setSnapshot((current) =>
-        snapshotWithPreservedScoreboard(current, nextSnapshot),
-      );
-      setAuthorizedStreams(nextStreams);
-      setError(undefined);
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : 'Guardians information is temporarily unavailable.',
-      );
-    } finally {
-      setRefreshing(false);
-    }
-  }, []);
+      try {
+        const [nextSnapshot, nextStreams] = await Promise.all([
+          fetchGuardiansSnapshot(),
+          fetchGuardiansSources(sourceOptions),
+        ]);
+        setSnapshot((current) =>
+          snapshotWithPreservedScoreboard(current, nextSnapshot),
+        );
+        setAuthorizedStreams(nextStreams);
+        setError(undefined);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : 'Guardians information is temporarily unavailable.',
+        );
+      } finally {
+        setRefreshing(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     void load();
@@ -1081,10 +1093,21 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
 
     setGetVideoStatus('finding');
     try {
+      const fetchLiveSources = () =>
+        fetchGuardiansSources({ allowStaleCache: false });
       await requestGetVideo();
-      const found = await pollForStream(game, fetchGuardiansSources);
-      await load(true);
-      setGetVideoStatus(found ? 'idle' : 'failed');
+      const found = await pollForStream(game, fetchLiveSources);
+      await load(true, { allowStaleCache: false });
+      if (found) {
+        setAuthorizedStreams((current) =>
+          authorizedStreamsForGame(current, game).length > 0
+            ? current
+            : [...current, found],
+        );
+        setGetVideoStatus('idle');
+      } else {
+        setGetVideoStatus('failed');
+      }
     } catch {
       setGetVideoStatus('failed');
     }

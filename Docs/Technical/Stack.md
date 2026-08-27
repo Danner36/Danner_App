@@ -14,7 +14,7 @@ Phase: MVP
 ## Native integrations
 
 - `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled. iPhone native controls include AirPlay for those URLs.
-- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources only. The default receiver `CC1AD845` loads the JSON playback URL. `web` and `youtube` sources do not show this control.
+- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that live-converts the on-screen player through `modules/danner-live-hls/` and then Cast or AirPlay of that local playlist. `youtube` sources stay phone-only.
 - `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages enable WKWebView AirPlay and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
 - `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians source document.
@@ -24,10 +24,11 @@ Phase: MVP
 - `expo-splash-screen` uses the Danner launcher art on `#F7F7F2`.
 - `expo-build-properties` sets Android minimum, compile, and target SDK versions and enables the native cleartext-traffic capability. The source allowlist still rejects HTTP unless the individual entry opts in.
 - `modules/danner-provisioning-profile/` is an Apple-only local Expo module. Its Swift implementation extracts the embedded provisioning plist and returns the real `ExpirationDate`; the menu checks again whenever the app becomes active and once per minute while open.
+- `modules/danner-live-hls/` is a local Expo module on Android and iPhone. It captures decoded frames from the web player, encodes H.264 and AAC, and serves `live.m3u8` on the first free port in 8108–8127. The phone stays the origin. Android uses MediaProjection and a `mediaProjection` foreground service. iOS uses ReplayKit and a muted `AVPlayer` for AirPlay of that playlist.
 
 iOS declares ATS media, WebView, and local-network exceptions so opted-in home-network sources can load, plus the local-network usage message displayed by iOS and `UIBackgroundModes` audio for AirPlay routing. These native capabilities do not bypass the app's per-source validation or exact-host navigation gate.
 
-The app has no location library, no Android intent launcher, no mock-location native module, and no configured Android or iOS location permission.
+The app has no location library, no Android intent launcher, and no mock-location native module. Android Cast discovery uses Nearby Wi-Fi and, on older Android, fine location. TV Location does not read device GPS.
 
 ## Identifiers
 
@@ -50,6 +51,7 @@ Android uses version name `1.0`, version code 1, minimum SDK 29, and compile and
 | `app/app.json` | Android and iOS native configuration |
 | `app/eas.json` | Existing internal-distribution development, preview, and production profiles; Android outputs APK while the selected family-iPhone delivery path is SideStore |
 | `app/modules/danner-provisioning-profile/` | iOS embedded-profile expiration reader used by the final-48-hour main-menu warning |
+| `app/modules/danner-live-hls/` | Live conversion of the on-screen web player into a local HLS origin for Cast and AirPlay |
 | `app/metro.config.js` | Adds generated HTML to Metro's packaged asset types |
 | `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources |
 | `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
@@ -75,6 +77,7 @@ npm run test:guardians:android
 npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
 npm run test:guardians:android:live
+npm run test:guardians:android:live-hls
 npm run test:provisioning-warning
 npm run test:offline-map
 cd android

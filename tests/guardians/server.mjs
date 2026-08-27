@@ -199,6 +199,61 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  if (
+    request.method === 'GET' &&
+    requestUrl.pathname === '/capture-pattern'
+  ) {
+    response.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+    });
+    response.end(`<!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+        </head>
+        <body style="background:#081f37;margin:0">
+          <canvas id="board" style="display:block;height:100vh;width:100%"></canvas>
+          <script>
+            const board = document.getElementById('board');
+            const context = board.getContext('2d');
+            let x = 40;
+            let y = 80;
+            let dx = 4;
+            let dy = 3;
+            const audio = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audio.createOscillator();
+            const gain = audio.createGain();
+            oscillator.frequency.value = 440;
+            gain.gain.value = 0.05;
+            oscillator.connect(gain);
+            gain.connect(audio.destination);
+            oscillator.start();
+            document.addEventListener('click', () => audio.resume(), { once: true });
+            audio.resume();
+            function draw(now) {
+              board.width = board.clientWidth;
+              board.height = board.clientHeight;
+              x += dx;
+              y += dy;
+              if (x < 20 || x > board.width - 20) dx *= -1;
+              if (y < 20 || y > board.height - 20) dy *= -1;
+              context.fillStyle = '#081f37';
+              context.fillRect(0, 0, board.width, board.height);
+              context.fillStyle = '#E31937';
+              context.fillRect(x - 36, y - 36, 72, 72);
+              context.fillStyle = '#F7F7F2';
+              context.font = '32px sans-serif';
+              context.fillText(new Date(now).toISOString(), 24, 48);
+              requestAnimationFrame(draw);
+            }
+            requestAnimationFrame(draw);
+          </script>
+        </body>
+      </html>`);
+    return;
+  }
+
   if (request.method === 'GET' && request.url === '/popup-player') {
     response.writeHead(200, {
       'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",

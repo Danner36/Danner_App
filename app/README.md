@@ -12,7 +12,7 @@ Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 - `modules/` holds native Expo modules only, not product screens.
 - `assets/` holds shared logos, splash art, and the generated offline map HTML.
 - `scripts/` rebuilds the offline map data.
-- `plugins/` holds Expo config plugins.
+- `plugins/` holds Expo config plugins. `withGoogleCastNative` keeps the Cast OptionsProvider and default receiver ID in the generated Android project so the TV picker can see Chromecast devices.
 
 ## Run
 
@@ -27,6 +27,7 @@ npm run test:guardians:android
 npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
 npm run test:guardians:android:live
+npm run test:guardians:android:live-hls
 npm run test:provisioning-warning
 npm run test:offline-map
 cd android
@@ -41,6 +42,7 @@ The checked-in offline map already runs without a network connection. `npm run b
 
 - `app.json` contains shared Android and iOS native settings, including native video and cleartext-media transport support.
 - `modules/danner-provisioning-profile/` is an iOS-only local Expo module that reads `ExpirationDate` from the embedded signing profile. It is absent from Android builds.
+- `modules/danner-live-hls/` captures the on-screen Guardians web player into a local HLS origin for Cast and AirPlay.
 - `eas.json` retains internal-distribution development, preview, and production profiles; Android profiles produce APKs. Family iPhones use SideStore and a free dedicated Apple Account instead of paid ad hoc distribution.
 - `metro.config.js` packages the generated offline HTML map as an app asset.
 - `android/` and `ios/` are generated locally and ignored.

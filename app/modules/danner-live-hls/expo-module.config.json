@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["DannerLiveHlsModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.dannerlivehls.DannerLiveHlsModule"]
+  }
+}

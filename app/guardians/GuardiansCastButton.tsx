@@ -19,10 +19,12 @@ export function castContentTypeForUrl(playbackUrl: string): string {
 export function GuardiansCastButton({
   contentType,
   playbackUrl,
+  streamType,
   visible,
 }: {
   contentType: string;
   playbackUrl: string;
+  streamType?: 'buffered' | 'live';
   visible: boolean;
 }) {
   const client = useRemoteMediaClient({});
@@ -30,25 +32,33 @@ export function GuardiansCastButton({
   const startedByThisPlayer = useRef(false);
 
   useEffect(() => {
-    if (!visible || !client) {
+    if (!visible || !client || !playbackUrl) {
       return;
     }
 
-    const key = `${playbackUrl}|${contentType}`;
+    const key = `${playbackUrl}|${contentType}|${streamType ?? ''}`;
     if (loadedKey.current === key) {
       return;
     }
 
     loadedKey.current = key;
     startedByThisPlayer.current = true;
+    const isHls = contentType.toLowerCase().includes('mpegurl');
     void client.loadMedia({
       autoplay: true,
       mediaInfo: {
         contentType,
         contentUrl: playbackUrl,
+        ...(isHls
+          ? {
+              hlsSegmentFormat: 'TS',
+              hlsVideoSegmentFormat: 'MPEG2-TS',
+            }
+          : {}),
+        ...(streamType ? { streamType } : {}),
       },
     });
-  }, [client, contentType, playbackUrl, visible]);
+  }, [client, contentType, playbackUrl, streamType, visible]);
 
   useEffect(() => {
     return () => {
@@ -67,7 +77,7 @@ export function GuardiansCastButton({
 
   return (
     <CastButton
-      accessibilityLabel="Send to TV"
+      accessibilityLabel="Cast"
       accessibilityRole="button"
       hitSlop={12}
       style={styles.castButton}

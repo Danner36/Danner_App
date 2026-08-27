@@ -85,6 +85,13 @@
       "kind": "web",
       "trustedHosts": [],
       "url": "http://10.0.2.2:8108/native-hls-player"
+    },
+    {
+      "allowInsecureHttp": true,
+      "gamePk": 999000001,
+      "kind": "web",
+      "trustedHosts": [],
+      "url": "http://10.0.2.2:8108/capture-pattern"
     }
   ]
 }

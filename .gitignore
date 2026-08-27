@@ -41,6 +41,8 @@ android/.gradle/
 android/app/build/
 android/local.properties
 android/.cxx/
+app/modules/*/android/build/
+app/modules/*/android/.gradle/
 
 # Deploy artifacts
 deploy/*
