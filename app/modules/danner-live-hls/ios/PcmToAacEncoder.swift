@@ -2,7 +2,7 @@ import AudioToolbox
 import CoreMedia
 import Foundation
 
-final class PcmToAacEncoder {
+final class PcmToAacEncoder: @unchecked Sendable {
   private var converter: AudioConverterRef?
   private var inputDescription = AudioStreamBasicDescription()
   private var leftover = Data()

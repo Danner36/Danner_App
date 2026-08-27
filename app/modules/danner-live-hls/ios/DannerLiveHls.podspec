@@ -16,6 +16,7 @@ Pod::Spec.new do |s|
 
   s.source_files = '**/*.{h,m,mm,swift}'
   s.pod_target_xcconfig = {
-    'DEFINES_MODULE' => 'YES'
+    'DEFINES_MODULE' => 'YES',
+    'SWIFT_STRICT_CONCURRENCY' => 'minimal'
   }
 end

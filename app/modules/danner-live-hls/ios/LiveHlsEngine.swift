@@ -7,7 +7,7 @@ import ReplayKit
 import UIKit
 import VideoToolbox
 
-final class LiveHlsEngine {
+final class LiveHlsEngine: @unchecked Sendable {
   static let shared = LiveHlsEngine()
 
   private let window = HlsWindow()
@@ -50,20 +50,20 @@ final class LiveHlsEngine {
     running = true
     RPScreenRecorder.shared().isMicrophoneEnabled = false
     let started = DispatchSemaphore(value: 0)
-    var startError: Error?
+    let startBox = StartErrorBox()
     RPScreenRecorder.shared().startCapture { [weak self] sample, type, error in
       if let error {
-        startError = error
+        startBox.error = error
         started.signal()
         return
       }
       self?.handle(sample: sample, type: type)
     } completionHandler: { error in
-      startError = error
+      startBox.error = error
       started.signal()
     }
     _ = started.wait(timeout: .now() + 8)
-    if let startError {
+    if let startError = startBox.error {
       stop()
       throw startError
     }
@@ -459,6 +459,10 @@ final class LiveHlsEngine {
     }
     return scenes.first?.windows.first
   }
+}
+
+private final class StartErrorBox: @unchecked Sendable {
+  var error: Error?
 }
 
 private func liveHlsCompressionCallback(

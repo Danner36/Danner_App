@@ -1,7 +1,7 @@
 import Foundation
 import Network
 
-final class HlsHttpServer {
+final class HlsHttpServer: @unchecked Sendable {
   private let window: HlsWindow
   private let queue = DispatchQueue(label: "danner.livehls.http")
   private var listener: NWListener?
@@ -23,13 +23,13 @@ final class HlsHttpServer {
           self?.handle(connection)
         }
         let ready = DispatchSemaphore(value: 0)
-        var failed = false
+        let failed = StartFlag()
         started.stateUpdateHandler = { state in
           switch state {
           case .ready:
             ready.signal()
           case .failed(_):
-            failed = true
+            failed.value = true
             ready.signal()
           default:
             break
@@ -37,7 +37,7 @@ final class HlsHttpServer {
         }
         started.start(queue: queue)
         _ = ready.wait(timeout: .now() + 1)
-        if failed {
+        if failed.value {
           started.cancel()
           continue
         }
@@ -50,6 +50,11 @@ final class HlsHttpServer {
     }
     throw lastError ?? NSError(domain: "DannerLiveHls", code: 1)
   }
+}
+
+private final class StartFlag: @unchecked Sendable {
+  var value = false
+}
 
   func stop() {
     listener?.cancel()

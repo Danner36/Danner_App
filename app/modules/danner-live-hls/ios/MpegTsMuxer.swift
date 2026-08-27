@@ -1,6 +1,6 @@
 import Foundation
 
-final class MpegTsMuxer {
+final class MpegTsMuxer: @unchecked Sendable {
   static let audioPid = 0x0101
   static let audioStreamId = 0xC0
   static let patPid = 0x0000

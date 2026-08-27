@@ -1,6 +1,6 @@
 import Foundation
 
-final class HlsWindow {
+final class HlsWindow: @unchecked Sendable {
   struct Segment {
     let durationSeconds: Double
     let index: Int64
