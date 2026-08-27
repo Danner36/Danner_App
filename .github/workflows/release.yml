@@ -102,6 +102,7 @@ jobs:
           workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
           test -n "$workspace"
           scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json, sys; data=json.load(sys.stdin); print(next(item for item in data["workspace"]["schemes"] if not item.startswith("Pods-")))')"
+          set +e
           xcodebuild \
             -workspace "$workspace" \
             -scheme "$scheme" \
@@ -111,7 +112,18 @@ jobs:
             -derivedDataPath "$RUNNER_TEMP/danner-ios" \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee "$RUNNER_TEMP/xcodebuild.log"
+          status="${PIPESTATUS[0]}"
+          set -e
+          if [ "$status" -ne 0 ]; then
+            {
+              echo "## xcodebuild errors"
+              echo '```'
+              grep -E "error:|fatal error:|undefined symbol" "$RUNNER_TEMP/xcodebuild.log" | head -80
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          fi
 
       - name: Package IPA
         shell: bash
