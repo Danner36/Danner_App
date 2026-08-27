@@ -106,9 +106,6 @@ final class LiveHlsEngine: @unchecked Sendable {
     DispatchQueue.main.async {
       let picker = AVRoutePickerView(frame: CGRect(x: -80, y: -80, width: 44, height: 44))
       picker.prioritizesVideoDevices = true
-      if #available(iOS 16.0, *) {
-        picker.player = self.airPlayPlayer
-      }
       guard let window = Self.keyWindow() else {
         return
       }
