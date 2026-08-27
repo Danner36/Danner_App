@@ -116,12 +116,13 @@ jobs:
           status="${PIPESTATUS[0]}"
           set -e
           if [ "$status" -ne 0 ]; then
-            {
-              echo "## xcodebuild errors"
-              echo '```'
-              grep -E "error:|fatal error:|undefined symbol" "$RUNNER_TEMP/xcodebuild.log" | head -80
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
+            set +o pipefail
+            grep -E "error:|fatal error:|undefined symbol" "$RUNNER_TEMP/xcodebuild.log" | head -80 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            tail -n 40 "$RUNNER_TEMP/xcodebuild.log" | while IFS= read -r line; do
+              echo "::error::$line"
+            done
             exit "$status"
           fi
 
