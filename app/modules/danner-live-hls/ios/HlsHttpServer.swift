@@ -50,11 +50,6 @@ final class HlsHttpServer: @unchecked Sendable {
     }
     throw lastError ?? NSError(domain: "DannerLiveHls", code: 1)
   }
-}
-
-private final class StartFlag: @unchecked Sendable {
-  var value = false
-}
 
   func stop() {
     listener?.cancel()
@@ -153,4 +148,8 @@ private final class StartFlag: @unchecked Sendable {
       connection.cancel()
     })
   }
+}
+
+private final class StartFlag: @unchecked Sendable {
+  var value = false
 }
