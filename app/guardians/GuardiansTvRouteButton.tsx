@@ -11,7 +11,6 @@ import { CastContext } from 'react-native-google-cast';
 import {
   isLiveHlsAvailable,
   liveHlsPlaylistUrl,
-  showLiveHlsAirPlayPicker,
   startLiveHls,
   stopLiveHls,
 } from '../modules/danner-live-hls/src';
@@ -58,11 +57,7 @@ export function GuardiansTvRouteButton({ visible }: { visible: boolean }) {
       return;
     }
     if (liveUrl) {
-      if (Platform.OS === 'android') {
-        await CastContext.showCastDialog();
-      } else {
-        await showLiveHlsAirPlayPicker();
-      }
+      await CastContext.showCastDialog();
       return;
     }
 
@@ -73,13 +68,8 @@ export function GuardiansTvRouteButton({ visible }: { visible: boolean }) {
       if (!started) {
         return;
       }
-      const playlistUrl = liveHlsPlaylistUrl(started.origin);
-      setLiveUrl(playlistUrl);
-      if (Platform.OS === 'android') {
-        await CastContext.showCastDialog();
-      } else {
-        await showLiveHlsAirPlayPicker();
-      }
+      setLiveUrl(liveHlsPlaylistUrl(started.origin));
+      await CastContext.showCastDialog();
     } finally {
       setBusy(false);
     }
@@ -87,16 +77,14 @@ export function GuardiansTvRouteButton({ visible }: { visible: boolean }) {
 
   return (
     <View style={styles.slot}>
-      {Platform.OS === 'android' ? (
-        <View style={styles.castHost} pointerEvents="none">
-          <GuardiansCastButton
-            contentType="application/x-mpegURL"
-            playbackUrl={liveUrl}
-            streamType="live"
-            visible
-          />
-        </View>
-      ) : null}
+      <View style={styles.castHost} pointerEvents="none">
+        <GuardiansCastButton
+          contentType="application/x-mpegURL"
+          playbackUrl={liveUrl}
+          streamType="live"
+          visible
+        />
+      </View>
       <Pressable
         accessibilityLabel="Send to TV"
         accessibilityRole="button"

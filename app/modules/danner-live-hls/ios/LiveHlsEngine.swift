@@ -75,7 +75,6 @@ final class LiveHlsEngine: @unchecked Sendable {
       stop()
       throw NSError(domain: "DannerLiveHls", code: 2)
     }
-    startAirPlayPlayer(url: URL(string: "\(originValue)/live.m3u8")!)
     return (originValue, boundPort)
   }
 
@@ -103,6 +102,9 @@ final class LiveHlsEngine: @unchecked Sendable {
   }
 
   func showAirPlayPicker() {
+    if let origin, airPlayPlayer == nil, let url = URL(string: "\(origin)/live.m3u8") {
+      startAirPlayPlayer(url: url)
+    }
     DispatchQueue.main.async {
       let picker = AVRoutePickerView(frame: CGRect(x: -80, y: -80, width: 44, height: 44))
       picker.prioritizesVideoDevices = true

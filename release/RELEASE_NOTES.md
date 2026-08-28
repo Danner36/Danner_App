@@ -20,7 +20,7 @@
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
-- TV control on web games that captures the on-screen player and sends a local live playlist to Cast or AirPlay
+- TV control on web games that captures the on-screen player and sends a local live playlist to Cast on Android and iPhone
 - YouTube TV location workflow
 - Offline United States location map
 - iPhone SideStore expiration warning

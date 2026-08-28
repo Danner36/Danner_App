@@ -23,6 +23,8 @@ Product intent, current Guardians and TV Location behavior, visual specification
 | Visual specification and launcher art | [Art/README.md](Art/README.md) |
 | Capability and delivery status | [Production/Roadmap.md](Production/Roadmap.md) |
 | Current test and build status | [Production/Validation.md](Production/Validation.md) |
+| Physical iPhone install (Windows) | [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md) |
+| Family iPhone setup card | [../release/IPHONE_SETUP.md](../release/IPHONE_SETUP.md) |
 | Legacy APK inventory | [../reference/Apk_Inventory.md](../reference/Apk_Inventory.md) |
 | Agent behavior | [../AI_Framework/AI_RULES.md](../AI_Framework/AI_RULES.md) |
 

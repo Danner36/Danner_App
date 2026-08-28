@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-08-20
+Last updated: 2026-08-28
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -62,11 +62,15 @@ Last updated: 2026-08-20
 | Cross-platform production export | Pass | Expo export bundled 619 iOS modules and 619 Android modules, including native video support, the Guardians dashboard, both hub logos, and the same offline map asset; test markers and visible source-label text are absent from both bundles |
 | Requested artwork terms | Review | The supplied Vecteezy page labels its YouTube TV artwork attribution-required and editorial-use-only; the source and author are recorded in the art documentation for this owner-directed build |
 | Direct-install configuration | Pass | Tag-triggered GitHub jobs build the Android APK and unsigned iPhone device IPA on their native toolchains; SideStore applies the dedicated free Apple Account signature during iPhone installation |
-| Portable iPhone recovery links | Pass | `release/IPHONE_SETUP.md` points to the official LocalDevVPN App Store listing, current SideStore installation and release pages, current iLoader release, and Danner release page; third-party binaries are not copied into the repository |
+| Portable iPhone recovery links | Pass | `release/IPHONE_SETUP.md` points to LocalDevVPN, SideStore, iLoader, Apple 64-bit iTunes, and Danner releases; third-party binaries are not copied into the repository |
+| Physical iPhone SideStore via iLoader | Pass | 2026-08-28: Windows iLoader `v2.3.1` plus Apple website iTunes installed Apple Mobile Device Support; after Trust, iLoader listed `Danners USB` (iOS 26.6) and `Install SideStore (Stable)` completed |
+| Physical iPhone Danner Apps IPA via iLoader | Pass | 2026-08-28: GitHub `v1.3.0` `Danner-Apps-iOS.ipa` imported over USB; iLoader reported `Operation completed` and staged `PublicStaging/DannerApps.app` |
+| Physical iPhone LocalDevVPN and SideStore refresh | Pass | 2026-08-28: LocalDevVPN connected on Wi-Fi; SideStore signed in; `My Apps` showed SideStore and Danner Apps each at `7 DAYS` after SideStore `+` of `Danner-Apps-iOS.ipa`. iLoader USB install alone did not list Danner Apps in SideStore. Charger automation `Refresh SideStore` ran once at 12:26: on-screen all-apps-refreshed, LocalDevVPN connected then disconnected |
+| Physical iPhone hub open | Pass | 2026-08-28: Danner Apps opened to the logo hub with Guardians left and TV Location right; Guardians loaded live MLB data; TV Location opened from the right tile |
+| Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
 | GitHub release publication | Pass | Public release `v1.0.0` was created after both platform jobs passed and contains the APK, IPA, iPhone setup guide, and generated SHA-256 checksum file |
-| Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 
 ## Android release artifact checked
 

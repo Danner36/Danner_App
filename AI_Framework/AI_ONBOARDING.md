@@ -6,7 +6,7 @@
 
 ## Phase
 
-The logo-tile hub, iPhone final-48-hour signing warning, Guardians today countdown, live score, date-matched remote source list, native direct-media player, isolated approved-page player with popup and redirect gating, explicit HTTP-source support, repo-only today/ready/delayed/live harness, guided TV Location flow, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, Android/iOS production bundle compilation, portable iPhone setup and recovery links, and GitHub-hosted Android and iPhone release artifacts are implemented. Guardians production playback awaits an entry in `guardians_streams.json`. The delivery target is direct installation only; silent charger-triggered SideStore renewal and physical target-device and TV validation remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
+The logo-tile hub, iPhone final-48-hour signing warning, Guardians today countdown, live score, date-matched remote source list, native direct-media player, isolated approved-page player with popup and redirect gating, explicit HTTP-source support, repo-only today/ready/delayed/live harness, guided TV Location flow, automatic return from YouTube `Next`, offline U.S. map, named-place storage, Android standalone build, signed-in YouTube location acceptance, Android emulator interactions, Android/iOS production bundle compilation, portable iPhone setup and recovery links, and GitHub-hosted Android and iPhone release artifacts are implemented. Guardians production playback awaits an entry in `guardians_streams.json`. The delivery target is direct installation only. Physical iPhone first-time SideStore, USB IPA install, LocalDevVPN, SideStore `+` registration, hub plus both modules, and one proven charger `Refresh SideStore` automation from this Windows PC are recorded in [IPHONE_INSTALL.md](IPHONE_INSTALL.md). Eight-day locked-phone silent renewal and physical target-device and TV validation remain. [Docs/Production/Validation.md](../Docs/Production/Validation.md) is the current status source of truth.
 
 ## Context hierarchy
 
@@ -14,6 +14,7 @@ The logo-tile hub, iPhone final-48-hour signing warning, Guardians today countdo
 |------|------|
 | `AI_Framework/AI_RULES.md` | Agent behavior and product invariants |
 | `AI_Framework/AI_ONBOARDING.md` | Repository-wide orientation |
+| `AI_Framework/IPHONE_INSTALL.md` | Windows physical iPhone SideStore and IPA procedure |
 | `README.md` | Per-directory overview at useful folder tiers |
 
 Each tier `README.md` covers its folder and immediate subfolders only. Cross-cutting sources of truth are listed in [Docs/README.md](../Docs/README.md).
@@ -22,8 +23,9 @@ Each tier `README.md` covers its folder and immediate subfolders only. Cross-cut
 
 1. [AI_RULES.md](AI_RULES.md)
 2. `AI_ONBOARDING.md`
-3. Tier `README.md` files from the repository root through the working directory
-4. Relevant source-of-truth documents from `Docs/README.md`
+3. [IPHONE_INSTALL.md](IPHONE_INSTALL.md) when the task installs, refreshes, or recovers the iPhone app
+4. Tier `README.md` files from the repository root through the working directory
+5. Relevant source-of-truth documents from `Docs/README.md`
 
 ## Tier README criteria
 

@@ -42,7 +42,7 @@ The checked-in offline map already runs without a network connection. `npm run b
 
 - `app.json` contains shared Android and iOS native settings, including native video and cleartext-media transport support.
 - `modules/danner-provisioning-profile/` is an iOS-only local Expo module that reads `ExpirationDate` from the embedded signing profile. It is absent from Android builds.
-- `modules/danner-live-hls/` captures the on-screen Guardians web player into a local HLS origin for Cast and AirPlay.
+- `modules/danner-live-hls/` captures the on-screen Guardians web player into a local HLS origin for Cast.
 - `eas.json` retains internal-distribution development, preview, and production profiles; Android profiles produce APKs. Family iPhones use SideStore and a free dedicated Apple Account instead of paid ad hoc distribution.
 - `metro.config.js` packages the generated offline HTML map as an app asset.
 - `android/` and `ios/` are generated locally and ignored.

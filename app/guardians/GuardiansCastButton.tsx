@@ -1,6 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
-import { CastButton, useRemoteMediaClient } from 'react-native-google-cast';
+import {
+  CastButton,
+  MediaHlsSegmentFormat,
+  MediaHlsVideoSegmentFormat,
+  MediaStreamType,
+  useRemoteMediaClient,
+} from 'react-native-google-cast';
 
 export function castContentTypeForUrl(playbackUrl: string): string {
   const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
@@ -51,11 +57,18 @@ export function GuardiansCastButton({
         contentUrl: playbackUrl,
         ...(isHls
           ? {
-              hlsSegmentFormat: 'TS',
-              hlsVideoSegmentFormat: 'MPEG2-TS',
+              hlsSegmentFormat: MediaHlsSegmentFormat.TS,
+              hlsVideoSegmentFormat: MediaHlsVideoSegmentFormat.MPEG2_TS,
             }
           : {}),
-        ...(streamType ? { streamType } : {}),
+        ...(streamType
+          ? {
+              streamType:
+                streamType === 'live'
+                  ? MediaStreamType.LIVE
+                  : MediaStreamType.BUFFERED,
+            }
+          : {}),
       },
     });
   }, [client, contentType, playbackUrl, streamType, visible]);

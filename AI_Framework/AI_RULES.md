@@ -13,6 +13,8 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 - Development target is Windows.
 - Prefer PowerShell for shell commands.
 - If a local preview server is added, prefer port 8108, then scan 8108 through 8127.
+- Physical iPhone install, SideStore, IPA sideload, and signing refresh follow [IPHONE_INSTALL.md](IPHONE_INSTALL.md). Windows has no iOS ADB and no Xcode.
+- Do not print Apple Account emails, passwords, 2FA codes, pairing files, or device UDIDs.
 
 ## Generated material
 
@@ -49,6 +51,6 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 - Guardians test fixtures stay under `tests/guardians/`, are served from port 8108, and can be read only by a development build with `EXPO_PUBLIC_GUARDIANS_TEST_URL` set. Never import test fixtures into the Expo asset graph or enable the harness in production.
 - Inside `TV Location`, keep four explicit guided steps, large controls, large text, highlighted current work, automatic scrolling to the next action, and clear completion/retry states. Step 3 exposes only its update button, returns to step 4 after YouTube's `Next` control is activated, and does not expose coordinate-bridge diagnostics. Step 4 identifies the `Welcome to...` message as appearing on the TV.
 - Platforms: Android and iPhone from one Expo app.
-- Distribution: direct device installation only. Produce an installable signed APK for Android and a SideStore-compatible IPA for iPhone. Each GitHub release carries both Danner artifacts and `release/IPHONE_SETUP.md`. That setup card links to the official LocalDevVPN App Store listing, SideStore instructions, and current iLoader release; do not mirror third-party binaries. Use a free dedicated Apple Account and any working Wi-Fi for SideStore renewal; cellular data alone is not a supported refresh path. Do not require paid Apple Developer membership or add app-store submission work.
+- Distribution: direct device installation only. Produce an installable signed APK for Android and a SideStore-compatible IPA for iPhone. Each GitHub release carries both Danner artifacts and `release/IPHONE_SETUP.md`. That setup card links to the official LocalDevVPN App Store listing, SideStore instructions, current iLoader release, and Apple's 64-bit iTunes download; do not mirror third-party binaries. iLoader on Windows requires Apple website iTunes (not the Microsoft Store) so Apple Mobile Device Service can see the phone. A logged-in iLoader session may also `Import IPA` over USB. Use a free dedicated Apple Account and any working Wi-Fi for SideStore renewal; cellular data alone is not a supported refresh path. Do not require paid Apple Developer membership or add app-store submission work.
 - Preserve Android version `1.0`, version code 1, and minimum SDK 29; use the current target SDK required by the maintained toolchain.
 - Branding: Danner green and white script logo in `Docs/Art/media/ic_launcher_danner.jpg`.
