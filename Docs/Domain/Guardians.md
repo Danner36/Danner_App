@@ -5,11 +5,13 @@ Phase: MVP
 
 ## Dashboard
 
-Opening the Cleveland Guardians tile requests the current season record and schedule from MLB's `statsapi.mlb.com` service. The screen fetches again every 60 seconds and on pull-to-refresh.
+Opening the Cleveland Guardians tile requests the current season record and schedule from MLB's `statsapi.mlb.com` service. The screen fetches again every 60 seconds and on pull-to-refresh. A live featured game also refreshes its park-style scoreboard every five seconds while the screen is open.
 
 An in-progress game is shown in the prominent top card. If no game is live and a game is scheduled today, today's game uses that card and is removed from the upcoming schedule. It shows the opponent, phone-local start time, a one-second countdown, and `Video starts 15 minutes before game time.`
 
-Delayed, postponed, suspended, and canceled games state the condition directly. A live game shows the current score and MLB game-state label. The season record and remaining schedule stay below the featured card.
+After today's game reaches Final, that same card stays through local midnight of the MLB official date. It shows `WIN`, `LOSS`, or `TIE`, `Home vs` or `Away v`, `Final` or `Final/10`, the Guardians-first score, and Win / Loss / Save last names when MLB returns them. It does not show the park-style scoreboard, Play, Listen, or Get video. A later game still today keeps the featured card. A doubleheader recap is the last completed game of that official date.
+
+Delayed, postponed, suspended, and canceled games state the condition directly. A live game shows the current score, MLB game-state label, and the park-style scoreboard (innings, R/H/E, count, outs, batter and pitcher numbers). The season record and remaining schedule stay below the featured card.
 
 The schedule contains no completed or featured game. Remaining games are ordered by start time and display `vs` or `at`. Dates and times use the phone's locale and time zone. A failed MLB request exposes Retry without discarding previously loaded information.
 
@@ -19,9 +21,9 @@ Production playback entries belong in root [guardians_streams.json](../../guardi
 
 `https://raw.githubusercontent.com/Danner36/Danner_App/main/guardians_streams.json`
 
-The app checks the file when the Guardians screen opens, on pull-to-refresh, and every 60 seconds. A valid response is cached on the phone. The cache is used if GitHub is temporarily unavailable.
+The app checks the file when the Guardians screen opens, on pull-to-refresh, and every 60 seconds. Production builds also try `GET {GET_VIDEO_URL}/streams` first when that Worker origin is set. Get video and other freshness-first loads also try raw GitHub at the latest commit SHA that touched the file. A later fetch that has no featured-game match does not wipe a URL the phone already has. A valid response is cached on the phone. The cache is used if every live fetch fails.
 
-Edit only `streams`. It contains an `INACTIVE EXAMPLE` line followed by a complete made-up stream object. Copy that object, paste the copy after it, put a comma between the two objects, replace every value in the copy, then commit and push the file to `main`. The placeholder date keeps the example inactive. The embedded `HOW_TO_GUIDE` defines every field.
+Edit only `streams`. Root-level `HOW_TO_GUIDE` defines every field; the phone does not display that guide. `streams` contains an `INACTIVE EXAMPLE` line followed by a complete made-up stream object, then dated production entries. Copy the example object, paste the copy after it, put a comma between the two objects, replace every value in the copy, then commit and push the file to `main`. The placeholder date keeps the example inactive.
 
 Every entry requires exactly these fields:
 
@@ -54,15 +56,17 @@ The app gets game identity from MLB. The approved file uses only date and game n
 
 ## Watch timing
 
-Icon-only Play actions are hidden until 15 minutes before the featured game's scheduled start. At or after that point, one Play action is shown for each matching valid source. No source name is stored or displayed. If the source file has no matching entry, the card says `Video is not ready yet. The app checks again automatically.` The next automatic source check occurs within 60 seconds.
+Icon-only Play actions are hidden until 15 minutes before the featured game's scheduled start. At or after that point, one Play action is shown for each matching valid source. A matching `direct` source also shows an icon-only Listen control that plays the same URL with no visible video. No source name is stored or displayed. If the source file has no matching entry, the card says `Video is not ready yet. The app checks again automatically.` The next automatic source check occurs within 60 seconds.
 
-Postponed, suspended, and canceled games do not expose Watch actions. A delayed game states the delay; a matching source can become available after the 15-minute threshold.
+When the worker origin and family PIN are present in the build, that same empty window also shows **Get video**. The phone POSTs `{ pin }` to `{GET_VIDEO_URL}/get-video`. The Worker starts `.github/workflows/guardians-stream-pipeline.yml` through GitHub `repository_dispatch` type `guardians-get-video`. While it runs, the card says `Getting video. This could take a minute.` and polls for a matching URL every 5 seconds for up to 5 minutes. A matching `web` URL turns Get video into Play.
+
+Postponed, suspended, and canceled games do not expose Watch actions. A delayed game states the delay; a matching source can become available after the 15-minute threshold. Final recap hides Play, Listen, and Get video.
 
 ## Playback kinds
 
-- `direct`: HLS, MP4, DASH, or another native-player-compatible media URL. It runs in `expo-video` with caching disabled. No webpage JavaScript, popup, page storage, or page advertisement executes.
-- `youtube`: a YouTube watch, live, embed, or `youtu.be` URL. The app extracts the video identifier and uses a local wrapper around YouTube's privacy-enhanced embed. YouTube sources must use HTTPS.
-- `web`: an approved player page. The initial hostname is trusted. `trustedHosts` adds exact hostnames required for top-level redirects.
+- `direct`: HLS, MP4, DASH, or another native-player-compatible media URL. It runs in `expo-video` with caching disabled. No webpage JavaScript, popup, page storage, or page advertisement executes. Listen uses the same URL as audio-only. The player header shows a Cast control that loads that JSON URL on the default receiver.
+- `youtube`: a YouTube watch, live, embed, or `youtu.be` URL. The app extracts the video identifier and uses a local wrapper around YouTube's privacy-enhanced embed. YouTube sources must use HTTPS. YouTube does not offer Listen or TV send.
+- `web`: an approved player page. The initial hostname is trusted. `trustedHosts` adds exact hostnames required for top-level redirects. The player header shows a TV control that captures the on-screen player into a local HLS origin and opens the Cast picker.
 
 HTTPS is accepted by default. HTTP is rejected unless the same entry sets `allowInsecureHttp: true`.
 
@@ -72,6 +76,6 @@ Cleartext HTTP has no transport encryption. Its opt-in changes transport only; p
 
 ## Test harness
 
-`tests/guardians/` contains repository-only fixtures for today, video-ready, delayed, and live states. The local server runs on port 8108 and supplies fixture data and source JSON only to a React Native development build. It also provides fixed HTTPS and HTTP media tests plus approved and rejected popup and redirect checks.
+`tests/guardians/` contains repository-only fixtures for today, video-ready, delayed, live, Final recap, live HLS capture, and Get video. The shared fixture server runs on port 8108. Get video uses port 8111 so it does not collide with Expo. Both supply fixture data and source JSON only to a React Native development build. The harness also provides fixed HTTPS and HTTP media tests plus approved and rejected popup and redirect checks.
 
 Harness URLs, game data, and test video references are not imported into the application and are absent from production Android and iOS bundles.

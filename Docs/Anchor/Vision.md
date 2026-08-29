@@ -9,7 +9,7 @@ Danner Apps is a cross-platform collection of Danner family tools. The logo-only
 
 ## Guardians experience
 
-The Guardians screen retrieves the current record, today's or an active game, score, and remaining schedule whenever it opens. It refreshes every minute, supports pull-to-refresh, omits completed games, and presents all start times in the phone's time zone. Today's game is promoted above the schedule with a one-second countdown. Delay states are explicit. Icon-only Play controls become eligible 15 minutes before game time and appear only for date- and game-number-matched entries fetched from root `guardians_streams.json` on GitHub. Direct video uses the native player and approved player pages use an isolated WebView. HTTPS is the default, with a separate opt-in required on every cleartext HTTP source.
+The Guardians screen retrieves the current record, today's or an active game, score, and remaining schedule whenever it opens. It refreshes every minute, supports pull-to-refresh, omits completed games from the schedule, and presents all start times in the phone's time zone. Today's game is promoted above the schedule with a one-second countdown. After Final, the featured card stays as today's recap through local midnight of that official date. Delay states are explicit. A live game refreshes its park-style scoreboard every five seconds. Icon-only Play controls become eligible 15 minutes before game time and appear only for date- and game-number-matched entries fetched from root `guardians_streams.json` on GitHub. Get video starts the extract pipeline when that window is open, no match is stored, and the worker origin plus family PIN are in the build. Direct video uses the native player, with Listen and Cast on `direct` sources and TV capture on `web` sources. Approved player pages use an isolated WebView. HTTPS is the default, with a separate opt-in required on every cleartext HTTP source.
 
 ## Current experience
 
@@ -34,9 +34,9 @@ Both platforms inject the selected destination into the embedded verification pa
 
 ## Boundaries
 
-- Guardians video is limited to exact links in `guardians_streams.json`, matched to an MLB official date and game number. HTTPS is the default, and cleartext HTTP must be enabled on the individual entry. The app does not discover or substitute stream sources.
+- Guardians video is limited to exact links in `guardians_streams.json`, matched to an MLB official date and game number. HTTPS is the default, and cleartext HTTP must be enabled on the individual entry. Get video does not invent a URL on the phone; it starts the GitHub extract pipeline, then plays only a date-matched entry that lands in that file.
 - The app does not modify device location or implement a system mock-location provider.
-- The app does not request foreground or background location permission.
+- TV Location does not request location permission and does not read GPS. Android Cast declares `ACCESS_FINE_LOCATION` and, on API 29–32, requests it for Chromecast discovery.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico with offline place search, state outlines, and major highways; it does not contain neighborhood streets or satellite imagery.
 - The selected coordinates are supplied only inside the WebView opened at `https://tv.youtube.com/verify` and its sign-in redirects.
 - Google and YouTube can still apply account, network, device, and service-side location rules outside the browser Geolocation API.

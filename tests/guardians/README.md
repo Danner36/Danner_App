@@ -1,6 +1,6 @@
 # Guardians test harness
 
-Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider.
+Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider. `run-snapshot.mjs` checks featured-card selection for live, later-today, Final recap, and doubleheader cases.
 
 ## Run on Android
 
@@ -10,7 +10,9 @@ From `app/` with an Android emulator running:
 npm run test:guardians:android
 npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
+npm run test:guardians:android:final
 npm run test:guardians:android:live
+npm run test:guardians:snapshot
 npm run test:guardians:android:live-hls
 npm run test:guardians:android:get-video
 ```
@@ -20,7 +22,9 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android` | Game today, starts in 45 minutes, no Watch actions |
 | `npm run test:guardians:android:ready` | Game today, starts in 10 minutes, Watch actions visible |
 | `npm run test:guardians:android:delayed` | Delayed game with direct delay text |
+| `npm run test:guardians:android:final` | Today's completed game with WIN badge, score, and pitcher line |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
+| `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
 | `npm run test:guardians:android:live-hls` | Live game plus capture-pattern page; taps TV and checks a local MPEG-TS playlist |
 | `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
 

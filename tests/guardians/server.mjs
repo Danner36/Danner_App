@@ -6,7 +6,7 @@ const fixtureUrl = new URL('./live-game.fixture.json', import.meta.url);
 const appleMediaRoot = new URL(
   'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/',
 );
-const validScenarios = new Set(['delayed', 'live', 'ready', 'today']);
+const validScenarios = new Set(['delayed', 'final', 'live', 'ready', 'today']);
 
 async function readFixtureDocument() {
   return JSON.parse(await readFile(fixtureUrl, 'utf8'));
@@ -33,6 +33,29 @@ function snapshotForScenario(fixture, scenario) {
       officialDate: easternDateString(gameDate),
     };
   });
+
+  if (scenario === 'final') {
+    const gameDate = new Date(now - 4 * 60 * 60_000);
+    return {
+      liveGame: {
+        ...fixture.liveGame,
+        abstractState: 'Final',
+        decisions: {
+          save: 'Clase',
+          winner: 'Allen',
+        },
+        gameDate: gameDate.toISOString(),
+        guardiansScore: 7,
+        officialDate: easternDateString(new Date()),
+        opponentScore: 3,
+        scoreboard: undefined,
+        status: 'Final',
+      },
+      losses: fixture.losses,
+      upcomingGames: futureGames,
+      wins: fixture.wins,
+    };
+  }
 
   if (scenario === 'live') {
     const gameDate = new Date(now - 90 * 60_000);

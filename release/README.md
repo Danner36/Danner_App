@@ -6,6 +6,7 @@ Each Danner Apps GitHub release contains:
 - `Danner-Apps-iOS.ipa`
 - `IPHONE_SETUP.md`
 - `SHA256SUMS.txt`
+- Release notes from `release/RELEASE_NOTES.md`
 
 `IPHONE_SETUP.md` is the family numbered card: LocalDevVPN, iLoader, Apple website iTunes, USB and SideStore install, charger `Refresh SideStore` automation, another iPhone, and recovery links. Third-party installers are not copied into Danner release assets. Windows iLoader requires that Apple website iTunes install so the iPhone appears as a USB device. The agent procedure is [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md).
 

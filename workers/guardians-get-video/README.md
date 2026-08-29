@@ -1,6 +1,6 @@
 # guardians-get-video
 
-Cloudflare Worker that the Guardians app calls when **Get video** is tapped. It checks the family PIN, then starts the GitHub Actions workflow `guardians-get-video`. The Action extracts a gooz URL and publishes `guardians_streams.json`. Game dates come from MLB, not from this file. `GET /streams` returns the current GitHub file with no store cache so phones do not wait on raw.githubusercontent.com.
+Cloudflare Worker that the Guardians app calls when **Get video** is tapped. It checks the family PIN, then starts `.github/workflows/guardians-stream-pipeline.yml` through `repository_dispatch` type `guardians-get-video`. The Action extracts a gooz URL and publishes `guardians_streams.json`. Game dates come from MLB, not from this file. `GET /streams` returns the current GitHub file with no store cache so phones do not wait on raw.githubusercontent.com. That route exists on the phone and in this Worker source; it is live only after this Worker version is deployed.
 
 ## Deploy
 

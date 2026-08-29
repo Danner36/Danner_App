@@ -38,7 +38,7 @@ Step 3 opens `https://tv.youtube.com/verify` in an in-app WebView with HTTPS red
 - `navigator.geolocation.clearWatch`
 - geolocation responses from `navigator.permissions.query`
 
-Coordinate-bridge diagnostics are not displayed in the interface. Native WebView geolocation is disabled, so the site does not fall through to the phone's actual sensor location. The app requests no Android or iOS location permission and does not change device GPS.
+Coordinate-bridge diagnostics are not displayed in the interface. Native WebView geolocation is disabled, so the site does not fall through to the phone's actual sensor location. TV Location requests no location permission and does not change device GPS. Android Cast still declares `ACCESS_FINE_LOCATION` and, on API 29–32, requests it when Send to TV runs.
 
 The browser override covers the Geolocation API exposed to the embedded page. YouTube and Google may also evaluate account state, IP address, device signals, or service-side rules, so a real signed-in account and TV remain the final acceptance test.
 

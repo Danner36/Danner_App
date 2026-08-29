@@ -38,10 +38,21 @@ import {
   fetchLiveScoreboard,
   liveScoreboardFromHarness,
   liveScoreboardFromMlb,
-  type LiveScoreboard,
 } from './mlbLinescore';
+import {
+  GUARDIANS_TEAM_ID,
+  gameInterruption,
+  guardiansGameFromHarness,
+  guardiansGameFromMlb,
+  localDateString,
+  recapDecisionLine,
+  recapResult,
+  snapshotFromGames,
+  type GameInterruption,
+  type GuardiansGame,
+  type GuardiansSnapshot,
+} from './guardiansSnapshot';
 
-const GUARDIANS_TEAM_ID = 114;
 const REFRESH_INTERVAL_MS = 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
@@ -58,211 +69,22 @@ const GUARDIANS_SOURCES_URL =
     ? GUARDIANS_TEST_SOURCES_URL
     : REMOTE_GUARDIANS_SOURCES_URL;
 
-type MlbTeamSide = {
-  score?: number;
-  team?: {
-    id?: number;
-    name?: string;
-  };
-};
-
-type MlbGame = {
-  gameDate?: string;
-  gameNumber?: number;
-  gamePk?: number;
-  linescore?: unknown;
-  officialDate?: string;
-  status?: {
-    abstractGameState?: string;
-    detailedState?: string;
-  };
-  teams?: {
-    away?: MlbTeamSide;
-    home?: MlbTeamSide;
-  };
-};
-
-type GuardiansGame = {
-  abstractState: string;
-  gamePk: number;
-  gameDate: string;
-  gameNumber: number;
-  status: string;
-  isHome: boolean;
-  guardiansScore: number;
-  opponentName: string;
-  opponentScore: number;
-  officialDate: string;
-  scoreboard?: LiveScoreboard;
-};
-
-type GuardiansSnapshot = {
-  featuredGame?: GuardiansGame;
-  losses: number;
-  upcomingGames: GuardiansGame[];
-  wins: number;
-};
-
 type PlayableStream = PlayableGuardiansStream;
 
-function localDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function guardiansGameFromMlb(game: MlbGame): GuardiansGame | undefined {
-  if (
-    typeof game.gamePk !== 'number' ||
-    typeof game.gameDate !== 'string' ||
-    Number.isNaN(new Date(game.gameDate).getTime()) ||
-    !game.teams?.away?.team ||
-    !game.teams.home?.team
-  ) {
+function withHarnessScoreboard(
+  game: GuardiansGame | undefined,
+): GuardiansGame | undefined {
+  if (!game) {
     return undefined;
   }
-
-  const isHome = game.teams.home.team.id === GUARDIANS_TEAM_ID;
-  const guardians = isHome ? game.teams.home : game.teams.away;
-  const opponent = isHome ? game.teams.away : game.teams.home;
-
-  if (guardians.team?.id !== GUARDIANS_TEAM_ID || !opponent.team?.name) {
+  if (game.scoreboard === undefined) {
+    return game;
+  }
+  const scoreboard = liveScoreboardFromHarness(game.scoreboard);
+  if (!scoreboard) {
     return undefined;
   }
-
-  return {
-    abstractState: game.status?.abstractGameState ?? 'Preview',
-    gamePk: game.gamePk,
-    gameDate: game.gameDate,
-    gameNumber: game.gameNumber ?? 1,
-    status: game.status?.detailedState ?? 'Scheduled',
-    isHome,
-    guardiansScore: guardians.score ?? 0,
-    opponentName: opponent.team.name,
-    opponentScore: opponent.score ?? 0,
-    officialDate:
-      game.officialDate ?? localDateString(new Date(game.gameDate)),
-    scoreboard: liveScoreboardFromMlb(game.linescore),
-  };
-}
-
-function guardiansGameFromHarness(value: unknown): GuardiansGame | undefined {
-  if (typeof value !== 'object' || value === null) {
-    return undefined;
-  }
-
-  const game = value as Partial<GuardiansGame>;
-  if (
-    typeof game.abstractState !== 'string' ||
-    typeof game.gamePk !== 'number' ||
-    !Number.isInteger(game.gamePk) ||
-    typeof game.gameDate !== 'string' ||
-    Number.isNaN(new Date(game.gameDate).getTime()) ||
-    typeof game.gameNumber !== 'number' ||
-    !Number.isInteger(game.gameNumber) ||
-    typeof game.status !== 'string' ||
-    typeof game.isHome !== 'boolean' ||
-    typeof game.guardiansScore !== 'number' ||
-    typeof game.opponentName !== 'string' ||
-    typeof game.opponentScore !== 'number' ||
-    typeof game.officialDate !== 'string' ||
-    !/^\d{4}-\d{2}-\d{2}$/.test(game.officialDate)
-  ) {
-    return undefined;
-  }
-
-  const parsed: GuardiansGame = {
-    abstractState: game.abstractState,
-    gameDate: game.gameDate,
-    gameNumber: game.gameNumber,
-    gamePk: game.gamePk,
-    guardiansScore: game.guardiansScore,
-    isHome: game.isHome,
-    officialDate: game.officialDate,
-    opponentName: game.opponentName,
-    opponentScore: game.opponentScore,
-    status: game.status,
-  };
-  if (game.scoreboard !== undefined) {
-    const scoreboard = liveScoreboardFromHarness(game.scoreboard);
-    if (!scoreboard) {
-      return undefined;
-    }
-    parsed.scoreboard = scoreboard;
-  }
-
-  return parsed;
-}
-
-type GameInterruption = 'canceled' | 'delayed' | 'postponed' | 'suspended';
-
-function gameInterruption(status: string): GameInterruption | undefined {
-  const normalized = status.toLowerCase();
-  if (normalized.includes('cancel')) {
-    return 'canceled';
-  }
-  if (normalized.includes('delay')) {
-    return 'delayed';
-  }
-  if (normalized.includes('postpon')) {
-    return 'postponed';
-  }
-  if (normalized.includes('suspend')) {
-    return 'suspended';
-  }
-  return undefined;
-}
-
-function isSameLocalDay(date: Date, other: Date): boolean {
-  return (
-    date.getFullYear() === other.getFullYear() &&
-    date.getMonth() === other.getMonth() &&
-    date.getDate() === other.getDate()
-  );
-}
-
-function snapshotFromGames(
-  games: GuardiansGame[],
-  wins: number,
-  losses: number,
-  now = new Date(),
-): GuardiansSnapshot {
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  ).getTime();
-  const remainingGames = games
-    .filter((game) => {
-      const interruption = gameInterruption(game.status);
-      const isComplete = game.abstractState === 'Final' && !interruption;
-      const startsTodayOrLater =
-        new Date(game.gameDate).getTime() >= todayStart;
-      return (
-        !isComplete &&
-        (game.abstractState === 'Live' || startsTodayOrLater)
-      );
-    })
-    .sort(
-      (first, second) =>
-        new Date(first.gameDate).getTime() -
-        new Date(second.gameDate).getTime(),
-    );
-  const featuredGame =
-    remainingGames.find((game) => game.abstractState === 'Live') ??
-    remainingGames.find((game) =>
-      isSameLocalDay(new Date(game.gameDate), now),
-    );
-
-  return {
-    featuredGame,
-    losses,
-    upcomingGames: featuredGame
-      ? remainingGames.filter((game) => game.gamePk !== featuredGame.gamePk)
-      : remainingGames,
-    wins,
-  };
+  return { ...game, scoreboard };
 }
 
 function snapshotWithPreservedScoreboard(
@@ -312,10 +134,10 @@ async function fetchGuardiansHarnessSnapshot(
     upcomingGames?: unknown;
     wins?: unknown;
   };
-  const liveGame = guardiansGameFromHarness(value.liveGame);
+  const liveGame = withHarnessScoreboard(guardiansGameFromHarness(value.liveGame));
   const upcomingGames = Array.isArray(value.upcomingGames)
     ? value.upcomingGames
-        .map(guardiansGameFromHarness)
+        .map((entry) => withHarnessScoreboard(guardiansGameFromHarness(entry)))
         .filter((game): game is GuardiansGame => Boolean(game))
     : [];
 
@@ -346,7 +168,7 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
   const scheduleEnd = new Date(season, 11, 31);
   const scheduleQuery = new URLSearchParams({
     endDate: localDateString(scheduleEnd),
-    hydrate: 'linescore,team',
+    hydrate: 'linescore,team,decisions',
     sportId: '1',
     startDate: localDateString(scheduleStart),
     teamId: String(GUARDIANS_TEAM_ID),
@@ -368,7 +190,7 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
   }
 
   const schedule = (await scheduleResponse.json()) as {
-    dates?: Array<{ games?: MlbGame[] }>;
+    dates?: Array<{ games?: unknown[] }>;
   };
   const standings = (await standingsResponse.json()) as {
     records?: Array<{
@@ -381,7 +203,18 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
   };
   const rawGames = schedule.dates?.flatMap((date) => date.games ?? []) ?? [];
   const games = rawGames
-    .map(guardiansGameFromMlb)
+    .map((rawGame) => {
+      const parsed = guardiansGameFromMlb(rawGame);
+      if (!parsed) {
+        return undefined;
+      }
+      const linescore =
+        typeof rawGame === 'object' && rawGame !== null
+          ? (rawGame as { linescore?: unknown }).linescore
+          : undefined;
+      const scoreboard = liveScoreboardFromMlb(linescore);
+      return scoreboard ? { ...parsed, scoreboard } : parsed;
+    })
     .filter((game): game is GuardiansGame => Boolean(game));
   const teamRecord = standings.records
     ?.flatMap((record) => record.teamRecords ?? [])
@@ -786,39 +619,47 @@ function FeaturedGameCard({
 }) {
   const interruption = gameInterruption(game.status);
   const isLive = game.abstractState === 'Live';
+  const isFinal = game.abstractState === 'Final' && !interruption;
+  const recap = isFinal ? recapResult(game) : undefined;
+  const decisionLine = isFinal ? recapDecisionLine(game) : undefined;
   const blocksVideo =
     interruption === 'canceled' ||
     interruption === 'postponed' ||
-    interruption === 'suspended';
+    interruption === 'suspended' ||
+    isFinal;
   const videoWindowOpen =
     !blocksVideo &&
     (isLive ||
       nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
   const visibleStreams = videoWindowOpen ? streams : [];
-  const isTodayScheduled = !isLive && !interruption;
+  const isTodayScheduled = !isLive && !interruption && !isFinal;
+  const usesTodayCard = isTodayScheduled || isFinal;
   const badgeText = interruption
     ? interruption.toUpperCase()
     : isLive
       ? 'LIVE'
-      : `TODAY ${gameTimeLabel(game.gameDate)}`;
-  const matchupText = isTodayScheduled
-    ? game.isHome
-      ? `Home vs ${game.opponentName}`
-      : `Away v ${game.opponentName}`
-    : `Guardians ${game.isHome ? 'vs' : 'at'} ${game.opponentName}`;
+      : recap
+        ? recap
+        : `TODAY ${gameTimeLabel(game.gameDate)}`;
+  const matchupText =
+    isTodayScheduled || isFinal
+      ? game.isHome
+        ? `Home vs ${game.opponentName}`
+        : `Away v ${game.opponentName}`
+      : `Guardians ${game.isHome ? 'vs' : 'at'} ${game.opponentName}`;
 
   return (
     <View
       style={[
         styles.liveCard,
-        isTodayScheduled && styles.todayCard,
+        usesTodayCard && styles.todayCard,
         interruption && styles.interruptedCard,
       ]}
     >
       <View
         style={[
           styles.liveBadge,
-          isTodayScheduled && styles.todayBadge,
+          usesTodayCard && styles.todayBadge,
           interruption && styles.interruptedBadge,
         ]}
       >
@@ -827,7 +668,7 @@ function FeaturedGameCard({
           numberOfLines={1}
           style={[
             styles.liveBadgeText,
-            isTodayScheduled && styles.todayBadgeText,
+            usesTodayCard && styles.todayBadgeText,
             interruption && styles.interruptedBadgeText,
           ]}
         >
@@ -836,7 +677,7 @@ function FeaturedGameCard({
       </View>
 
       <Text style={styles.liveMatchup}>{matchupText}</Text>
-      {isLive || interruption ? (
+      {isLive || interruption || isFinal ? (
         <Text style={styles.liveStatus}>{game.status}</Text>
       ) : null}
 
@@ -854,7 +695,7 @@ function FeaturedGameCard({
           opponentName={game.opponentName}
           scoreboard={game.scoreboard}
         />
-      ) : isLive ? (
+      ) : isLive || isFinal ? (
         <View style={styles.scoreBox}>
           <View style={styles.scoreRow}>
             <Text style={styles.scoreTeam}>Guardians</Text>
@@ -868,7 +709,11 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
-      {!isLive && !interruption ? (
+      {decisionLine ? (
+        <Text style={styles.recapDecision}>{decisionLine}</Text>
+      ) : null}
+
+      {isTodayScheduled ? (
         <View style={styles.countdownBox}>
           <Text style={styles.countdownLabel}>STARTS IN</Text>
           <Text accessibilityLiveRegion="polite" style={styles.countdownText}>
@@ -1507,6 +1352,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginTop: 3,
+  },
+  recapDecision: {
+    color: '#0B2B4C',
+    fontSize: 17,
+    fontWeight: '800',
+    marginTop: 12,
+    textAlign: 'center',
   },
   interruptionBox: {
     backgroundColor: '#FFF0D8',

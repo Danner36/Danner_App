@@ -8,7 +8,7 @@ const expoCliPath = fileURLToPath(
 );
 const serverPath = fileURLToPath(new URL('./server.mjs', import.meta.url));
 const scenario = process.argv[2] ?? 'today';
-if (!new Set(['delayed', 'live', 'ready', 'today']).has(scenario)) {
+if (!new Set(['delayed', 'final', 'live', 'ready', 'today']).has(scenario)) {
   throw new Error(`Unknown Guardians harness scenario: ${scenario}`);
 }
 const harnessUrl = `http://10.0.2.2:8108/guardians?scenario=${scenario}`;

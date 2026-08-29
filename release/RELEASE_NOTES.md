@@ -17,6 +17,7 @@
 ## Included
 
 - Cleveland Guardians record, current game, countdown, remaining schedule, and approved playback
+- Post-game recap on the featured card after Final: WIN, LOSS, or TIE, the score, and pitcher decisions. No park board or Play
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
