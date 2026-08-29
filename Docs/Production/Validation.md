@@ -8,10 +8,10 @@ Last updated: 2026-08-29
 | Check | Status | Evidence |
 |-------|--------|----------|
 | TypeScript | Pass | `npm run typecheck` |
-| Expo package compatibility | Review | `npx expo install --check` reports patch drift: `expo` 57.0.15 vs ~57.0.18, plus `expo-asset`, `expo-build-properties`, `expo-splash-screen`, `expo-system-ui`, `expo-video`, and `react-native` 0.86.2 vs 0.86.3 |
+| Expo package compatibility | Pass | `npx expo install --check` reports dependencies are up to date after the 57.0.18 / RN 0.86.3 patch bump |
 | npm advisory scan | Review | `npm audit` reports 19 transitive Expo, React Native, Metro, and Xcode-tooling advisories; its proposed automatic fixes downgrade the compatible framework stack and were not applied |
-| Expo platform config | Pass | Resolved config reports `Danner Apps` on Android and iOS, Android `ACCESS_FINE_LOCATION` plus Nearby Wi-Fi and capture permissions for Cast, and iOS ATS media, WebView, and local-network exceptions plus its local-network usage description |
-| Android prebuild | Pass | Expo regenerated the ignored native project; its manifest contains Internet permission, `android:usesCleartextTraffic="true"`, and the Cast location and Nearby Wi-Fi permissions from `app.json` |
+| Expo platform config | Pass | Source `app.json` reports `Danner Apps` on Android and iOS, blocks fine and coarse location, keeps Nearby Wi-Fi plus capture permissions for Cast, and iOS ATS media, WebView, and local-network exceptions plus its local-network usage description |
+| Android prebuild | Pass | 2026-08-29 local `npx expo prebuild --platform android --no-install`: manifest blocks fine and coarse location with `tools:node="remove"`, Nearby Wi-Fi has `neverForLocation`, one official Cast `onCreate`, and `play-services-cast-framework` pinned at 21.5.0 |
 | Android standalone release APK | Pass | Gradle `assembleRelease` completed and embedded the production JavaScript bundle |
 | Standalone emulator launch | Pass | Release APK opened the Danner app hub on Pixel 7 API 34 with Metro stopped and no listener on port 8081 |
 | Parent-friendly app hub | Pass | At 1080 by 2400, the 210dp logo remains centered at one-third usable-screen height; the 101.2dp tiles render 265 px wide with a 74 px gap, a centered row, and centers at the two-thirds target |
@@ -56,13 +56,14 @@ Last updated: 2026-08-29
 | Nationwide city search | Pass | Offline search returned Los Angeles variants and moved the pin to `Los Angeles, California` |
 | Named-place persistence | Pass | Los Angeles was saved, the app was force-stopped, and `Los Angeles, California` was restored after relaunch |
 | Tripoli reset | Pass | `Use Tripoli default` restored `Tripoli, Iowa` and its internal point after the persistence test |
-| Device location isolation | Review | TV Location still injects the selected pair and does not read GPS. Current `app.json` declares `ACCESS_FINE_LOCATION`; Send to TV requests it on API 29–32. The older no-location manifest check predates Cast |
+| Device location isolation | Review | Source blocks fine and coarse location and does not request them. TV Location still injects the selected pair. Send to TV requests only Nearby Wi-Fi, audio, and notifications. Device re-check of the installer screen is pending |
 | YouTube TV verification page | Pass | Standalone WebView loaded Google sign-in from `https://tv.youtube.com/verify` and completed account two-step approval |
 | Location bridge readiness | Pass | Signed-in validation emitted the internal ready event with Tripoli selected; the interface intentionally does not display it |
 | YouTube geolocation request | Pass | Signed-in validation emitted the internal request event before YouTube accepted the Tripoli point |
 | YouTube area result | Pass | YouTube accepted the injected pair and displayed `Welcome to the Cedar Rapids/Waterloo/Dubuque area` |
 | YouTube `Next` automation and return | Review | The embedded script limits activation to `tv.youtube.com` pages containing the playback-area prompt and an exact `Next` control, observes automatic or manual activation, then returns to step 4 after 800 ms; target-device and TV validation remains |
 | Android Back navigation | Pass | Hardware Back returned from verification and highlighted step 4 with confirm and retry actions |
+| Guardians Android Back | Review | Source: hardware Back closes the Play modal first, then returns to the hub. Device re-check pending |
 | Cross-platform production export | Pass | Expo export includes native video, Guardians (Get video, Listen, Cast, recap), both hub logos, and the same offline map asset; test markers and visible source-label text are absent from both bundles. Exact module counts change with each export |
 | Requested artwork terms | Review | The supplied Vecteezy page labels its YouTube TV artwork attribution-required and editorial-use-only; the source and author are recorded in the art documentation for this owner-directed build |
 | Direct-install configuration | Pass | Tag-triggered GitHub jobs build the Android APK and unsigned iPhone device IPA on their native toolchains; SideStore applies the dedicated free Apple Account signature during iPhone installation |
@@ -74,7 +75,7 @@ Last updated: 2026-08-29
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
-| GitHub release publication | Pass | Latest published family tag is [`v1.3.2`](https://github.com/Danner36/Danner_App/releases/tag/v1.3.2) (2026-08-29). It contains the APK, IPA, iPhone setup guide, and generated SHA-256 checksum file after both platform jobs passed |
+| GitHub release publication | Pass | Latest published family tag is [`v1.3.3`](https://github.com/Danner36/Danner_App/releases/tag/v1.3.3) (2026-08-29). It contains the APK, IPA, iPhone setup guide, and generated SHA-256 checksum file after both platform jobs passed |
 
 ## Android identifiers
 
@@ -89,13 +90,13 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## GitHub release artifacts checked
 
-- Release: [Danner Apps v1.3.2](https://github.com/Danner36/Danner_App/releases/tag/v1.3.2)
+- Release: [Danner Apps v1.3.3](https://github.com/Danner36/Danner_App/releases/tag/v1.3.3)
 - Android asset: `Danner-Apps-Android.apk`
-- Android asset size: 94,951,967 bytes
-- Android SHA-256: `f2e964dbcd5685bb2194767ac347db7a341e29c146ddab1aff09a24b1990f9da`
+- Android asset size: 94,956,351 bytes
+- Android SHA-256: `826295181163eaf9662a140f9e74fecaa759b7c26c83edde11c2894b13ebc759`
 - iPhone asset: `Danner-Apps-iOS.ipa`
-- iPhone asset size: 11,863,083 bytes
-- iPhone SHA-256: `c4745e10d9ed44d8821494966590c712fbfa62892a2ec0465ad7751547f4cb3c`
+- iPhone asset size: 11,866,261 bytes
+- iPhone SHA-256: `8bb9e1d1f5a03a299b974fcc72d6a55cad4f951d8aa69c728361518ecb10f635`
 - Setup asset: `IPHONE_SETUP.md`
 - Integrity asset: `SHA256SUMS.txt`
 - Release state: published; not draft; not prerelease
@@ -110,7 +111,8 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - Test fixtures and test media URLs remain outside production artifacts, and the release build restored MLB data with no simulated live card or test buttons.
 - Tripoli is the default; searched cities and dropped map points persist with their nearest-place label across launches.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico without map-network access or satellite imagery.
-- The app does not launch Fake GPS or modify device sensors. TV Location does not read GPS. Android Cast declares fine location and requests it on API 29–32 when Send to TV runs.
+- The app does not launch Fake GPS, modify device sensors, or request location permission. Android Cast uses Nearby Wi-Fi marked `neverForLocation`. Send to TV starts capture only after the requested grants succeed.
+- Android hardware Back on Guardians closes the Play modal when it is open, then returns to the hub.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected Tripoli coordinates.
-- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.3.2`. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.3.3`. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.

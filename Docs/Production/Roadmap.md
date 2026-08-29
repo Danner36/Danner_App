@@ -25,6 +25,6 @@ Phase: MVP
 | Portable iPhone setup and recovery | Complete | Release-side setup card covers LocalDevVPN, iLoader, Apple website iTunes, USB `Import IPA`, SideStore `+`, charger `Refresh SideStore` automation, another-iPhone repeat, and official links. Agent procedure is `AI_Framework/IPHONE_INSTALL.md`. Third-party binaries are not copied into release assets |
 | Signed-in YouTube location use | Complete | YouTube requested the Tripoli point and accepted the Cedar Rapids/Waterloo/Dubuque area |
 | Parent-device and TV validation | Pending | Complete the QR-code, automatic `Next` and return, TV welcome-message, `Live` reload, expiration warning, and eight-day unattended SideStore renewal flow on target Android, iPhone, and TV |
-| Direct device distribution | Complete | GitHub release `v1.3.2` contains the installable Android APK, SideStore iPhone IPA, iPhone setup guide, and SHA-256 checksum file; later `v*` tags use the same gated two-platform release workflow |
+| Direct device distribution | Complete | GitHub release `v1.3.3` contains the installable Android APK, SideStore iPhone IPA, iPhone setup guide, and SHA-256 checksum file; later `v*` tags use the same gated two-platform release workflow |
 
 Current evidence is maintained in [Validation.md](Validation.md).
