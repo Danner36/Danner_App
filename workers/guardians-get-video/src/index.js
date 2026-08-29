@@ -38,6 +38,26 @@ async function readPin(request) {
   }
 }
 
+async function fetchStreamsDocument(env) {
+  const repo = env.GITHUB_REPO ?? 'Danner36/Danner_App';
+  const response = await fetch(
+    `https://api.github.com/repos/${repo}/contents/guardians_streams.json?ref=main`,
+    {
+      headers: {
+        Accept: 'application/vnd.github.raw',
+        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
+        'User-Agent': 'danner-guardians-get-video',
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    },
+  );
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`GitHub streams read failed with ${response.status}: ${detail}`);
+  }
+  return response.text();
+}
+
 async function dispatchGetVideo(env) {
   const repo = env.GITHUB_REPO ?? 'Danner36/Danner_App';
   const response = await fetch(
@@ -71,6 +91,28 @@ export default {
       return new Response('ok', {
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       });
+    }
+
+    if (request.method === 'GET' && url.pathname === '/streams') {
+      if (!env.GITHUB_TOKEN) {
+        return json({ error: 'Worker secrets are not configured.' }, 500);
+      }
+      try {
+        const documentText = await fetchStreamsDocument(env);
+        return new Response(documentText, {
+          headers: {
+            'Cache-Control': 'no-store',
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+        });
+      } catch (error) {
+        return json(
+          {
+            error: error instanceof Error ? error.message : String(error),
+          },
+          502,
+        );
+      }
     }
 
     if (request.method !== 'POST' || url.pathname !== '/get-video') {

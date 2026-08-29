@@ -22,6 +22,7 @@ import {
 } from './guardiansSources';
 import {
   isGetVideoAvailable,
+  liveStreamsUrl,
   pollForStream,
   requestGetVideo,
 } from './guardiansGetVideo';
@@ -399,12 +400,53 @@ function sourcesUrlWithCacheBust(url: string): string {
   return `${url}${separator}refresh=${Date.now()}`;
 }
 
+async function fetchLatestCommitSha(
+  signal: AbortSignal,
+): Promise<string | undefined> {
+  const response = await fetch(
+    'https://api.github.com/repos/Danner36/Danner_App/commits?path=guardians_streams.json&per_page=1',
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'danner-apps',
+      },
+      signal,
+    },
+  );
+  if (!response.ok) {
+    return undefined;
+  }
+  const commits = (await response.json()) as Array<{ sha?: string }>;
+  return typeof commits[0]?.sha === 'string' ? commits[0].sha : undefined;
+}
+
+async function readStreamsResponse(
+  url: string,
+  signal: AbortSignal,
+): Promise<string> {
+  const response = await fetch(sourcesUrlWithCacheBust(url), {
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+    },
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error('The approved video list is unavailable.');
+  }
+  return response.text();
+}
+
 async function fetchGuardiansSources(options?: {
   allowStaleCache?: boolean;
+  preferLive?: boolean;
 }): Promise<PlayableGuardiansStream[]> {
   const persistRemote =
     GUARDIANS_SOURCES_URL === REMOTE_GUARDIANS_SOURCES_URL;
   const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
+  const preferLive = options?.preferLive === true || options?.allowStaleCache === false;
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -412,42 +454,51 @@ async function fetchGuardiansSources(options?: {
   );
 
   try {
-    const response = await fetch(
-      sourcesUrlWithCacheBust(GUARDIANS_SOURCES_URL),
-      {
-        cache: 'no-store',
-        headers: {
-          Accept: 'application/json',
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) {
-      throw new Error('The approved video list is unavailable.');
+    const urls: string[] = [];
+    const workerStreams = liveStreamsUrl();
+    if (workerStreams && (preferLive || persistRemote)) {
+      urls.push(workerStreams);
     }
-
-    const documentText = await response.text();
-    const streams = guardiansStreamsFromDocument(JSON.parse(documentText));
-    if (!streams) {
-      throw new Error('The approved video list is invalid.');
-    }
-
-    if (persistRemote) {
+    if (preferLive && persistRemote) {
       try {
-        await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
+        const sha = await fetchLatestCommitSha(controller.signal);
+        if (sha) {
+          urls.push(
+            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/guardians_streams.json`,
+          );
+        }
       } catch {}
     }
-    return streams;
-  } catch {
+    urls.push(GUARDIANS_SOURCES_URL);
+
+    let lastError: unknown;
+    for (const url of urls) {
+      try {
+        const documentText = await readStreamsResponse(url, controller.signal);
+        const streams = guardiansStreamsFromDocument(JSON.parse(documentText));
+        if (!streams) {
+          throw new Error('The approved video list is invalid.');
+        }
+
+        if (persistRemote) {
+          try {
+            await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
+          } catch {}
+        }
+        return streams;
+      } catch (urlError) {
+        lastError = urlError;
+      }
+    }
+    throw lastError ?? new Error('The approved video list is unavailable.');
+  } catch (fetchError) {
     if (allowStaleCache) {
       try {
         const cachedDocument = await AsyncStorage.getItem(SOURCES_STORAGE_KEY);
         if (cachedDocument) {
-          return (
-            guardiansStreamsFromDocument(JSON.parse(cachedDocument)) ?? []
-          );
+          const cached =
+            guardiansStreamsFromDocument(JSON.parse(cachedDocument)) ?? [];
+          return cached;
         }
       } catch {}
     }
@@ -962,7 +1013,7 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
   const load = useCallback(
     async (
       showRefresh = false,
-      sourceOptions?: { allowStaleCache?: boolean },
+      sourceOptions?: { allowStaleCache?: boolean; preferLive?: boolean },
     ) => {
       if (showRefresh) {
         setRefreshing(true);
@@ -976,7 +1027,17 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         setSnapshot((current) =>
           snapshotWithPreservedScoreboard(current, nextSnapshot),
         );
-        setAuthorizedStreams(nextStreams);
+        setAuthorizedStreams((current) => {
+          const featured = nextSnapshot.featuredGame;
+          if (!featured) {
+            return nextStreams;
+          }
+          const incoming = authorizedStreamsForGame(nextStreams, featured);
+          const existing = authorizedStreamsForGame(current, featured);
+          return incoming.length === 0 && existing.length > 0
+            ? current
+            : nextStreams;
+        });
         setError(undefined);
       } catch (loadError) {
         setError(
@@ -1094,16 +1155,19 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     setGetVideoStatus('finding');
     try {
       const fetchLiveSources = () =>
-        fetchGuardiansSources({ allowStaleCache: false });
+        fetchGuardiansSources({ allowStaleCache: false, preferLive: true });
       await requestGetVideo();
       const found = await pollForStream(game, fetchLiveSources);
-      await load(true, { allowStaleCache: false });
       if (found) {
         setAuthorizedStreams((current) =>
           authorizedStreamsForGame(current, game).length > 0
             ? current
             : [...current, found],
         );
+        setGetVideoStatus('idle');
+      }
+      await load(true, { allowStaleCache: false, preferLive: true });
+      if (found) {
         setGetVideoStatus('idle');
       } else {
         setGetVideoStatus('failed');

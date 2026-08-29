@@ -12,6 +12,7 @@ npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
 npm run test:guardians:android:live
 npm run test:guardians:android:live-hls
+npm run test:guardians:android:get-video
 ```
 
 | Command | State |
@@ -21,8 +22,9 @@ npm run test:guardians:android:live-hls
 | `npm run test:guardians:android:delayed` | Delayed game with direct delay text |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:android:live-hls` | Live game plus capture-pattern page; taps TV and checks a local MPEG-TS playlist |
+| `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
 
-The runner starts the local fixture server on port 8108. It launches an Expo development build with fixture-data and fixture-source URLs set to the emulator host address. Production builds ignore both development overrides and fetch MLB plus root `guardians_streams.json` from GitHub.
+The shared fixture runner starts on port 8108. `test:guardians:android:get-video` uses port 8111 so it does not collide with Expo. Both launch an Expo development build with fixture-data and fixture-source URLs set to the emulator host address. Production builds ignore both development overrides and fetch MLB plus root `guardians_streams.json` from GitHub. Get video polls the worker `GET /streams` list, not raw GitHub.
 
 ## Fixture
 

@@ -1,6 +1,6 @@
 # guardians-get-video
 
-Cloudflare Worker that the Guardians app calls when **Get video** is tapped. It checks the family PIN, then starts the GitHub Actions workflow `guardians-get-video`. The Action extracts a gooz URL and publishes `guardians_streams.json`. Game dates come from MLB, not from this file.
+Cloudflare Worker that the Guardians app calls when **Get video** is tapped. It checks the family PIN, then starts the GitHub Actions workflow `guardians-get-video`. The Action extracts a gooz URL and publishes `guardians_streams.json`. Game dates come from MLB, not from this file. `GET /streams` returns the current GitHub file with no store cache so phones do not wait on raw.githubusercontent.com.
 
 ## Deploy
 
@@ -28,7 +28,8 @@ npx wrangler secret put GITHUB_TOKEN
 
 ```powershell
 curl https://guardians-get-video.<account>.workers.dev/health
+curl https://guardians-get-video.<account>.workers.dev/streams
 curl -X POST https://guardians-get-video.<account>.workers.dev/get-video -H "Content-Type: application/json" -d "{\"pin\":\"YOUR_PIN\"}"
 ```
 
-A 200 response starts the Action. The phone then reloads `guardians_streams.json` until Play appears.
+A 200 response starts the Action. The phone reloads the stream list from `GET /streams` until Play appears.
