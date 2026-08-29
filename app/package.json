@@ -13,6 +13,7 @@
     "test:guardians:android:delayed": "node ../tests/guardians/run-android.mjs delayed",
     "test:guardians:android:live": "node ../tests/guardians/run-android.mjs live",
     "test:guardians:android:live-hls": "node ../tests/guardians/run-live-hls.mjs",
+    "test:guardians:android:get-video": "node ../tests/guardians/run-get-video.mjs",
     "test:guardians:android:ready": "node ../tests/guardians/run-android.mjs ready",
     "test:guardians:server": "node ../tests/guardians/server.mjs",
     "test:offline-map": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/offline-map/run.mjs",

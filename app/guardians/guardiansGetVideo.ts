@@ -6,12 +6,19 @@ import {
 
 const GET_VIDEO_URL = process.env.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL;
 const FAMILY_PIN = process.env.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN;
-const TEST_URL = process.env.EXPO_PUBLIC_GUARDIANS_TEST_URL;
 const POLL_INTERVAL_MS = 5_000;
 const POLL_TIMEOUT_MS = 300_000;
+const REQUEST_TIMEOUT_MS = 20_000;
 
 export function isGetVideoAvailable(): boolean {
-  return Boolean(GET_VIDEO_URL && FAMILY_PIN && !TEST_URL);
+  return Boolean(GET_VIDEO_URL && FAMILY_PIN);
+}
+
+export function liveStreamsUrl(): string | undefined {
+  if (!GET_VIDEO_URL) {
+    return undefined;
+  }
+  return `${GET_VIDEO_URL.replace(/\/$/, '')}/streams`;
 }
 
 function getVideoEndpoint(): string {
@@ -24,14 +31,24 @@ export async function requestGetVideo(): Promise<void> {
     throw new Error('Get video is not configured.');
   }
 
-  const response = await fetch(getVideoEndpoint(), {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ pin: FAMILY_PIN }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(getVideoEndpoint(), {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ pin: FAMILY_PIN }),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeout);
+    throw error;
+  }
+  clearTimeout(timeout);
 
   if (response.status === 401) {
     throw new Error('Get video is not authorized.');
