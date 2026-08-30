@@ -77,6 +77,18 @@
       "url": "https://gooz.aapmains.net/new-stream-embed/55387?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": []
+    },
+    {
+      "gameDates": [
+        "2026-08-30"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/55563?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
     }
   ]
 }
