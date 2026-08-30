@@ -17,6 +17,7 @@ Desktop.ini
 *.key
 credentials.json
 secrets/
+selfIdentity.plist
 
 # Dependencies
 node_modules/

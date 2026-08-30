@@ -4,4 +4,4 @@ Expo config plugins for the generated Android and iOS projects.
 
 ## Plugins
 
-- `withGoogleCastNative` writes the Cast OptionsProvider class and default media receiver ID into the Android manifest, initializes Cast in `MainActivity`, and keeps Nearby Wi-Fi from being marked `neverForLocation`.
+- `withGoogleCastNative` marks Nearby Wi-Fi `neverForLocation`. The official `react-native-google-cast` plugin owns Cast init, the OptionsProvider, the default receiver ID, and the pinned `play-services-cast-framework` version.

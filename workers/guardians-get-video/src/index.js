@@ -2,6 +2,19 @@ const RATE_WINDOW_MS = 10 * 60 * 1000;
 const RATE_MAX = 3;
 const rateBuckets = new Map();
 
+const MODULES = {
+  guardians: {
+    eventType: 'guardians-get-video',
+    streamsPath: 'guardians_streams.json',
+    userAgent: 'danner-guardians-get-video',
+  },
+  patriots: {
+    eventType: 'patriots-get-video',
+    streamsPath: 'patriots_streams.json',
+    userAgent: 'danner-patriots-get-video',
+  },
+};
+
 function json(data, status = 200) {
   return new Response(`${JSON.stringify(data)}\n`, {
     status,
@@ -29,24 +42,34 @@ function rateLimited(ip) {
   return false;
 }
 
-async function readPin(request) {
+function resolveModule(value) {
+  if (value === undefined || value === null || value === '') {
+    return 'guardians';
+  }
+  if (value === 'guardians' || value === 'patriots') {
+    return value;
+  }
+  return undefined;
+}
+
+async function readJsonBody(request) {
   try {
-    const body = await request.json();
-    return typeof body?.pin === 'string' ? body.pin : '';
+    return await request.json();
   } catch {
-    return '';
+    return {};
   }
 }
 
-async function fetchStreamsDocument(env) {
+async function fetchStreamsDocument(env, moduleName) {
   const repo = env.GITHUB_REPO ?? 'Danner36/Danner_App';
+  const module = MODULES[moduleName];
   const response = await fetch(
-    `https://api.github.com/repos/${repo}/contents/guardians_streams.json?ref=main`,
+    `https://api.github.com/repos/${repo}/contents/${module.streamsPath}?ref=main`,
     {
       headers: {
         Accept: 'application/vnd.github.raw',
         Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        'User-Agent': 'danner-guardians-get-video',
+        'User-Agent': module.userAgent,
         'X-GitHub-Api-Version': '2022-11-28',
       },
     },
@@ -58,8 +81,9 @@ async function fetchStreamsDocument(env) {
   return response.text();
 }
 
-async function dispatchGetVideo(env) {
+async function dispatchGetVideo(env, moduleName) {
   const repo = env.GITHUB_REPO ?? 'Danner36/Danner_App';
+  const module = MODULES[moduleName];
   const response = await fetch(
     `https://api.github.com/repos/${repo}/dispatches`,
     {
@@ -67,12 +91,12 @@ async function dispatchGetVideo(env) {
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        'User-Agent': 'danner-guardians-get-video',
+        'User-Agent': module.userAgent,
         'X-GitHub-Api-Version': '2022-11-28',
       },
       body: JSON.stringify({
-        client_payload: { source: 'phone' },
-        event_type: 'guardians-get-video',
+        client_payload: { module: moduleName, source: 'phone' },
+        event_type: module.eventType,
       }),
     },
   );
@@ -94,11 +118,15 @@ export default {
     }
 
     if (request.method === 'GET' && url.pathname === '/streams') {
+      const moduleName = resolveModule(url.searchParams.get('module'));
+      if (!moduleName) {
+        return json({ error: 'Unknown module.' }, 400);
+      }
       if (!env.GITHUB_TOKEN) {
         return json({ error: 'Worker secrets are not configured.' }, 500);
       }
       try {
-        const documentText = await fetchStreamsDocument(env);
+        const documentText = await fetchStreamsDocument(env, moduleName);
         return new Response(documentText, {
           headers: {
             'Cache-Control': 'no-store',
@@ -123,7 +151,12 @@ export default {
       return json({ error: 'Worker secrets are not configured.' }, 500);
     }
 
-    const pin = await readPin(request);
+    const body = await readJsonBody(request);
+    const pin = typeof body.pin === 'string' ? body.pin : '';
+    const moduleName = resolveModule(body.module);
+    if (!moduleName) {
+      return json({ error: 'Unknown module.' }, 400);
+    }
     if (pin !== env.FAMILY_PIN) {
       return json({ error: 'Unauthorized.' }, 401);
     }
@@ -133,7 +166,7 @@ export default {
     }
 
     try {
-      await dispatchGetVideo(env);
+      await dispatchGetVideo(env, moduleName);
     } catch (error) {
       return json(
         {
@@ -143,6 +176,6 @@ export default {
       );
     }
 
-    return json({ message: 'Pipeline started.', ok: true });
+    return json({ message: 'Pipeline started.', module: moduleName, ok: true });
   },
 };

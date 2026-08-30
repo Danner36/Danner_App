@@ -16,9 +16,13 @@ import {
 } from '../modules/danner-live-hls/src';
 import { GuardiansCastButton } from './GuardiansCastButton';
 
-async function requestAndroidCapturePermissions(): Promise<void> {
+function isGranted(value: string | undefined): boolean {
+  return value === PermissionsAndroid.RESULTS.GRANTED;
+}
+
+async function requestAndroidCapturePermissions(): Promise<boolean> {
   if (Platform.OS !== 'android') {
-    return;
+    return true;
   }
 
   const permissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
@@ -29,16 +33,20 @@ async function requestAndroidCapturePermissions(): Promise<void> {
   const nearbyWifi = PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES;
   if (typeof Platform.Version === 'number' && Platform.Version >= 33 && nearbyWifi) {
     permissions.push(nearbyWifi);
-  } else {
-    const fineLocation = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
-    if (fineLocation) {
-      permissions.push(fineLocation);
-    }
   }
-  await PermissionsAndroid.requestMultiple(permissions);
+
+  const result = await PermissionsAndroid.requestMultiple(permissions);
+  const granted = permissions.every((permission) => isGranted(result[permission]));
+  return granted;
 }
 
-export function GuardiansTvRouteButton({ visible }: { visible: boolean }) {
+export function GuardiansTvRouteButton({
+  onFailed,
+  visible,
+}: {
+  onFailed: (message?: string) => void;
+  visible: boolean;
+}) {
   const [liveUrl, setLiveUrl] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -62,10 +70,16 @@ export function GuardiansTvRouteButton({ visible }: { visible: boolean }) {
     }
 
     setBusy(true);
+    onFailed();
     try {
-      await requestAndroidCapturePermissions();
+      const permitted = await requestAndroidCapturePermissions();
+      if (!permitted) {
+        onFailed('TV send needs permission.');
+        return;
+      }
       const started = await startLiveHls();
       if (!started) {
+        onFailed('Could not send to the TV.');
         return;
       }
       setLiveUrl(liveHlsPlaylistUrl(started.origin));

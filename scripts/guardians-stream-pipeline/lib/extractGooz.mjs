@@ -241,7 +241,11 @@ async function findInnerLinkByHref(page, options) {
 
       const text = anchor.textContent?.replace(/\s+/g, ' ').trim() ?? '';
       let score = 10;
-      if (hrefLower.includes('/mlb/') || hrefLower.includes('/stream/')) {
+      if (
+        hrefLower.includes('/mlb/') ||
+        hrefLower.includes('/nfl/') ||
+        hrefLower.includes('/stream/')
+      ) {
         score += 3;
       }
 
@@ -452,7 +456,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       remember(message);
       if (game) {
         remember(
-          `Using MLB game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
+          `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
         );
       }
       return {
@@ -527,11 +531,11 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       pushStep(
         steps,
         'mlb_game',
-        `Using MLB game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
+        `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
         { game, success: true },
       );
       remember(
-        `Using MLB game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
+        `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
       );
     } else {
       pushStep(steps, 'mlb_game', 'No featured Guardians game found in MLB schedule.', {

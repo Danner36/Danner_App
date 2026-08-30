@@ -130,11 +130,21 @@ If SideStore or Danner Apps is missing or expired, repeat from iLoader on the PC
 
 ## New Danner Apps version
 
+Preferred after Danner Apps is already in SideStore `My Apps` and the installed build includes the launch checker:
+
 1. Publish a GitHub release with a new `Danner-Apps-iOS.ipa`.
 2. On the iPhone, Wi-Fi, LocalDevVPN `Connect`.
-3. Put that IPA in `Downloads` (phone download or USB AFC push).
-4. SideStore `My Apps` → `+` → the new IPA.
-5. Charger resign still uses `Refresh All Apps` on whatever build SideStore has registered. `Refresh All` does not fetch GitHub updates.
+3. Open Danner Apps. If `Update available` appears, tap `Yes`.
+4. Finish the SideStore install. That path uses `sidestore://install?url=` and does not need Safari → Downloads → `+`.
+
+Fallback (also required for phones still on a build without the checker, including `v1.3.3`):
+
+1. Put the new IPA in `Downloads` (phone download or USB AFC push).
+2. SideStore `My Apps` → `+` → the new IPA.
+
+Optional: add the SideStore source `https://github.com/Danner36/Danner_App/releases/latest/download/sidestore-source.json` so SideStore's own Updates tab can also see new IPAs.
+
+Charger resign still uses `Refresh All Apps` on whatever build SideStore has registered. `Refresh All` does not fetch GitHub updates.
 
 ## iLoader UI Automation
 

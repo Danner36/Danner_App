@@ -13,6 +13,7 @@ import {
   isBlockedGame,
   isWithinProbeWindow,
 } from './mlbSchedule.mjs';
+import { fetchPatriotsGames } from './nflSchedule.mjs';
 import { probePlayerPage } from './probePlayer.mjs';
 import { publishStreamsFile } from './publishGithub.mjs';
 import {
@@ -41,6 +42,20 @@ export function streamsPathForConfig(config) {
     repoRoot,
     config.github?.streamsPath ?? 'guardians_streams.json',
   );
+}
+
+function noGameMessage(config) {
+  return config.sport === 'nfl'
+    ? 'No Patriots game is scheduled for today.'
+    : 'No Guardians game is scheduled for today.';
+}
+
+async function fetchConfiguredGames(config, now) {
+  const teamId =
+    config.teamId ?? (config.sport === 'nfl' ? 17 : 114);
+  return config.sport === 'nfl'
+    ? fetchPatriotsGames(teamId, now)
+    : fetchGuardiansGames(teamId, now);
 }
 
 export function isGameOver(game) {
@@ -94,7 +109,7 @@ export function getButtonState(game, streamEntry, now, config) {
   if (!game) {
     return {
       enabled: false,
-      message: 'No Guardians game is scheduled for today.',
+      message: noGameMessage(config),
       phase: 'no_game',
       visible: false,
     };
@@ -253,19 +268,19 @@ export async function runGoozPipeline(options = {}) {
   const now = new Date();
   const steps = [];
 
-  const games = await fetchGuardiansGames(teamId, now);
+  const games = await fetchConfiguredGames(config, now);
   const game = featuredGame(games, now);
   if (!game) {
     return {
       outcome: 'no_game',
-      message: 'No Guardians game is scheduled for today.',
+      message: noGameMessage(config),
       steps,
       success: true,
     };
   }
 
   steps.push({
-    step: 'mlb_schedule',
+    step: config.sport === 'nfl' ? 'espn_schedule' : 'mlb_schedule',
     game,
     message: `Featured game ${game.officialDate} #${game.gameNumber} vs ${game.opponentName} (${game.status}).`,
   });
@@ -391,7 +406,7 @@ export async function runGoozPipeline(options = {}) {
     return {
       game,
       outcome: 'dry_run',
-      message: 'Dry run complete; guardians_streams.json was not written.',
+      message: `Dry run complete; ${config.github?.streamsPath ?? 'guardians_streams.json'} was not written.`,
       nextEntry,
       steps,
       success: true,
@@ -431,19 +446,19 @@ export async function runPipeline(options = {}) {
   const now = new Date();
   const steps = [];
 
-  const games = await fetchGuardiansGames(teamId, now);
+  const games = await fetchConfiguredGames(config, now);
   const game = featuredGame(games, now);
   if (!game) {
     return {
       outcome: 'no_game',
-      message: 'No Guardians game is scheduled for today.',
+      message: noGameMessage(config),
       steps,
       success: true,
     };
   }
 
   steps.push({
-    step: 'mlb_schedule',
+    step: config.sport === 'nfl' ? 'espn_schedule' : 'mlb_schedule',
     game,
     message: `Featured game ${game.officialDate} #${game.gameNumber} vs ${game.opponentName} (${game.status}).`,
   });
@@ -574,7 +589,7 @@ export async function runPipeline(options = {}) {
     return {
       game,
       outcome: 'dry_run',
-      message: 'Dry run complete; guardians_streams.json was not written.',
+      message: `Dry run complete; ${config.github?.streamsPath ?? 'guardians_streams.json'} was not written.`,
       nextEntry,
       probeResult,
       steps,

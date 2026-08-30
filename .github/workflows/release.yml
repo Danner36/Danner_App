@@ -46,14 +46,18 @@ jobs:
 
       - name: Generate Android project
         env:
+          EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
           EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
           EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: npx expo prebuild --platform android --clean
 
       - name: Build APK
         env:
+          EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
           EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
           EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: ./android/gradlew --no-daemon -p android app:assembleRelease
 
       - name: Name APK
@@ -88,14 +92,18 @@ jobs:
 
       - name: Generate iPhone project
         env:
+          EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
           EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
           EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: npx expo prebuild --platform ios --clean
 
       - name: Build unsigned device app
         env:
+          EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
           EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
           EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         shell: bash
         run: |
           set -euo pipefail
@@ -167,9 +175,17 @@ jobs:
           name: ios-release
           path: release-assets
 
-      - name: Add setup guide and checksums
+      - name: Add setup guide, checksums, and update manifests
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           cp release/IPHONE_SETUP.md release-assets/IPHONE_SETUP.md
+          node release/build-update-assets.mjs \
+            "${RELEASE_TAG}" \
+            release-assets/Danner-Apps-Android.apk \
+            release-assets/Danner-Apps-iOS.ipa \
+            release-assets
           cd release-assets
           sha256sum Danner-Apps-Android.apk Danner-Apps-iOS.ipa > SHA256SUMS.txt
 
@@ -182,6 +198,8 @@ jobs:
           release-assets/Danner-Apps-iOS.ipa
           release-assets/IPHONE_SETUP.md
           release-assets/SHA256SUMS.txt
+          release-assets/version-manifest.json
+          release-assets/sidestore-source.json
           --verify-tag
           --title "Danner Apps ${RELEASE_TAG}"
           --notes-file release/RELEASE_NOTES.md

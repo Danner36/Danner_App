@@ -4,8 +4,10 @@ import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
   AppState,
+  BackHandler,
   Image,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -500,6 +502,8 @@ function StreamPlayer({
   stream?: PlayableStream;
   onClose: () => void;
 }) {
+  const [tvError, setTvError] = useState<string>();
+
   return (
     <Modal
       animationType="slide"
@@ -531,11 +535,16 @@ function StreamPlayer({
               visible
             />
           ) : stream?.kind === 'web' ? (
-            <GuardiansTvRouteButton visible />
+            <GuardiansTvRouteButton onFailed={setTvError} visible />
           ) : (
             <View style={styles.headerSpacer} />
           )}
         </View>
+        {tvError ? (
+          <Text accessibilityRole="alert" style={styles.tvErrorText}>
+            {tvError}
+          </Text>
+        ) : null}
 
         {stream ? (
           stream.kind === 'direct' ? (
@@ -990,6 +999,26 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
       setGetVideoStatus('idle');
     }
   }, [featuredStreams.length, getVideoStatus]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        if (selectedStream) {
+          setSelectedStream(undefined);
+          return true;
+        }
+        onBack();
+        return true;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [onBack, selectedStream]);
 
   const handleGetVideo = useCallback(async () => {
     const game = snapshot?.featuredGame;
@@ -1570,6 +1599,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  tvErrorText: {
+    backgroundColor: '#FFFFFF',
+    color: '#A32626',
+    fontSize: 15,
+    fontWeight: '700',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
   },
   playerWebView: {
     backgroundColor: '#000000',

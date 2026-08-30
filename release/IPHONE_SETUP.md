@@ -82,6 +82,21 @@ USB puts Danner Apps on the iPhone. SideStore `+` of the same IPA is still requi
 1. Open Danner Apps.
 2. Confirm the Danner logo and both app buttons appear.
 
+## NEW VERSION ON IPHONE
+
+Use this after Danner Apps is in SideStore `My Apps`.
+
+1. Connect to Wi-Fi.
+2. Open LocalDevVPN.
+3. Tap `Connect`.
+4. Open Danner Apps.
+5. If `Update available` appears, tap `Yes`.
+6. Finish the SideStore install.
+
+SideStore `+` of a downloaded IPA still works. Phones on a build without the update prompt still use `+`.
+
+Optional: SideStore Sources can add `https://github.com/Danner36/Danner_App/releases/latest/download/sidestore-source.json`.
+
 ## ANOTHER IPHONE
 
 Each iPhone is a full first-time setup on that device. iLoader and iTunes stay on the PC. Shortcuts and SideStore do not copy.

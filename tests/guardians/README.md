@@ -14,6 +14,7 @@ npm run test:guardians:android:final
 npm run test:guardians:android:live
 npm run test:guardians:snapshot
 npm run test:guardians:android:live-hls
+npm run test:guardians:android:shell-fix
 npm run test:guardians:android:get-video
 ```
 
@@ -26,6 +27,7 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
 | `npm run test:guardians:android:live-hls` | Live game plus capture-pattern page; taps TV and checks a local MPEG-TS playlist |
+| `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; denied TV grants show the failure and no location prompt |
 | `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
 
 The shared fixture runner starts on port 8108. `test:guardians:android:get-video` uses port 8111 so it does not collide with Expo. Both launch an Expo development build with fixture-data and fixture-source URLs set to the emulator host address. Production builds ignore both development overrides and fetch MLB plus root `guardians_streams.json` from GitHub. Get video polls the worker `GET /streams` list, not raw GitHub.

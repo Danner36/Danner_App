@@ -1,0 +1,19 @@
+{
+  "sport": "nfl",
+  "teamId": 17,
+  "leadMinutes": 15,
+  "postStartGraceMinutes": 240,
+  "probeTimeoutSeconds": 90,
+  "extract": {
+    "baseUrl": "https://www.example.com/live",
+    "hrefNeedle": "new-england-patriots",
+    "timeoutSeconds": 90
+  },
+  "github": {
+    "owner": "Danner36",
+    "repo": "Danner_App",
+    "branch": "main",
+    "streamsPath": "patriots_streams.json",
+    "commitMessagePrefix": "patriots: update stream for"
+  }
+}

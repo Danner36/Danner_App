@@ -21,6 +21,9 @@
           "NSAllowsLocalNetworking": true
         },
         "NSLocalNetworkUsageDescription": "Danner Apps connects to home video streams on your local network.",
+        "LSApplicationQueriesSchemes": [
+          "sidestore"
+        ],
         "UIBackgroundModes": [
           "audio"
         ]
@@ -29,8 +32,11 @@
     "android": {
       "package": "com.example.location_helper",
       "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
       "permissions": [
-        "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
         "android.permission.CHANGE_WIFI_MULTICAST_STATE",
@@ -40,6 +46,7 @@
         "android.permission.NEARBY_WIFI_DEVICES",
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECORD_AUDIO",
+        "android.permission.REQUEST_INSTALL_PACKAGES",
         "android.permission.WAKE_LOCK"
       ]
     },
@@ -88,6 +95,7 @@
       [
         "react-native-google-cast",
         {
+          "androidPlayServicesCastFrameworkVersion": "21.5.0",
           "expandedController": false,
           "receiverAppId": "CC1AD845"
         }

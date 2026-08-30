@@ -2,4 +2,4 @@
 
 Cloudflare Workers that the phone app can call without a home PC.
 
-- `guardians-get-video/` starts the Guardians stream pipeline on GitHub Actions.
+- `guardians-get-video/` is the shared Get video Worker. Missing or `guardians` module starts the Guardians pipeline. `patriots` starts the Patriots pipeline.

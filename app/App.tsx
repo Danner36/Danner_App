@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { BackHandler, Platform, StyleSheet } from 'react-native';
+import { useCallback, useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaProvider,
@@ -7,9 +7,10 @@ import {
 } from 'react-native-safe-area-context';
 import { GuardiansScreen } from './guardians/GuardiansScreen';
 import { HubScreen } from './hub/HubScreen';
+import { PatriotsScreen } from './patriots/PatriotsScreen';
 import { TvLocationScreen } from './tvLocation/TvLocationScreen';
 
-type AppScreen = 'guardians' | 'menu' | 'tv-location';
+type AppScreen = 'guardians' | 'menu' | 'patriots' | 'tv-location';
 
 export default function App() {
   const [appScreen, setAppScreen] = useState<AppScreen>('menu');
@@ -18,22 +19,6 @@ export default function App() {
     setAppScreen('menu');
   }, []);
 
-  useEffect(() => {
-    if (Platform.OS !== 'android' || appScreen !== 'guardians') {
-      return;
-    }
-
-    const subscription = BackHandler.addEventListener(
-      'hardwareBackPress',
-      () => {
-        setAppScreen('menu');
-        return true;
-      },
-    );
-
-    return () => subscription.remove();
-  }, [appScreen]);
-
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
@@ -41,10 +26,13 @@ export default function App() {
         {appScreen === 'menu' ? (
           <HubScreen
             onOpenGuardians={() => setAppScreen('guardians')}
+            onOpenPatriots={() => setAppScreen('patriots')}
             onOpenTvLocation={() => setAppScreen('tv-location')}
           />
         ) : appScreen === 'guardians' ? (
           <GuardiansScreen onBack={openMenu} />
+        ) : appScreen === 'patriots' ? (
+          <PatriotsScreen onBack={openMenu} />
         ) : (
           <TvLocationScreen onBackToMenu={openMenu} />
         )}

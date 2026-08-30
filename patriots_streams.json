@@ -1,0 +1,33 @@
+{
+  "HOW_TO_GUIDE": {
+    "EDIT_HERE": "streams",
+    "STEP_1": "Copy the complete object below INACTIVE EXAMPLE.",
+    "STEP_2": "Paste the copy after the example object.",
+    "STEP_3": "Put a comma between the example object and the pasted object.",
+    "STEP_4": "Replace every value in the pasted object.",
+    "STEP_5": "Commit and push patriots_streams.json to main.",
+    "gameDates": "Game dates for this URL. Format: YYYY-MM-DD. One date: [\"2026-09-10\"]. Reused URL: [\"2026-09-10\", \"2026-09-14\"].",
+    "gameNumbers": "Normal game: [1].",
+    "kind": "direct for .m3u8, .mp4, or .mpd. youtube for a YouTube URL. web for a webpage containing a player.",
+    "url": "Approved media URL or player-page URL.",
+    "allowInsecureHttp": "false for https://. true for http://.",
+    "trustedHosts": "web redirects only. Hostnames only. No https://. No paths. Use [] for direct, youtube, or no redirect hosts.",
+    "PHONE_CHECKS_FILE": "Screen open. Pull-to-refresh. Every 60 seconds.",
+    "WATCH_BUTTON_TIME": "15 minutes before game time."
+  },
+  "streams": [
+    "INACTIVE EXAMPLE. COPY THE COMPLETE OBJECT BELOW THIS LINE.",
+    {
+      "gameDates": [
+        "YYYY-MM-DD"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "direct",
+      "url": "https://media.example.com/game/master.m3u8",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    }
+  ]
+}
