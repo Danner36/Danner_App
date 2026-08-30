@@ -18,8 +18,8 @@ Do not print listing `extract.baseUrl`, family PIN values, Apple Account secrets
 | Worker `module: "cyclones"` | Absent. Live Worker source knows `guardians` and `patriots` only |
 | Hub row 2 | YouTube TV under Guardians, reserved empty spacer under Patriots |
 | Product rule in `AI_Framework/AI_RULES.md` | Still the spacer layout. Change only when Cyclones is implemented |
-| Latest published family tag | `v1.3.3`. Installed phones still have the previous two-tile hub |
-| Patriots sibling | Implemented in **local source**. Much of it is still uncommitted. Treat Patriots as the copy pattern, not as already on `main` or on family phones |
+| Latest published family tag | `v1.4.0`. Installed `v1.3.3` phones still have the previous two-tile hub until that APK or IPA is installed |
+| Patriots sibling | On `main` and in `v1.4.0`. Treat Patriots as the copy pattern |
 
 Patriots is the required sibling pattern. Read `app/patriots/`, `tests/patriots/`, `Docs/Domain/Patriots.md`, `.github/workflows/patriots-stream-pipeline.yml`, and `workers/guardians-get-video/src/index.js` before writing Cyclones.
 
@@ -84,7 +84,7 @@ This is the working template Cyclones copies. It is not Cyclones work.
   - `FAMILY_PIN`
   - `GITHUB_TOKEN`
 - Worker was deployed once after Patriots `module` landed in source (`npx wrangler login` then `npx wrangler deploy` from `workers/guardians-get-video`). The PC does not stay on. Redeploy once more after `cyclones` is added to `MODULES`.
-- `GET /streams?module=patriots` 502s until `patriots_streams.json` exists on `main`. Same rule will apply to `cyclones_streams.json`.
+- `GET /streams?module=patriots` is live and reads `patriots_streams.json` from `main`. `GET /streams?module=cyclones` will 502 until `cyclones_streams.json` exists on `main`.
 
 ### GitHub (repo `Danner36/Danner_App`)
 
