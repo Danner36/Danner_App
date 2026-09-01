@@ -2,6 +2,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { LiveFootballScoreboard } from './espnScoreboard';
 import { PATRIOTS_TEAM_ID } from './patriotsSnapshot';
 
+const MAX_QUARTERS = 10;
+
 function teamLabel(isPatriots: boolean, opponentName: string): string {
   if (isPatriots) {
     return 'PATRIOTS';
@@ -42,11 +44,16 @@ export function PatriotsScoreboard({
   opponentName: string;
   scoreboard: LiveFootballScoreboard;
 }) {
-  const quarterCount = Math.max(
-    4,
-    scoreboard.away.quarters.length,
-    scoreboard.home.quarters.length,
-    scoreboard.period,
+  // period comes straight from ESPN and is only floored at 0 upstream, so a malformed
+  // response would otherwise size this array arbitrarily and render a View per column.
+  const quarterCount = Math.min(
+    MAX_QUARTERS,
+    Math.max(
+      4,
+      scoreboard.away.quarters.length,
+      scoreboard.home.quarters.length,
+      scoreboard.period,
+    ),
   );
   const headers = Array.from({ length: quarterCount }, (_, index) =>
     index < 4 ? String(index + 1) : index === 4 ? 'OT' : `${index - 3}OT`,

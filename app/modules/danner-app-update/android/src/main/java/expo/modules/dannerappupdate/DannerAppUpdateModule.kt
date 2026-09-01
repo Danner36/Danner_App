@@ -11,6 +11,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -50,12 +51,13 @@ class DannerAppUpdateModule : Module() {
 
       try {
         val apk = downloadAndVerify(context, url, sha256)
-        Handler(Looper.getMainLooper()).post {
-          try {
-            commitInstall(context, apk, promise)
-          } catch (error: Exception) {
-            promise.reject("ERR_INSTALL", error.message, error)
-          }
+        // Deliberately not on the main thread: commitInstall streams the whole APK into the
+        // installer session, which is tens of megabytes. The receiver's onReceive is still
+        // delivered on the main looper, which is all that needed it.
+        try {
+          commitInstall(context, apk, promise)
+        } catch (error: Exception) {
+          promise.reject("ERR_INSTALL", error.message, error)
         }
       } catch (error: ChecksumException) {
         promise.reject("ERR_CHECKSUM", error.message, error)
@@ -163,6 +165,16 @@ class DannerAppUpdateModule : Module() {
         }
 
         override fun onReceive(receiverContext: Context, intent: Intent) {
+          // Only act on results for the session we opened. STATUS_PENDING_USER_ACTION hands
+          // us an Intent we then start, so a spoofed broadcast would be an activity
+          // redirection; the session id is checked before that Intent is ever touched.
+          val reportedSession = intent.getIntExtra(
+            PackageInstaller.EXTRA_SESSION_ID,
+            -1,
+          )
+          if (reportedSession != sessionId) {
+            return
+          }
           val status = intent.getIntExtra(
             PackageInstaller.EXTRA_STATUS,
             PackageInstaller.STATUS_FAILURE,
@@ -192,12 +204,16 @@ class DannerAppUpdateModule : Module() {
         }
       }
 
-      val filter = IntentFilter(action)
-      if (Build.VERSION.SDK_INT >= 33) {
-        context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-      } else {
-        context.registerReceiver(receiver, filter)
-      }
+      // Before API 33 a dynamically registered receiver with a custom action is reachable by
+      // any app on the device that knows the action string, which is derivable from the
+      // package name. ContextCompat closes that by registering behind a generated permission
+      // on older releases; the platform flag is used from 33 up.
+      ContextCompat.registerReceiver(
+        context,
+        receiver,
+        IntentFilter(action),
+        ContextCompat.RECEIVER_NOT_EXPORTED,
+      )
 
       val confirmIntent = Intent(action).setPackage(context.packageName)
       val pendingFlags =

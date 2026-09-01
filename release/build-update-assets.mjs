@@ -8,6 +8,12 @@ function parseReleaseVersion(raw) {
   }
 
   const version = raw.trim().replace(/^v/i, '');
+  // Keeps this in step with app/hub/appUpdate.ts: parseInt alone accepts trailing garbage,
+  // which would also land unvalidated in the release asset URLs built below.
+  if (!/^\d+\.\d+(?:\.\d+)?$/.test(version)) {
+    return undefined;
+  }
+
   const parts = version.split('.').map((part) => Number.parseInt(part, 10));
   if (
     parts.length < 2 ||

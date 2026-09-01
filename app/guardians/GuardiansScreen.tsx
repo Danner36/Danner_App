@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
@@ -33,6 +33,7 @@ import { GuardiansAudioPlayer } from './GuardiansAudioPlayer';
 import {
   GuardiansCastButton,
   castContentTypeForUrl,
+  castStreamTypeForUrl,
 } from './GuardiansCastButton';
 import { GuardiansTvRouteButton } from './GuardiansTvRouteButton';
 import { GuardiansScoreboard } from './GuardiansScoreboard';
@@ -56,10 +57,15 @@ import {
 } from './guardiansSnapshot';
 
 const REFRESH_INTERVAL_MS = 60_000;
+// The schedule query spans the rest of the season with linescore/team/decisions hydrated, so
+// it is by far the heaviest call here. Live scores come from fetchLiveScoreboard instead, and
+// the game list and season record barely move, so this does not need the 60s source cadence.
+const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
 const VIDEO_LEAD_TIME_MS = 15 * 60_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
+const SNAPSHOT_FETCH_TIMEOUT_MS = 10_000;
 const REMOTE_GUARDIANS_SOURCES_URL =
   'https://raw.githubusercontent.com/Danner36/Danner_App/main/guardians_streams.json';
 const SOURCES_STORAGE_KEY = 'danner.guardians.sources.v2';
@@ -182,19 +188,15 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
     standingsTypes: 'regularSeason',
   });
 
-  const [scheduleResponse, standingsResponse] = await Promise.all([
-    fetch(`https://statsapi.mlb.com/api/v1/schedule?${scheduleQuery}`),
-    fetch(`https://statsapi.mlb.com/api/v1/standings?${standingsQuery}`),
-  ]);
-
-  if (!scheduleResponse.ok || !standingsResponse.ok) {
-    throw new Error('Guardians information is temporarily unavailable.');
-  }
-
-  const schedule = (await scheduleResponse.json()) as {
-    dates?: Array<{ games?: unknown[] }>;
-  };
-  const standings = (await standingsResponse.json()) as {
+  // One budget for the pair: without it a hung statsapi leaves load() unsettled, so the
+  // refresh spinner never clears and the 60s poll stacks more requests behind it.
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    SNAPSHOT_FETCH_TIMEOUT_MS,
+  );
+  let schedule: { dates?: Array<{ games?: unknown[] }> };
+  let standings: {
     records?: Array<{
       teamRecords?: Array<{
         losses?: number;
@@ -203,6 +205,25 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
       }>;
     }>;
   };
+  try {
+    const [scheduleResponse, standingsResponse] = await Promise.all([
+      fetch(`https://statsapi.mlb.com/api/v1/schedule?${scheduleQuery}`, {
+        signal: controller.signal,
+      }),
+      fetch(`https://statsapi.mlb.com/api/v1/standings?${standingsQuery}`, {
+        signal: controller.signal,
+      }),
+    ]);
+
+    if (!scheduleResponse.ok || !standingsResponse.ok) {
+      throw new Error('Guardians information is temporarily unavailable.');
+    }
+
+    schedule = await scheduleResponse.json();
+    standings = await standingsResponse.json();
+  } finally {
+    clearTimeout(timeout);
+  }
   const rawGames = schedule.dates?.flatMap((date) => date.games ?? []) ?? [];
   const games = rawGames
     .map((rawGame) => {
@@ -274,6 +295,23 @@ async function readStreamsResponse(
   return response.text();
 }
 
+// Each attempt gets its own budget. Sharing one controller across the fallback chain lets a
+// slow first source abort the very fallbacks that exist to cover it.
+async function withSourcesTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    SOURCES_FETCH_TIMEOUT_MS,
+  );
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchGuardiansSources(options?: {
   allowStaleCache?: boolean;
   preferLive?: boolean;
@@ -282,11 +320,6 @@ async function fetchGuardiansSources(options?: {
     GUARDIANS_SOURCES_URL === REMOTE_GUARDIANS_SOURCES_URL;
   const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
   const preferLive = options?.preferLive === true || options?.allowStaleCache === false;
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    SOURCES_FETCH_TIMEOUT_MS,
-  );
 
   try {
     const urls: string[] = [];
@@ -296,7 +329,7 @@ async function fetchGuardiansSources(options?: {
     }
     if (preferLive && persistRemote) {
       try {
-        const sha = await fetchLatestCommitSha(controller.signal);
+        const sha = await withSourcesTimeout(fetchLatestCommitSha);
         if (sha) {
           urls.push(
             `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/guardians_streams.json`,
@@ -309,7 +342,9 @@ async function fetchGuardiansSources(options?: {
     let lastError: unknown;
     for (const url of urls) {
       try {
-        const documentText = await readStreamsResponse(url, controller.signal);
+        const documentText = await withSourcesTimeout((signal) =>
+          readStreamsResponse(url, signal),
+        );
         const streams = guardiansStreamsFromDocument(JSON.parse(documentText));
         if (!streams) {
           throw new Error('The approved video list is invalid.');
@@ -338,8 +373,6 @@ async function fetchGuardiansSources(options?: {
       } catch {}
     }
     return [];
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
@@ -531,7 +564,9 @@ function StreamPlayer({
           {stream?.kind === 'direct' ? (
             <GuardiansCastButton
               contentType={castContentTypeForUrl(stream.playbackUrl)}
+              onFailed={setTvError}
               playbackUrl={stream.playbackUrl}
+              streamType={castStreamTypeForUrl(stream.playbackUrl)}
               visible
             />
           ) : stream?.kind === 'web' ? (
@@ -864,6 +899,13 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     'idle' | 'finding' | 'failed'
   >('idle');
 
+  const snapshotRef = useRef<GuardiansSnapshot | undefined>(undefined);
+  const lastSnapshotAtRef = useRef(0);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
   const load = useCallback(
     async (
       showRefresh = false,
@@ -874,15 +916,28 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
       }
 
       try {
-        const [nextSnapshot, nextStreams] = await Promise.all([
-          fetchGuardiansSnapshot(),
+        // A manual pull always refetches; the background poll only does so once the snapshot
+        // has aged out, so the 60s cadence costs one small sources request instead of the
+        // whole remaining schedule.
+        const startedAt = Date.now();
+        const refreshSnapshot =
+          showRefresh ||
+          snapshotRef.current === undefined ||
+          startedAt - lastSnapshotAtRef.current >= SNAPSHOT_REFRESH_INTERVAL_MS;
+        const [fetchedSnapshot, nextStreams] = await Promise.all([
+          refreshSnapshot ? fetchGuardiansSnapshot() : undefined,
           fetchGuardiansSources(sourceOptions),
         ]);
-        setSnapshot((current) =>
-          snapshotWithPreservedScoreboard(current, nextSnapshot),
-        );
+        if (fetchedSnapshot) {
+          lastSnapshotAtRef.current = startedAt;
+          setSnapshot((current) =>
+            snapshotWithPreservedScoreboard(current, fetchedSnapshot),
+          );
+        }
         setAuthorizedStreams((current) => {
-          const featured = nextSnapshot.featuredGame;
+          const featured =
+            fetchedSnapshot?.featuredGame ??
+            snapshotRef.current?.featuredGame;
           if (!featured) {
             return nextStreams;
           }
@@ -912,13 +967,29 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     return () => clearInterval(interval);
   }, [load]);
 
+  // nowMs only drives the pre-game countdown and the video window opening. Once the game is
+  // live, final, or interrupted nothing on screen reads it, so ticking every second would
+  // re-render the whole screen for nothing across the longest stretch it is open.
+  const featuredState = snapshot?.featuredGame?.abstractState;
+  const featuredStatus = snapshot?.featuredGame?.status;
+  const needsCountdownTick = useMemo(() => {
+    if (!featuredState || featuredState === 'Live' || featuredState === 'Final') {
+      return false;
+    }
+    return !gameInterruption(featuredStatus ?? '');
+  }, [featuredState, featuredStatus]);
+
   useEffect(() => {
+    setNowMs(Date.now());
+    if (!needsCountdownTick) {
+      return;
+    }
     const interval = setInterval(
       () => setNowMs(Date.now()),
       COUNTDOWN_INTERVAL_MS,
     );
     return () => clearInterval(interval);
-  }, []);
+  }, [needsCountdownTick]);
 
   useEffect(() => {
     const featured = snapshot?.featuredGame;

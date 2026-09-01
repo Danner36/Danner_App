@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 const GITHUB_API = 'https://api.github.com';
+const GITHUB_TIMEOUT_MS = 20_000;
 
 function encodePath(path) {
   return path
@@ -18,6 +19,7 @@ export async function readRemoteSha({ owner, repo, branch, path, token }) {
         Authorization: `Bearer ${token}`,
         'X-GitHub-Api-Version': '2022-11-28',
       },
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
     },
   );
 
@@ -59,6 +61,7 @@ export async function publishStreamsFile({
         message,
         sha,
       }),
+      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
     },
   );
 

@@ -2,10 +2,11 @@ package expo.modules.dannerlivehls
 
 import java.util.ArrayDeque
 import java.util.Locale
+import kotlin.math.ceil
 
 internal class HlsWindow(
-  private val targetDurationSeconds: Int = 3,
-  private val maxSegments: Int = 8,
+  private val minTargetDurationSeconds: Int = 3,
+  private val maxSegments: Int = 12,
 ) {
   private val lock = Any()
   private val segments = ArrayDeque<Segment>()
@@ -35,12 +36,17 @@ internal class HlsWindow(
         return ""
       }
       val first = segments.first.index
+      // RFC 8216 requires TARGETDURATION to be at least the longest EXTINF in the window, and
+      // players size their live holdback from it, so it has to follow the real segments.
+      val targetDuration = maxOf(
+        minTargetDurationSeconds,
+        ceil(segments.maxOf { it.durationSeconds }).toInt(),
+      )
       val builder = StringBuilder()
       builder.append("#EXTM3U\n")
       builder.append("#EXT-X-VERSION:3\n")
-      builder.append("#EXT-X-TARGETDURATION:$targetDurationSeconds\n")
+      builder.append("#EXT-X-TARGETDURATION:$targetDuration\n")
       builder.append("#EXT-X-MEDIA-SEQUENCE:$first\n")
-      builder.append("#EXT-X-INDEPENDENT-SEGMENTS\n")
       for (segment in segments) {
         builder.append(
           "#EXTINF:${"%.3f".format(Locale.US, segment.durationSeconds)},\n",

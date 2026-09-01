@@ -24,7 +24,8 @@ internal class ScreenHlsPipeline(
   private val onSegment: (count: Int) -> Unit,
 ) {
   private val lock = Any()
-  private val codecBufferInfo = MediaCodec.BufferInfo()
+  private val videoBufferInfo = MediaCodec.BufferInfo()
+  private val audioBufferInfo = MediaCodec.BufferInfo()
   private val audNal = byteArrayOf(0, 0, 0, 1, 0x09, 0xF0.toByte())
   private val audioSampleRate = 44_100
   private val audioChannels = 2
@@ -34,11 +35,14 @@ internal class ScreenHlsPipeline(
   private var inputSurface: Surface? = null
   private var virtualDisplay: VirtualDisplay? = null
   private var audioRecord: AudioRecord? = null
-  private var muxer = MpegTsMuxer()
+  private val muxer = MpegTsMuxer()
   private var segment = ByteArrayOutputStream()
   private var videoHeader: ByteArray? = null
   private var segmentStartUs = -1L
   private var lastVideoUs = 0L
+
+  @Volatile
+  private var baseUs = -1L
   private var includeAudio = false
   private var running = false
   private var audioThread: Thread? = null
@@ -213,14 +217,15 @@ internal class ScreenHlsPipeline(
   private fun captureAudio() {
     val record = audioRecord ?: return
     val encoder = audioEncoder ?: return
-    val startNs = System.nanoTime()
     val buffer = ByteArray(4096)
     while (running) {
       val read = record.read(buffer, 0, buffer.size)
       if (read <= 0) {
         continue
       }
-      val ptsUs = (System.nanoTime() - startNs) / 1_000L
+      // CLOCK_MONOTONIC, the same clock VirtualDisplay stamps frames with, so audio and
+      // video reach the muxer on one timebase. Both are normalized in muxVideo / muxAudio.
+      val ptsUs = System.nanoTime() / 1_000L
       var offset = 0
       while (offset < read && running) {
         val index = try {
@@ -249,7 +254,7 @@ internal class ScreenHlsPipeline(
     val encoder = videoEncoder ?: return
     while (true) {
       val index = try {
-        encoder.dequeueOutputBuffer(codecBufferInfo, 0)
+        encoder.dequeueOutputBuffer(videoBufferInfo, 0)
       } catch (_: Exception) {
         return
       }
@@ -260,15 +265,15 @@ internal class ScreenHlsPipeline(
         continue
       }
       val output = encoder.getOutputBuffer(index)
-      if (output != null && codecBufferInfo.size > 0) {
-        val bytes = ByteArray(codecBufferInfo.size)
-        output.position(codecBufferInfo.offset)
+      if (output != null && videoBufferInfo.size > 0) {
+        val bytes = ByteArray(videoBufferInfo.size)
+        output.position(videoBufferInfo.offset)
         output.get(bytes)
-        if (codecBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
+        if (videoBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG != 0) {
           videoHeader = audNal + MpegTsMuxer.annexB(bytes, null)
         } else {
-          val keyframe = codecBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
-          muxVideo(bytes, codecBufferInfo.presentationTimeUs, keyframe)
+          val keyframe = videoBufferInfo.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME != 0
+          muxVideo(bytes, videoBufferInfo.presentationTimeUs, keyframe)
         }
       }
       try {
@@ -276,7 +281,7 @@ internal class ScreenHlsPipeline(
       } catch (_: Exception) {
         return
       }
-      if (codecBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+      if (videoBufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
         return
       }
     }
@@ -286,7 +291,7 @@ internal class ScreenHlsPipeline(
     val encoder = audioEncoder ?: return
     while (true) {
       val index = try {
-        encoder.dequeueOutputBuffer(codecBufferInfo, 0)
+        encoder.dequeueOutputBuffer(audioBufferInfo, 0)
       } catch (_: Exception) {
         return
       }
@@ -298,13 +303,13 @@ internal class ScreenHlsPipeline(
       }
       val output = encoder.getOutputBuffer(index)
       if (output != null &&
-        codecBufferInfo.size > 0 &&
-        codecBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
+        audioBufferInfo.size > 0 &&
+        audioBufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0
       ) {
-        val bytes = ByteArray(codecBufferInfo.size)
-        output.position(codecBufferInfo.offset)
+        val bytes = ByteArray(audioBufferInfo.size)
+        output.position(audioBufferInfo.offset)
         output.get(bytes)
-        muxAudio(bytes, codecBufferInfo.presentationTimeUs)
+        muxAudio(bytes, audioBufferInfo.presentationTimeUs)
       }
       try {
         encoder.releaseOutputBuffer(index, false)
@@ -314,8 +319,25 @@ internal class ScreenHlsPipeline(
     }
   }
 
-  private fun muxVideo(sample: ByteArray, ptsUs: Long, keyframe: Boolean) {
+  /**
+   * Rebases a CLOCK_MONOTONIC timestamp onto a stream that starts at [TIMELINE_START_US].
+   *
+   * The video encoder is fed by a VirtualDisplay surface, so its presentation timestamps are
+   * microseconds since boot. Left raw they overflow the 33-bit MPEG-TS PTS field at an
+   * arbitrary point, and they cannot be lined up against any other source. Anchoring both
+   * elementary streams to the first video frame keeps them on one timeline and pushes the
+   * PTS wrap about 26.5 hours out.
+   */
+  private fun normalizeUs(ptsUs: Long): Long {
+    if (baseUs < 0L) {
+      baseUs = ptsUs
+    }
+    return (ptsUs - baseUs).coerceAtLeast(0L) + TIMELINE_START_US
+  }
+
+  private fun muxVideo(sample: ByteArray, rawPtsUs: Long, keyframe: Boolean) {
     synchronized(lock) {
+      val ptsUs = normalizeUs(rawPtsUs)
       if (segmentStartUs < 0L) {
         if (!keyframe) {
           return
@@ -329,26 +351,30 @@ internal class ScreenHlsPipeline(
       val header = if (keyframe) videoHeader ?: audNal else audNal
       val accessUnit = MpegTsMuxer.annexB(sample, header)
       val pts90k = MpegTsMuxer.pts90kFromUs(ptsUs)
+      // The system clock has to lead presentation so the decoder holds the frame before it is
+      // due. PCR == PTS leaves no decode window.
+      val pcr90k = (pts90k - PCR_LEAD_90K).coerceAtLeast(0L)
       segment.write(
         muxer.pesPackets(
           MpegTsMuxer.VIDEO_PID,
           MpegTsMuxer.VIDEO_STREAM_ID,
           accessUnit,
           pts90k,
-          pts90k,
+          pcr90k,
           false,
         ),
       )
     }
   }
 
-  private fun muxAudio(sample: ByteArray, ptsUs: Long) {
+  private fun muxAudio(sample: ByteArray, rawPtsUs: Long) {
     synchronized(lock) {
-      if (segmentStartUs < 0L) {
+      // Wait for the first video frame to set the base, so audio never anchors the timeline.
+      if (segmentStartUs < 0L || baseUs < 0L) {
         return
       }
       val framed = MpegTsMuxer.adtsFrame(sample, audioSampleRate, audioChannels)
-      val pts90k = MpegTsMuxer.pts90kFromUs(ptsUs)
+      val pts90k = MpegTsMuxer.pts90kFromUs(normalizeUs(rawPtsUs))
       segment.write(
         muxer.pesPackets(
           MpegTsMuxer.AUDIO_PID,
@@ -363,7 +389,6 @@ internal class ScreenHlsPipeline(
   }
 
   private fun beginSegment(ptsUs: Long) {
-    muxer = MpegTsMuxer()
     segment.reset()
     segment.write(muxer.patPacket())
     segment.write(muxer.pmtPacket(includeAudio))
@@ -375,8 +400,11 @@ internal class ScreenHlsPipeline(
     if (payload.isEmpty()) {
       return
     }
-    val durationSeconds = (durationUs.coerceAtLeast(1_000_000L) / 1_000_000.0)
-    window.add(durationSeconds.coerceAtMost(3.0), payload)
+    // Report the measured duration. Clamping it drifts the receiver's live edge off the
+    // media; HlsWindow derives EXT-X-TARGETDURATION from whatever actually lands here. The
+    // floor is only there because EXTINF must be positive, and the tail segment flushed on
+    // shutdown can hold a single frame.
+    window.add(durationUs.coerceAtLeast(MIN_SEGMENT_US) / 1_000_000.0, payload)
     onSegment(window.size())
   }
 
@@ -406,5 +434,16 @@ internal class ScreenHlsPipeline(
       codec.release()
     } catch (_: Exception) {
     }
+  }
+
+  private companion object {
+    /** Keeps the first PTS off zero so the PCR lead never has to clamp. */
+    const val TIMELINE_START_US = 1_000_000L
+
+    /** 200 ms of decode lead, in 90 kHz ticks. */
+    const val PCR_LEAD_90K = 18_000L
+
+    /** One frame at 30 fps. EXTINF has to be positive. */
+    const val MIN_SEGMENT_US = 33_000L
   }
 }

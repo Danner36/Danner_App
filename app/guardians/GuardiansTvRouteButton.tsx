@@ -94,6 +94,8 @@ export function GuardiansTvRouteButton({
       <View style={styles.castHost} pointerEvents="none">
         <GuardiansCastButton
           contentType="application/x-mpegURL"
+          mpegTsSegments
+          onFailed={onFailed}
           playbackUrl={liveUrl}
           streamType="live"
           visible

@@ -95,9 +95,16 @@ final class HlsHttpServer: @unchecked Sendable {
     let method = parts.first.map(String.init) ?? "GET"
     let path = parts.count >= 2 ? String(parts[1]).split(separator: "?").first.map(String.init) ?? "/" : "/"
     if method == "OPTIONS" {
-      send(on: connection, status: 204, reason: "No Content", contentType: nil, body: Data())
+      // A 204 carries no representation, so it must not announce a length.
+      send(on: connection, status: 204, reason: "No Content", contentType: nil, body: nil)
       return
     }
+    if method != "GET" && method != "HEAD" {
+      send(on: connection, status: 405, reason: "Method Not Allowed", contentType: "text/plain", body: Data())
+      return
+    }
+    // A HEAD reply carries the headers of the GET, including Content-Length, but no body.
+    let withBody = method == "GET"
     if path == "/live.m3u8" {
       let body = Data(window.playlist().utf8)
       if body.isEmpty {
@@ -108,15 +115,23 @@ final class HlsHttpServer: @unchecked Sendable {
           status: 200,
           reason: "OK",
           contentType: "application/vnd.apple.mpegurl",
-          body: body
+          body: body,
+          withBody: withBody
         )
       }
       return
     }
     if path.hasPrefix("/seg-"), path.hasSuffix(".ts") {
-      let indexString = path.replacingOccurrences(of: "/seg-", with: "").replacingOccurrences(of: ".ts", with: "")
+      let indexString = String(path.dropFirst("/seg-".count).dropLast(".ts".count))
       if let index = Int64(indexString), let payload = window.segment(index) {
-        send(on: connection, status: 200, reason: "OK", contentType: "video/MP2T", body: payload)
+        send(
+          on: connection,
+          status: 200,
+          reason: "OK",
+          contentType: "video/MP2T",
+          body: payload,
+          withBody: withBody
+        )
       } else {
         send(on: connection, status: 404, reason: "Not Found", contentType: "text/plain", body: Data())
       }
@@ -130,20 +145,30 @@ final class HlsHttpServer: @unchecked Sendable {
     status: Int,
     reason: String,
     contentType: String?,
-    body: Data
+    body: Data?,
+    withBody: Bool = true
   ) {
     var header = "HTTP/1.1 \(status) \(reason)\r\n"
     header += "Access-Control-Allow-Origin: *\r\n"
-    header += "Access-Control-Allow-Methods: GET, OPTIONS\r\n"
+    header += "Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n"
     header += "Access-Control-Allow-Headers: *\r\n"
+    // Content-Length is not CORS-safelisted, so the receiver's player cannot read it without
+    // this. Range is unsupported, and saying so keeps clients from probing for it.
+    header += "Access-Control-Expose-Headers: Content-Length, Content-Type\r\n"
+    header += "Accept-Ranges: none\r\n"
     header += "Cache-Control: no-store\r\n"
     header += "Connection: close\r\n"
     if let contentType {
       header += "Content-Type: \(contentType)\r\n"
     }
-    header += "Content-Length: \(body.count)\r\n\r\n"
+    if let body {
+      header += "Content-Length: \(body.count)\r\n"
+    }
+    header += "\r\n"
     var payload = Data(header.utf8)
-    payload.append(body)
+    if let body, withBody {
+      payload.append(body)
+    }
     connection.send(content: payload, completion: .contentProcessed { _ in
       connection.cancel()
     })

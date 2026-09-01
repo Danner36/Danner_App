@@ -79,10 +79,14 @@ function youtubeVideoId(url: string): string | undefined {
   return undefined;
 }
 
+const GOOZ_HOST = 'gooz.aapmains.net';
+
 function isValidGoozWebUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
-    if (!parsed.hostname.toLowerCase().endsWith('gooz.aapmains.net')) {
+    const host = parsed.hostname.toLowerCase();
+    // Match on a label boundary, so `notgooz.aapmains.net` is not treated as the same host.
+    if (host !== GOOZ_HOST && !host.endsWith(`.${GOOZ_HOST}`)) {
       return true;
     }
     const match = parsed.pathname.match(/\/new-stream-embed\/([^/?#]+)/);

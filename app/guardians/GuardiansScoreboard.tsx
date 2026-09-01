@@ -1,6 +1,8 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { LiveScoreboard } from './mlbLinescore';
 
+const MAX_INNINGS = 30;
+
 function teamLabel(isGuardians: boolean, opponentName: string): string {
   if (isGuardians) {
     return 'GUARDIANS';
@@ -63,10 +65,15 @@ export function GuardiansScoreboard({
   opponentName: string;
   scoreboard: LiveScoreboard;
 }) {
-  const inningCount = Math.max(
+  // inning.num comes straight from statsapi and is only floored at 1 upstream, so a
+  // malformed response would otherwise size this array arbitrarily and render a View per
+  // column. The longest game on record is 26 innings. reduce, not spread, so a huge array
+  // cannot blow the argument limit either.
+  const highestInning = scoreboard.innings.reduce(
+    (highest, inning) => Math.max(highest, inning.num),
     9,
-    ...scoreboard.innings.map((inning) => inning.num),
   );
+  const inningCount = Math.min(MAX_INNINGS, highestInning);
   const innings = Array.from({ length: inningCount }, (_, index) => {
     const num = index + 1;
     return (

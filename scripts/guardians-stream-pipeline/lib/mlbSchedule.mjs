@@ -1,6 +1,7 @@
 export const GUARDIANS_TEAM_ID = 114;
 
 const MLB_SCHEDULE_URL = 'https://statsapi.mlb.com/api/v1/schedule';
+const SCHEDULE_TIMEOUT_MS = 15_000;
 
 function localDateString(date) {
   const year = date.getFullYear();
@@ -68,7 +69,10 @@ export async function fetchGuardiansGames(teamId, now = new Date()) {
     teamId: String(teamId),
   });
 
-  const response = await fetch(`${MLB_SCHEDULE_URL}?${scheduleQuery}`);
+  // Without this a hung statsapi burns the whole 15-minute job timeout before failing.
+  const response = await fetch(`${MLB_SCHEDULE_URL}?${scheduleQuery}`, {
+    signal: AbortSignal.timeout(SCHEDULE_TIMEOUT_MS),
+  });
   if (!response.ok) {
     throw new Error(`MLB schedule request failed with ${response.status}.`);
   }
@@ -133,47 +137,4 @@ export function isBlockedGame(game) {
   );
 }
 
-export function isWithinProbeWindow(game, now, leadMinutes, postStartGraceMinutes) {
-  const startMs = new Date(game.gameDate).getTime();
-  const leadMs = leadMinutes * 60_000;
-  const graceMs = postStartGraceMinutes * 60_000;
-  const nowMs = now.getTime();
-  return nowMs >= startMs - leadMs && nowMs <= startMs + graceMs;
-}
 
-export function opponentSearchTerms(opponentName) {
-  const terms = new Set();
-  const normalized = opponentName.trim();
-  if (normalized) {
-    terms.add(normalized);
-  }
-
-  for (const part of normalized.split(/\s+/)) {
-    if (part.length >= 4) {
-      terms.add(part);
-    }
-  }
-
-  const aliases = {
-    'Los Angeles Angels': ['Angels', 'LAA'],
-    'New York Yankees': ['Yankees', 'NYY'],
-    'New York Mets': ['Mets', 'NYM'],
-    'Chicago White Sox': ['White Sox', 'CWS'],
-    'Chicago Cubs': ['Cubs', 'CHC'],
-    'San Francisco Giants': ['Giants', 'SF'],
-    'Tampa Bay Rays': ['Rays', 'TB'],
-    'Kansas City Royals': ['Royals', 'KC'],
-    'St. Louis Cardinals': ['Cardinals', 'STL'],
-    'Boston Red Sox': ['Red Sox', 'BOS'],
-  };
-
-  for (const [fullName, values] of Object.entries(aliases)) {
-    if (normalized === fullName || normalized.includes(fullName)) {
-      for (const value of values) {
-        terms.add(value);
-      }
-    }
-  }
-
-  return [...terms];
-}

@@ -5,7 +5,7 @@ Phase: MVP
 
 ## Dashboard
 
-Opening the New England Patriots tile requests leftover preseason, regular-season, and playoff games from ESPN's public NFL site JSON for team 17. The screen fetches again every 60 seconds and on pull-to-refresh. A live featured game also refreshes its football scoreboard every five seconds while the screen is open.
+Opening the New England Patriots tile requests leftover preseason, regular-season, and playoff games from ESPN's public NFL site JSON for team 17. The screen fetches that snapshot again every ten minutes and on pull-to-refresh. A live featured game also refreshes its football scoreboard every five seconds while the screen is open.
 
 An in-progress game is shown in the prominent top card. If no game is live and a game is scheduled today, today's game uses that card and is removed from the upcoming schedule. It shows the opponent, phone-local start time, a one-second countdown when the kickoff time is known, and `Video starts 15 minutes before game time.` If ESPN marks the kickoff time invalid, the card says `Time TBA` and does not count down.
 

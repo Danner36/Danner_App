@@ -22,12 +22,22 @@ final class LiveHlsEngine: @unchecked Sendable {
   private var videoHeader = Data([0x00, 0x00, 0x00, 0x01, 0x09, 0xF0])
   private var includeAudio = false
   private var segmentStartSeconds = -1.0
+  private var baseSeconds = -1.0
   private var lastVideoSeconds = 0.0
   private var lastKeyframeSeconds = -2.0
   private var encoderWidth: Int32 = 0
   private var encoderHeight: Int32 = 0
-  private let minSegments = 3
-  private let readyTimeoutSeconds: TimeInterval = 15
+  // Publish only once the window holds more than a conformant live player's ~3x
+  // target-duration holdback, so the receiver's start position lands on a segment that exists.
+  private let minSegments = 5
+  private let readyTimeoutSeconds: TimeInterval = 25
+
+  /// Keeps the first PTS off zero so the PCR lead never has to clamp.
+  private static let timelineStartSeconds = 1.0
+  /// 200 ms of decode lead, in 90 kHz ticks.
+  private static let pcrLead90k: UInt64 = 18_000
+  /// One frame at 30 fps. EXTINF has to be positive.
+  private static let minSegmentSeconds = 1.0 / 30.0
 
   private(set) var origin: String?
   private(set) var port = 0
@@ -94,6 +104,7 @@ final class LiveHlsEngine: @unchecked Sendable {
       muxer = MpegTsMuxer()
       segment = Data()
       segmentStartSeconds = -1
+      baseSeconds = -1
     }
     origin = nil
     port = 0
@@ -263,7 +274,21 @@ final class LiveHlsEngine: @unchecked Sendable {
     }
   }
 
-  private func muxVideo(accessUnit: Data, seconds: Double, keyframe: Bool) {
+  /// Rebases a host-clock timestamp onto a stream that starts at `timelineStartSeconds`.
+  ///
+  /// ReplayKit sample timestamps run off the host clock, so they are seconds since boot.
+  /// Left raw they land at an arbitrary point in the 33-bit MPEG-TS PTS field and can wrap
+  /// minutes into a session. Anchoring to the first video frame pushes that wrap ~26.5 hours
+  /// out and keeps audio and video on one explicit timeline.
+  private func normalized(_ seconds: Double) -> Double {
+    if baseSeconds < 0 {
+      baseSeconds = seconds
+    }
+    return max(0, seconds - baseSeconds) + Self.timelineStartSeconds
+  }
+
+  private func muxVideo(accessUnit: Data, seconds rawSeconds: Double, keyframe: Bool) {
+    let seconds = normalized(rawSeconds)
     if segmentStartSeconds < 0 {
       if !keyframe {
         return
@@ -275,23 +300,27 @@ final class LiveHlsEngine: @unchecked Sendable {
     }
     lastVideoSeconds = seconds
     let pts90k = MpegTsMuxer.pts90k(fromSeconds: seconds)
+    // The system clock has to lead presentation so the decoder holds the frame before it is
+    // due. PCR == PTS leaves no decode window.
+    let pcr90k = pts90k > Self.pcrLead90k ? pts90k - Self.pcrLead90k : 0
     segment.append(
       muxer.pesPackets(
         pid: MpegTsMuxer.videoPid,
         streamId: MpegTsMuxer.videoStreamId,
         payload: accessUnit,
         pts90k: pts90k,
-        pcr90k: pts90k,
+        pcr90k: pcr90k,
         setLength: false
       )
     )
   }
 
-  private func muxAudio(frame: Data, seconds: Double) {
-    if segmentStartSeconds < 0 {
+  private func muxAudio(frame: Data, seconds rawSeconds: Double) {
+    // Wait for the first video frame to set the base, so audio never anchors the timeline.
+    if segmentStartSeconds < 0 || baseSeconds < 0 {
       return
     }
-    let pts90k = MpegTsMuxer.pts90k(fromSeconds: seconds)
+    let pts90k = MpegTsMuxer.pts90k(fromSeconds: normalized(rawSeconds))
     segment.append(
       muxer.pesPackets(
         pid: MpegTsMuxer.audioPid,
@@ -305,7 +334,8 @@ final class LiveHlsEngine: @unchecked Sendable {
   }
 
   private func beginSegment(seconds: Double) {
-    muxer = MpegTsMuxer()
+    // One muxer for the whole session: a fresh one would reset the TS continuity counters at
+    // every segment boundary, with no EXT-X-DISCONTINUITY to explain the jump.
     segment = Data()
     segment.append(muxer.patPacket())
     segment.append(muxer.pmtPacket(includeAudio: includeAudio))
@@ -316,7 +346,10 @@ final class LiveHlsEngine: @unchecked Sendable {
     if segment.isEmpty {
       return
     }
-    window.add(durationSeconds: min(max(duration, 1.0), 3.0), payload: segment)
+    // Report the measured duration. Clamping it drifts the receiver's live edge off the
+    // media; HlsWindow derives EXT-X-TARGETDURATION from whatever actually lands here. The
+    // floor is only there because EXTINF must be positive.
+    window.add(durationSeconds: max(duration, Self.minSegmentSeconds), payload: segment)
   }
 
   private static func isKeyframe(_ sample: CMSampleBuffer) -> Bool {

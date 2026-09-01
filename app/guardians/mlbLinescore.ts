@@ -136,10 +136,12 @@ async function jerseyForPlayer(id: number): Promise<string | undefined> {
     return cached;
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), LINESCORE_TIMEOUT_MS);
   try {
     const response = await fetch(
       `https://statsapi.mlb.com/api/v1/people/${id}`,
-      { headers: { Accept: 'application/json' } },
+      { headers: { Accept: 'application/json' }, signal: controller.signal },
     );
     if (!response.ok) {
       return undefined;
@@ -156,6 +158,8 @@ async function jerseyForPlayer(id: number): Promise<string | undefined> {
     return jersey;
   } catch {
     return undefined;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -224,7 +228,7 @@ export function liveScoreboardFromHarness(
       hits: finiteCount(board.away.hits) ?? 0,
       runs: finiteCount(board.away.runs) ?? 0,
     },
-    balls: Math.min(4, board.balls),
+    balls: Math.min(4, finiteCount(board.balls) ?? 0),
     batterNumber:
       typeof board.batterNumber === 'string' ? board.batterNumber : undefined,
     home: {
@@ -233,13 +237,13 @@ export function liveScoreboardFromHarness(
       runs: finiteCount(board.home.runs) ?? 0,
     },
     innings,
-    outs: Math.min(3, board.outs),
+    outs: Math.min(3, finiteCount(board.outs) ?? 0),
     pitcherNumber:
       typeof board.pitcherNumber === 'string'
         ? board.pitcherNumber
         : undefined,
     status: board.status,
-    strikes: Math.min(3, board.strikes),
+    strikes: Math.min(3, finiteCount(board.strikes) ?? 0),
   };
 }
 

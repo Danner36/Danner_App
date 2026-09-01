@@ -41,6 +41,12 @@ export function parseReleaseVersion(
   }
 
   const version = raw.trim().replace(/^v/i, '');
+  // parseInt alone accepts trailing garbage, so "99.0whatever" would read as 99.0 and could
+  // trigger an update prompt. Require the whole string to be digits and dots first.
+  if (!/^\d+\.\d+(?:\.\d+)?$/.test(version)) {
+    return undefined;
+  }
+
   const parts = version.split('.').map((part) => Number.parseInt(part, 10));
   if (
     parts.length < 2 ||
@@ -54,6 +60,9 @@ export function parseReleaseVersion(
   return {
     version:
       parts.length === 2 ? `${major}.${minor}` : `${major}.${minor}.${patch}`,
+    // Two decimal digits per component, matching the Android versionCode baked in by
+    // app.config.js. A minor or patch reaching 100 would collide (1.0.100 == 1.1.0), so
+    // both must stay below that.
     versionCode: major * 10000 + minor * 100 + patch,
   };
 }

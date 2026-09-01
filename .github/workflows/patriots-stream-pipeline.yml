@@ -19,6 +19,13 @@ on:
 permissions:
   contents: write
 
+# Caps this pipeline at one running plus one queued run, no matter how many dispatches
+# arrive. Kept separate from the Guardians group: the two write different files through the
+# contents API, so they can safely run at the same time.
+concurrency:
+  group: patriots-stream-pipeline
+  cancel-in-progress: false
+
 jobs:
   extract:
     name: Extract and publish Patriots stream
@@ -47,8 +54,14 @@ jobs:
           key: ${{ runner.os }}-playwright-${{ hashFiles('scripts/guardians-stream-pipeline/package-lock.json') }}
 
       - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: scripts/guardians-stream-pipeline
         run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: scripts/guardians-stream-pipeline
+        run: npx playwright install-deps chromium
 
       - name: Write pipeline config
         working-directory: scripts/guardians-stream-pipeline

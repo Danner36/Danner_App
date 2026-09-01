@@ -1,6 +1,7 @@
 export const PATRIOTS_TEAM_ID = 17;
 
 const SCHEDULE_TYPES = [1, 2, 3];
+const SCHEDULE_TIMEOUT_MS = 15_000;
 
 function easternDateString(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -109,10 +110,12 @@ function patriotsGameFromEspnEvent(event, teamId) {
 
 export async function fetchPatriotsGames(teamId, now = new Date()) {
   const season = nflSeasonYear(now);
+  // Without this a hung ESPN request burns the whole 15-minute job timeout before failing.
   const responses = await Promise.all(
     SCHEDULE_TYPES.map((seasonType) =>
       fetch(
         `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${teamId}/schedule?season=${season}&seasontype=${seasonType}`,
+        { signal: AbortSignal.timeout(SCHEDULE_TIMEOUT_MS) },
       ),
     ),
   );
@@ -133,21 +136,3 @@ export async function fetchPatriotsGames(teamId, now = new Date()) {
   return [...unique.values()];
 }
 
-export function opponentSearchTerms(opponentName) {
-  const terms = new Set();
-  const normalized = opponentName.trim();
-  if (normalized) {
-    terms.add(normalized);
-  }
-
-  for (const part of normalized.split(/\s+/)) {
-    if (part.length >= 3) {
-      terms.add(part);
-    }
-  }
-
-  terms.add('Patriots');
-  terms.add('NE');
-  terms.add('New England');
-  return [...terms];
-}

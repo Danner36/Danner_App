@@ -11,8 +11,10 @@ internal object LiveHlsRuntime {
   const val ACTION_STOP = "expo.modules.dannerlivehls.STOP"
   const val EXTRA_DATA = "data"
   const val EXTRA_RESULT_CODE = "resultCode"
-  const val MIN_SEGMENTS = 3
-  const val READY_TIMEOUT_MS = 15_000L
+  // Publish only once the window holds more than a conformant live player's ~3x target-duration
+  // holdback, so the receiver's start position lands on a segment that exists.
+  const val MIN_SEGMENTS = 5
+  const val READY_TIMEOUT_MS = 25_000L
 
   @Volatile
   var origin: String? = null

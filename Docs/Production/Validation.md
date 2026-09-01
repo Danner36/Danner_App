@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-08-30
+Last updated: 2026-09-01
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -28,10 +28,10 @@ Last updated: 2026-08-30
 | Guardians post-game recap selection | Pass | Snapshot tests: live and later-today beat recap; today's Final is featured; completed games stay out of the schedule; recap ends after the local official date |
 | Guardians post-game recap presentation | Pending | Featured card WIN/LOSS/TIE, score, and decision line without park board or Play; needs harness `final` or a completed gameday on a device |
 | Guardians today countdown | Pass | The standalone release displayed `TODAY`, `STARTS IN`, a one-second 2-hour countdown, and `Video starts 15 minutes before game time.` with no early Play control |
-| Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB and source data on mount, refreshes every 60 seconds, and exposes pull-to-refresh plus retry |
+| Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB on mount, pull-to-refresh, and every 10 minutes, fetches source data every 60 seconds, and exposes pull-to-refresh plus retry |
 | Guardians Android interaction | Pass | Installed release rendered the current featured game, record, and Eastern-time schedule at 1080 by 2400, showed no harness controls, and ran with Metro stopped |
 | Guardians source schema | Pass | Parser checks accepted all six required fields, ignored the in-stream placeholder example, matched one URL across multiple dates and doubleheader numbers, rejected missing or extra fields, rejected HTTP without an entry opt-in, and required no owner-entered MLB identifier or source name. Root-level `HOW_TO_GUIDE` is editor text only; the phone does not render it |
-| Guardians GitHub source retrieval | Pass | Production bundles contain the raw `main/guardians_streams.json` URL; the screen checks on open, pull-to-refresh, and every 60 seconds, tries Worker `GET /streams` first when that origin is set, uses an 8-second timeout, and stores the last valid production document for offline fallback. A later list with no featured-game match does not wipe a URL the phone already has |
+| Guardians GitHub source retrieval | Pass | Production bundles contain the raw `main/guardians_streams.json` URL; the screen checks on open, pull-to-refresh, and every 60 seconds, tries Worker `GET /streams` first when that origin is set, uses an 8-second timeout per attempt so a slow first source cannot abort the fallbacks, and stores the last valid production document for offline fallback. A later list with no featured-game match does not wipe a URL the phone already has |
 | Guardians authorized-source gate | Pass | Only a valid `direct`, `youtube`, or `web` entry whose `gameDates` and `gameNumbers` match the featured MLB game can create a Watch action; HTTPS is the default and HTTP requires `allowInsecureHttp: true` on that entry |
 | Guardians live-game harness isolation | Pass | Fixture JSON, HTTP proxy path, remote Apple HLS sample, MLB YouTube ID, popup-test page text, synthetic game identifiers, and emulator harness URL are absent from the Android and iOS production exports and the release APK |
 | Guardians simulated live state | Pass | Development harness rendered `LIVE`, Guardians 4, Detroit 2, `Top 5th`, four icon-only Play controls, record, and remaining schedule on Pixel 7 API 34 |
@@ -49,7 +49,7 @@ Last updated: 2026-08-30
 | Patriots source schema | Pass | Parser reuses the Guardians six-field checks against root `patriots_streams.json` (guide plus inactive example only) |
 | Patriots GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=patriots` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=patriots` returned 200 after the 2026-08-30 Worker deploy |
 | Patriots Get video | Pass | 2026-08-29 Pixel emulator `emulator-5554`: `npm run test:patriots:android:get-video` posted `{ pin, module: "patriots" }`, polled `/streams?module=patriots` on port 8112, and showed Play after publish without restart |
-| Guardians Listen and TV send | Pass | Source: Listen is `direct` only; header Cast loads the JSON URL for `direct`; header TV captures `web` into local HLS. `test:guardians:android:live-hls` exercises the capture path |
+| Guardians Listen and TV send | Pass | Source: Listen is `direct` only; header Cast loads the JSON URL for `direct` without forcing MPEG-TS; header TV captures `web` into local HLS and declares MPEG-TS to the receiver. `test:guardians:android:live-hls` exercises the capture path |
 | Parent-friendly guided home | Pass | Large cards, progress, current-step emphasis, completion, retry, and QR-code instructions render at 1080 by 2400 |
 | Simplified step 3 | Pass | Installed release hierarchy and capture show only `Update on this phone` and the `Update the TV location` button, with no explanatory or bridge-status copy |
 | TV-specific step 4 | Pass | Installed release says the `Welcome to...` message appears on the TV before returning to the TV main screen and selecting `Live` |
@@ -83,7 +83,7 @@ Last updated: 2026-08-30
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
 | GitHub release publication | Pass | Latest published family tag is [`v1.4.0`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.0) (2026-08-30). It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed |
 | Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.0` → `1.4.0` / `10400`). Local builds without that env stay `1.0` / 1 |
-| App update version tests | Pass | `npm run test:app-update` covers semver compare, trusted HTTPS GitHub asset URLs, manifest parse, signing-warning suppression, session dismiss, SideStore install URL encoding, and `release/build-update-assets.mjs` output |
+| App update version tests | Pass | `npm run test:app-update` covers semver compare, trailing-garbage tag rejection, trusted HTTPS GitHub asset URLs, manifest parse, signing-warning suppression, session dismiss, SideStore install URL encoding, and `release/build-update-assets.mjs` output |
 | Android in-app APK update | Review | Source downloads the release APK over trusted GitHub redirects, verifies SHA-256, and commits a `PackageInstaller` session. The download status clears when the system Update sheet appears. Physical Yes → system Update sheet is still required |
 | iPhone SideStore update handoff | Review | Source opens `sidestore://install?url=` for the release IPA and does not present that prompt after leaving the hub. Physical LocalDevVPN + SideStore install is still required |
 

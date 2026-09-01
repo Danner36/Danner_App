@@ -5,7 +5,7 @@ Phase: MVP
 
 ## Dashboard
 
-Opening the Cleveland Guardians tile requests the current season record and schedule from MLB's `statsapi.mlb.com` service. The screen fetches again every 60 seconds and on pull-to-refresh. A live featured game also refreshes its park-style scoreboard every five seconds while the screen is open.
+Opening the Cleveland Guardians tile requests the current season record and schedule from MLB's `statsapi.mlb.com` service. The screen fetches that snapshot again every ten minutes and on pull-to-refresh. A live featured game also refreshes its park-style scoreboard every five seconds while the screen is open.
 
 An in-progress game is shown in the prominent top card. If no game is live and a game is scheduled today, today's game uses that card and is removed from the upcoming schedule. It shows the opponent, phone-local start time, a one-second countdown, and `Video starts 15 minutes before game time.`
 

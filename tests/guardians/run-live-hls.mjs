@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { writeFile } from 'node:fs/promises';
+import { rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -204,6 +204,86 @@ const fetchPlaylist = async (hostPort) => {
   return body;
 };
 
+const hasFfprobe = async () => {
+  try {
+    const result = await run('ffprobe', ['-version']);
+    return result.code === 0;
+  } catch {
+    return false;
+  }
+};
+
+// TS framing alone proves nothing: a stream whose audio and video sit on different clocks is
+// still 188-byte aligned and still starts with 0x47, and it renders as a black screen on the
+// Chromecast. Decode the segment and check the two elementary streams agree.
+const probeSegment = async (bytes) => {
+  const file = path.join(tmpdir(), `danner-live-hls-probe-${Date.now()}.ts`);
+  await writeFile(file, bytes);
+  try {
+    const result = await run('ffprobe', [
+      '-v', 'error',
+      '-of', 'json',
+      '-show_streams',
+      '-show_packets',
+      '-read_intervals', '%+2',
+      file,
+    ]);
+    if (result.code !== 0) {
+      throw new Error(`ffprobe failed: ${result.stderr.trim() || result.code}`);
+    }
+
+    let probed;
+    try {
+      probed = JSON.parse(result.stdout);
+    } catch {
+      throw new Error('ffprobe did not return JSON');
+    }
+
+    const streams = probed.streams ?? [];
+    const video = streams.find((entry) => entry.codec_name === 'h264');
+    if (!video) {
+      throw new Error(
+        `Segment has no h264 stream (found ${
+          streams.map((entry) => entry.codec_name).join(', ') || 'nothing'
+        })`,
+      );
+    }
+
+    const packets = probed.packets ?? [];
+    const firstPts = (index) => {
+      const packet = packets.find(
+        (entry) => entry.stream_index === index && entry.pts_time !== undefined,
+      );
+      return packet ? Number(packet.pts_time) : undefined;
+    };
+
+    const videoPts = firstPts(video.index);
+    if (videoPts === undefined || !Number.isFinite(videoPts)) {
+      throw new Error('Segment has no decodable video packet');
+    }
+
+    const audio = streams.find((entry) => entry.codec_type === 'audio');
+    if (audio) {
+      const audioPts = firstPts(audio.index);
+      if (audioPts === undefined || !Number.isFinite(audioPts)) {
+        throw new Error('Segment declares audio but has no decodable audio packet');
+      }
+      const skew = Math.abs(audioPts - videoPts);
+      if (skew >= 1) {
+        throw new Error(
+          `Audio and video are on different timebases: first video pts ${videoPts}s, ` +
+            `first audio pts ${audioPts}s, skew ${skew.toFixed(3)}s`,
+        );
+      }
+      return `h264 + ${audio.codec_name}, a/v skew ${skew.toFixed(3)}s`;
+    }
+
+    return `h264 video only, first pts ${videoPts}s`;
+  } finally {
+    await rm(file, { force: true }).catch(() => {});
+  }
+};
+
 const validateSegment = async (hostPort, playlist) => {
   const matches = [...playlist.matchAll(/seg-(\d+)\.ts/g)];
   const match = matches.at(-1);
@@ -218,7 +298,10 @@ const validateSegment = async (hostPort, playlist) => {
   if (bytes.length < 188 || bytes.length % 188 !== 0 || bytes[0] !== 0x47) {
     throw new Error('Segment is not MPEG-TS');
   }
-  return bytes.length;
+  const decode = (await hasFfprobe())
+    ? await probeSegment(bytes)
+    : 'skipped (ffprobe is not on PATH)';
+  return { bytes: bytes.length, decode };
 };
 
 const readOriginFromLogcat = async () => {
@@ -250,9 +333,30 @@ const probeHls = async () => {
       if (!playlist) {
         continue;
       }
-      const bytes = await validateSegment(hostPort, playlist);
-      return { origin: origin ?? `http://127.0.0.1:${hostPort}`, playlist, bytes, port };
-    } catch {
+      // A playlist here means this is the live origin. Anything wrong with its segments is a
+      // real failure, not a reason to keep scanning ports and report "no playlist" instead.
+      let segment;
+      try {
+        segment = await validateSegment(hostPort, playlist);
+      } catch (error) {
+        throw new Error(
+          `Port ${port} served a playlist but its segment failed: ${
+            error instanceof Error ? error.message : error
+          }`,
+          { cause: error },
+        );
+      }
+      return {
+        origin: origin ?? `http://127.0.0.1:${hostPort}`,
+        playlist,
+        bytes: segment.bytes,
+        decode: segment.decode,
+        port,
+      };
+    } catch (error) {
+      if (error instanceof Error && error.message.startsWith('Port ')) {
+        throw error;
+      }
       continue;
     } finally {
       await run(adbPath, ['forward', '--remove', `tcp:${hostPort}`]).catch(() => {});
@@ -375,6 +479,7 @@ try {
     `origin ${result.origin}`,
     `device port ${result.port}`,
     `segment bytes ${result.bytes}`,
+    `segment decode ${result.decode}`,
     result.playlist.trim(),
   ].join('\n');
   await writeFile(path.join(tmpdir(), 'danner-live-hls.last.txt'), `${report}\n`);

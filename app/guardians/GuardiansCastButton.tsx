@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import {
   CastButton,
-  MediaHlsSegmentFormat,
   MediaHlsVideoSegmentFormat,
   MediaStreamType,
   useRemoteMediaClient,
@@ -22,13 +21,29 @@ export function castContentTypeForUrl(playbackUrl: string): string {
   return 'video/*';
 }
 
+export function castStreamTypeForUrl(
+  playbackUrl: string,
+): 'buffered' | 'live' {
+  const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
+  return path.endsWith('.m3u8') || path.endsWith('.mpd') ? 'live' : 'buffered';
+}
+
 export function GuardiansCastButton({
   contentType,
+  mpegTsSegments,
+  onFailed,
   playbackUrl,
   streamType,
   visible,
 }: {
   contentType: string;
+  /**
+   * Declares MPEG-2 TS video segments to the receiver. Only set this for a local
+   * live-HLS playlist. A provider `.m3u8` may ship fMP4 segments, and the wrong hint
+   * stops the receiver decoding.
+   */
+  mpegTsSegments?: boolean;
+  onFailed?: (message: string) => void;
   playbackUrl: string;
   streamType?: 'buffered' | 'live';
   visible: boolean;
@@ -49,29 +64,49 @@ export function GuardiansCastButton({
 
     loadedKey.current = key;
     startedByThisPlayer.current = true;
-    const isHls = contentType.toLowerCase().includes('mpegurl');
-    void client.loadMedia({
-      autoplay: true,
-      mediaInfo: {
-        contentType,
-        contentUrl: playbackUrl,
-        ...(isHls
-          ? {
-              hlsSegmentFormat: MediaHlsSegmentFormat.TS,
-              hlsVideoSegmentFormat: MediaHlsVideoSegmentFormat.MPEG2_TS,
-            }
-          : {}),
-        ...(streamType
-          ? {
-              streamType:
-                streamType === 'live'
-                  ? MediaStreamType.LIVE
-                  : MediaStreamType.BUFFERED,
-            }
-          : {}),
-      },
-    });
-  }, [client, contentType, playbackUrl, streamType, visible]);
+    let cancelled = false;
+    void client
+      .loadMedia({
+        autoplay: true,
+        mediaInfo: {
+          contentType,
+          contentUrl: playbackUrl,
+          ...(mpegTsSegments
+            ? {
+                hlsVideoSegmentFormat: MediaHlsVideoSegmentFormat.MPEG2_TS,
+              }
+            : {}),
+          ...(streamType
+            ? {
+                streamType:
+                  streamType === 'live'
+                    ? MediaStreamType.LIVE
+                    : MediaStreamType.BUFFERED,
+              }
+            : {}),
+        },
+      })
+      .catch(() => {
+        if (cancelled) {
+          return;
+        }
+        // Let the next render retry rather than sticking on a key that never loaded.
+        loadedKey.current = undefined;
+        onFailed?.('The TV could not start the video.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    client,
+    contentType,
+    mpegTsSegments,
+    onFailed,
+    playbackUrl,
+    streamType,
+    visible,
+  ]);
 
   useEffect(() => {
     return () => {

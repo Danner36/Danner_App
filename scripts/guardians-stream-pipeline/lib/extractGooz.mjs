@@ -5,10 +5,18 @@ const GOOZ_EMBED_PATH = /\/new-stream-embed\/([^/?#]+)/;
 const GOOZ_URL_PATTERN =
   /https?:\/\/(?:[a-z0-9-]+\.)*gooz\.aapmains\.net[^\s"'<>)]*/gi;
 
+// Matches on a label boundary, the same way GOOZ_URL_PATTERN does. A bare endsWith would
+// also accept `notgooz.aapmains.net`, letting a squatted sibling host through the checks
+// that decide what gets published into the streams document.
+export function isGoozHost(hostname) {
+  const host = String(hostname).toLowerCase();
+  return host === GOOZ_HOST || host.endsWith(`.${GOOZ_HOST}`);
+}
+
 function goozEmbedId(url) {
   try {
     const parsed = new URL(url);
-    if (!parsed.hostname.toLowerCase().endsWith(GOOZ_HOST)) {
+    if (!isGoozHost(parsed.hostname)) {
       return undefined;
     }
     const match = parsed.pathname.match(GOOZ_EMBED_PATH);
@@ -45,7 +53,7 @@ function normalizeUrl(value, baseUrl) {
 
 function isGoozUrl(url) {
   try {
-    return new URL(url).hostname.toLowerCase().endsWith(GOOZ_HOST);
+    return isGoozHost(new URL(url).hostname);
   } catch {
     return false;
   }
@@ -97,7 +105,9 @@ async function collectDomGoozUrls(page) {
       }
       try {
         const parsed = new URL(value, window.location.href);
-        if (parsed.hostname.toLowerCase().endsWith(host)) {
+        // Same label-boundary rule as isGoozHost; this runs in the page, so it cannot import.
+        const hostname = parsed.hostname.toLowerCase();
+        if (hostname === host || hostname.endsWith(`.${host}`)) {
           urls.push(parsed.toString());
         }
       } catch {}

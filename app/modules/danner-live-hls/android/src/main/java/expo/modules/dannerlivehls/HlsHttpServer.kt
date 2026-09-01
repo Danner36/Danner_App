@@ -1,14 +1,18 @@
 package expo.modules.dannerlivehls
 
+import android.util.Log
 import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.OutputStream
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 internal class HlsHttpServer(
   private val window: HlsWindow,
@@ -17,6 +21,7 @@ internal class HlsHttpServer(
   private var serverSocket: ServerSocket? = null
   private var acceptExecutor: ExecutorService? = null
   private var requestExecutor: ExecutorService? = null
+  private val clients = ConcurrentHashMap<String, ClientStats>()
 
   @Volatile
   var port: Int = 0
@@ -27,13 +32,19 @@ internal class HlsHttpServer(
     var lastError: Exception? = null
     for (candidate in preferredRange) {
       try {
-        val socket = ServerSocket(candidate)
+        // SO_REUSEADDR only takes effect before bind, so the socket is created unbound.
+        // Otherwise a lingering TIME_WAIT from the previous session pushes us to the next
+        // port and silently changes the origin the phone already handed to the receiver.
+        val socket = ServerSocket()
         socket.reuseAddress = true
+        socket.bind(InetSocketAddress(candidate))
         serverSocket = socket
         port = socket.localPort
         running.set(true)
         acceptExecutor = Executors.newSingleThreadExecutor()
-        requestExecutor = Executors.newFixedThreadPool(4)
+        // The Cast receiver is Chrome-based and opens speculative connections that may sit
+        // idle. A small fixed pool lets those starve the real playlist and segment requests.
+        requestExecutor = Executors.newCachedThreadPool()
         acceptExecutor?.execute { acceptLoop() }
         return port
       } catch (error: Exception) {
@@ -54,7 +65,45 @@ internal class HlsHttpServer(
     requestExecutor?.shutdownNow()
     acceptExecutor = null
     requestExecutor = null
+    clients.clear()
     port = 0
+  }
+
+  private class ClientStats {
+    val requests = AtomicLong(0)
+    val bytes = AtomicLong(0)
+    val misses = AtomicLong(0)
+  }
+
+  /**
+   * Leaves a usable trail under the shared [TAG] without a line per segment: the first
+   * request from each client, every miss up to a cap, and a rolling summary after that.
+   *
+   * The question this answers is whether the TV is reaching the phone at all. A Chromecast
+   * IP appearing here means the receiver is fetching the playlist and segments, which rules
+   * out every transport-level cause and points at the segment contents instead.
+   */
+  private fun logRequest(remote: String, path: String, status: Int, byteCount: Int) {
+    val stats = clients.computeIfAbsent(remote) {
+      Log.i(TAG, "client $remote connected, first request $path")
+      ClientStats()
+    }
+    val served = stats.requests.incrementAndGet()
+    stats.bytes.addAndGet(byteCount.toLong())
+    if (status != 200) {
+      val misses = stats.misses.incrementAndGet()
+      if (misses <= MAX_MISS_LOGS) {
+        Log.w(TAG, "client $remote got $status for $path")
+      }
+      return
+    }
+    if (served % SUMMARY_EVERY == 0L) {
+      Log.i(
+        TAG,
+        "client $remote served $served requests, ${stats.bytes.get()} bytes, " +
+          "${stats.misses.get()} misses",
+      )
+    }
   }
 
   private fun acceptLoop() {
@@ -67,12 +116,20 @@ internal class HlsHttpServer(
         if (!running.get()) {
           return
         }
+        // Back off so a persistent accept() failure cannot spin this thread.
+        try {
+          Thread.sleep(50)
+        } catch (_: InterruptedException) {
+          return
+        }
       }
     }
   }
 
   private fun handle(client: Socket) {
-    client.soTimeout = 8_000
+    // Bounds the header read only. The Cast receiver preconnects sockets it may never send a
+    // request on, and a long timeout keeps each of those holding a pool thread.
+    client.soTimeout = 2_000
     try {
       val input = BufferedInputStream(client.getInputStream())
       val request = readRequest(input) ?: return
@@ -81,10 +138,22 @@ internal class HlsHttpServer(
       val method = parts.firstOrNull().orEmpty()
       val path = if (parts.size >= 2) parts[1].substringBefore('?') else "/"
       val output = client.getOutputStream()
+      val remote = client.inetAddress?.hostAddress ?: "unknown"
       if (method == "OPTIONS") {
-        writeHeaders(output, 204, "No Content", null, 0)
+        writeHeaders(output, 204, "No Content", null, null)
+        output.flush()
+        logRequest(remote, path, 204, 0)
         return
       }
+      if (method != "GET" && method != "HEAD") {
+        writeHeaders(output, 405, "Method Not Allowed", "text/plain", 0)
+        output.flush()
+        logRequest(remote, path, 405, 0)
+        return
+      }
+      val withBody = method == "GET"
+      var status = 404
+      var served = 0
       when {
         path == "/live.m3u8" -> {
           val body = window.playlist().toByteArray(StandardCharsets.UTF_8)
@@ -98,7 +167,11 @@ internal class HlsHttpServer(
               "application/vnd.apple.mpegurl",
               body.size,
             )
-            output.write(body)
+            if (withBody) {
+              output.write(body)
+            }
+            status = 200
+            served = body.size
           }
         }
         path.startsWith("/seg-") && path.endsWith(".ts") -> {
@@ -108,12 +181,17 @@ internal class HlsHttpServer(
             writeHeaders(output, 404, "Not Found", "text/plain", 0)
           } else {
             writeHeaders(output, 200, "OK", "video/MP2T", payload.size)
-            output.write(payload)
+            if (withBody) {
+              output.write(payload)
+            }
+            status = 200
+            served = payload.size
           }
         }
         else -> writeHeaders(output, 404, "Not Found", "text/plain", 0)
       }
       output.flush()
+      logRequest(remote, path, status, served)
     } catch (_: Exception) {
     } finally {
       try {
@@ -149,19 +227,38 @@ internal class HlsHttpServer(
     status: Int,
     reason: String,
     contentType: String?,
-    length: Int,
+    length: Int?,
   ) {
     val builder = StringBuilder()
     builder.append("HTTP/1.1 $status $reason\r\n")
     builder.append("Access-Control-Allow-Origin: *\r\n")
-    builder.append("Access-Control-Allow-Methods: GET, OPTIONS\r\n")
+    builder.append("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n")
     builder.append("Access-Control-Allow-Headers: *\r\n")
+    // Content-Length is not CORS-safelisted, so the receiver's player cannot read it without
+    // this. Range is unsupported, and saying so keeps clients from probing for it.
+    builder.append("Access-Control-Expose-Headers: Content-Length, Content-Type\r\n")
+    builder.append("Accept-Ranges: none\r\n")
     builder.append("Cache-Control: no-store\r\n")
     builder.append("Connection: close\r\n")
     if (contentType != null) {
       builder.append("Content-Type: $contentType\r\n")
     }
-    builder.append("Content-Length: $length\r\n\r\n")
+    // A 204 carries no representation, so it must not announce a length.
+    if (length != null) {
+      builder.append("Content-Length: $length\r\n")
+    }
+    builder.append("\r\n")
     output.write(builder.toString().toByteArray(StandardCharsets.US_ASCII))
+  }
+
+  private companion object {
+    /** Shared with LiveHlsService so one logcat filter covers the whole session. */
+    const val TAG = "DannerLiveHls"
+
+    /** At roughly one request per second, a summary line every ~50 seconds. */
+    const val SUMMARY_EVERY = 50L
+
+    /** Misses past this are counted silently and reported in the summary. */
+    const val MAX_MISS_LOGS = 5L
   }
 }

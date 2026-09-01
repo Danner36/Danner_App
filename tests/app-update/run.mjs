@@ -29,6 +29,8 @@ assert.deepEqual(parseReleaseVersion('1.0'), {
 });
 assert.equal(parseReleaseVersion(undefined), undefined);
 assert.equal(parseReleaseVersion('nope'), undefined);
+assert.equal(parseReleaseVersion('99.0whatever'), undefined);
+assert.equal(parseReleaseVersion('v1.4.1-beta'), undefined);
 assert.equal(compareSemver('1.3.4', '1.3.3') > 0, true);
 assert.equal(compareSemver('1.0', '1.0.0'), 0);
 assert.equal(isNewerRelease('1.3.4', '1.3.3'), true);
