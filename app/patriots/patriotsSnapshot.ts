@@ -195,6 +195,48 @@ function abstractStateFromEspn(state: unknown): string {
   return 'Preview';
 }
 
+function espnText(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value : '';
+}
+
+function espnContestStatus(statusType: {
+  description?: unknown;
+  detail?: unknown;
+  name?: unknown;
+  shortDetail?: unknown;
+  state?: unknown;
+}): string {
+  const statusName = espnText(statusType.name);
+  const description = espnText(statusType.description);
+  const detail = espnText(statusType.detail);
+  const shortDetail = espnText(statusType.shortDetail);
+  const interruption = gameInterruption(
+    `${statusName} ${description} ${detail} ${shortDetail}`,
+  );
+  if (interruption) {
+    if (interruption === 'canceled') {
+      return description || detail || shortDetail || 'Canceled';
+    }
+    if (interruption === 'delayed') {
+      return description || detail || shortDetail || 'Delayed';
+    }
+    if (interruption === 'postponed') {
+      return description || detail || shortDetail || 'Postponed';
+    }
+    return description || detail || shortDetail || 'Suspended';
+  }
+  // ESPN puts the kickoff clock in detail/shortDetail for STATUS_SCHEDULED.
+  // Upcoming rows already print the phone-local date and hide status Scheduled.
+  if (
+    statusType.state === 'pre' ||
+    statusName === 'STATUS_SCHEDULED' ||
+    description === 'Scheduled'
+  ) {
+    return 'Scheduled';
+  }
+  return detail || shortDetail || description || 'Scheduled';
+}
+
 export function patriotsGameFromEspnEvent(
   event: unknown,
 ): PatriotsGame | undefined {
@@ -270,22 +312,8 @@ export function patriotsGameFromEspnEvent(
     return undefined;
   }
 
-  const statusType = contest.status?.type;
-  const statusName =
-    typeof statusType?.name === 'string' ? statusType.name : '';
-  const statusDetail =
-    (typeof statusType?.detail === 'string' && statusType.detail) ||
-    (typeof statusType?.shortDetail === 'string' && statusType.shortDetail) ||
-    (typeof statusType?.description === 'string' && statusType.description) ||
-    (statusName.includes('DELAY')
-      ? 'Delayed'
-      : statusName.includes('POSTPON')
-        ? 'Postponed'
-        : statusName.includes('CANCEL')
-          ? 'Canceled'
-          : statusName.includes('SUSPEND')
-            ? 'Suspended'
-            : 'Scheduled');
+  const statusType = contest.status?.type ?? {};
+  const statusDetail = espnContestStatus(statusType);
 
   const seasonType =
     typeof raw.seasonType?.type === 'number' &&

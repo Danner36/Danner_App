@@ -41,6 +41,38 @@ function abstractStateFromEspn(state) {
   return 'Preview';
 }
 
+function espnText(value) {
+  return typeof value === 'string' && value.trim() ? value : '';
+}
+
+function espnContestStatus(statusType = {}) {
+  const statusName = espnText(statusType.name);
+  const description = espnText(statusType.description);
+  const detail = espnText(statusType.detail);
+  const shortDetail = espnText(statusType.shortDetail);
+  const haystack = `${statusName} ${description} ${detail} ${shortDetail}`.toLowerCase();
+  if (haystack.includes('cancel')) {
+    return description || detail || shortDetail || 'Canceled';
+  }
+  if (haystack.includes('delay')) {
+    return description || detail || shortDetail || 'Delayed';
+  }
+  if (haystack.includes('postpon')) {
+    return description || detail || shortDetail || 'Postponed';
+  }
+  if (haystack.includes('suspend')) {
+    return description || detail || shortDetail || 'Suspended';
+  }
+  if (
+    statusType.state === 'pre' ||
+    statusName === 'STATUS_SCHEDULED' ||
+    description === 'Scheduled'
+  ) {
+    return 'Scheduled';
+  }
+  return detail || shortDetail || description || 'Scheduled';
+}
+
 function patriotsGameFromEspnEvent(event, teamId) {
   const competition = event.competitions?.[0];
   const competitors = competition?.competitors ?? [];
@@ -76,20 +108,7 @@ function patriotsGameFromEspnEvent(event, teamId) {
   }
 
   const statusType = competition?.status?.type;
-  const statusName = typeof statusType?.name === 'string' ? statusType.name : '';
-  const status =
-    statusType?.detail ||
-    statusType?.shortDetail ||
-    statusType?.description ||
-    (statusName.includes('DELAY')
-      ? 'Delayed'
-      : statusName.includes('POSTPON')
-        ? 'Postponed'
-        : statusName.includes('CANCEL')
-          ? 'Canceled'
-          : statusName.includes('SUSPEND')
-            ? 'Suspended'
-            : 'Scheduled');
+  const status = espnContestStatus(statusType);
 
   return {
     abstractState: abstractStateFromEspn(statusType?.state),

@@ -124,42 +124,74 @@ assert.deepEqual(record, { losses: 0, ties: 0, wins: 1 });
 assert.equal(nflSeasonYear(new Date(2026, 8, 10)), 2026);
 assert.equal(nflSeasonYear(new Date(2027, 1, 8)), 2026);
 
-const parsed = patriotsGameFromEspnEvent({
-  id: '401872656',
-  date: '2026-09-10T00:20:00Z',
-  seasonType: { type: 2 },
-  timeValid: true,
-  competitions: [
-    {
-      timeValid: true,
-      status: {
-        type: {
-          state: 'pre',
-          detail: 'Scheduled',
-        },
+function espnEvent(statusType, overrides = {}) {
+  return {
+    id: '401872656',
+    date: '2026-09-10T00:20:00Z',
+    seasonType: { type: 2 },
+    timeValid: true,
+    competitions: [
+      {
+        timeValid: true,
+        status: { type: statusType },
+        competitors: [
+          {
+            id: '26',
+            homeAway: 'home',
+            score: '0',
+            team: { id: '26', displayName: 'Seattle Seahawks' },
+          },
+          {
+            id: '17',
+            homeAway: 'away',
+            score: '0',
+            team: { id: '17', displayName: 'New England Patriots' },
+          },
+        ],
       },
-      competitors: [
-        {
-          id: '26',
-          homeAway: 'home',
-          score: '0',
-          team: { id: '26', displayName: 'Seattle Seahawks' },
-        },
-        {
-          id: '17',
-          homeAway: 'away',
-          score: '0',
-          team: { id: '17', displayName: 'New England Patriots' },
-        },
-      ],
-    },
-  ],
-});
+    ],
+    ...overrides,
+  };
+}
+
+const parsed = patriotsGameFromEspnEvent(
+  espnEvent({
+    description: 'Scheduled',
+    detail: 'Wed, September 9th at 8:20 PM EDT',
+    name: 'STATUS_SCHEDULED',
+    shortDetail: '9/9 - 8:20 PM EDT',
+    state: 'pre',
+  }),
+);
 assert.equal(parsed?.gamePk, 401872656);
 assert.equal(parsed?.isHome, false);
 assert.equal(parsed?.opponentName, 'Seattle Seahawks');
+assert.equal(parsed?.status, 'Scheduled');
 assert.equal(parsed?.timeValid, true);
 assert.equal(parsed?.officialDate, '2026-09-09');
+assert.equal(
+  patriotsGameFromEspnEvent(
+    espnEvent({
+      description: 'Delayed',
+      detail: 'Delayed',
+      name: 'STATUS_DELAYED',
+      state: 'pre',
+    }),
+  )?.status,
+  'Delayed',
+);
+assert.equal(
+  patriotsGameFromEspnEvent(
+    espnEvent({
+      description: 'In Progress',
+      detail: 'Q2 4:12',
+      name: 'STATUS_IN_PROGRESS',
+      shortDetail: 'Q2 4:12',
+      state: 'in',
+    }),
+  )?.status,
+  'Q2 4:12',
+);
 assert.equal(easternDateString(new Date('2026-09-10T00:20:00Z')), '2026-09-09');
 assert.equal(tba.timeValid, false);
 
