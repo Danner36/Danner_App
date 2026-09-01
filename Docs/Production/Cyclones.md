@@ -18,8 +18,8 @@ Do not print listing `extract.baseUrl`, family PIN values, Apple Account secrets
 | Worker `module: "cyclones"` | Absent. Live Worker source knows `guardians` and `patriots` only |
 | Hub row 2 | YouTube TV under Guardians, reserved empty spacer under Patriots |
 | Product rule in `AI_Framework/AI_RULES.md` | Still the spacer layout. Change only when Cyclones is implemented |
-| Latest published family tag | `v1.4.2`. Installed `v1.3.3` phones still have the previous two-tile hub until that APK or IPA is installed |
-| Patriots sibling | On `main` and in `v1.4.2`. Treat Patriots as the copy pattern |
+| Latest published family tag | `v1.4.3`. Installed `v1.3.3` phones still have the previous two-tile hub until that APK or IPA is installed |
+| Patriots sibling | On `main` and in `v1.4.3`. Treat Patriots as the copy pattern |
 
 Patriots is the required sibling pattern. Read `app/patriots/`, `tests/patriots/`, `Docs/Domain/Patriots.md`, `.github/workflows/patriots-stream-pipeline.yml`, and `workers/guardians-get-video/src/index.js` before writing Cyclones.
 
