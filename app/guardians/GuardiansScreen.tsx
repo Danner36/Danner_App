@@ -32,6 +32,7 @@ import { WEB_AIRPLAY_INJECTION } from './webAirPlayInjection';
 import {
   WEB_MEDIA_DISCOVERY_INJECTION,
   castableDiscoveredContentType,
+  preferDiscoveredMedia,
 } from './webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from './webPlayerUserAgent';
 import { GuardiansAudioPlayer } from './GuardiansAudioPlayer';
@@ -42,6 +43,7 @@ import {
 } from './GuardiansCastButton';
 import {
   GuardiansTvRouteButton,
+  measureViewCrop,
   type DiscoveredMedia,
 } from './GuardiansTvRouteButton';
 import { stopLiveHls } from '../modules/danner-live-hls/src';
@@ -507,6 +509,7 @@ function IsolatedWebStreamPlayer({
         try {
           const payload = JSON.parse(event.nativeEvent.data) as {
             contentType?: unknown;
+            source?: unknown;
             type?: unknown;
             url?: unknown;
           };
@@ -521,7 +524,11 @@ function IsolatedWebStreamPlayer({
           if (!contentType) {
             return;
           }
-          onMedia?.({ contentType, url: payload.url });
+          const source =
+            payload.source === 'player' || payload.source === 'network'
+              ? payload.source
+              : undefined;
+          onMedia?.({ contentType, source, url: payload.url });
         } catch {}
       }}
       javaScriptEnabled
@@ -563,6 +570,9 @@ function IsolatedWebStreamPlayer({
       style={styles.playerWebView}
       thirdPartyCookiesEnabled={false}
       userAgent={isWeb ? webPlayerUserAgent() : undefined}
+      {...(isWeb && Platform.OS === 'android'
+        ? { androidLayerType: 'software' as const }
+        : {})}
     />
   );
 }
@@ -577,6 +587,7 @@ function StreamPlayer({
   const [tvError, setTvError] = useState<string>();
   const insets = useSafeAreaInsets();
   const [media, setMedia] = useState<DiscoveredMedia>();
+  const playerRef = useRef<View>(null);
   const closePlayer = () => {
     void stopLiveHls();
     onClose();
@@ -625,6 +636,8 @@ function StreamPlayer({
             />
           ) : stream?.kind === 'web' ? (
             <GuardiansTvRouteButton
+              key={stream.playbackUrl}
+              measurePlayer={() => measureViewCrop(playerRef.current)}
               media={media}
               onFailed={setTvError}
               visible
@@ -643,7 +656,18 @@ function StreamPlayer({
           stream.kind === 'direct' ? (
             <DirectStreamPlayer stream={stream} />
           ) : (
-            <IsolatedWebStreamPlayer onMedia={setMedia} stream={stream} />
+            <View
+              ref={playerRef}
+              collapsable={false}
+              style={styles.playerCapture}
+            >
+              <IsolatedWebStreamPlayer
+                onMedia={(next) => {
+                  setMedia((current) => preferDiscoveredMedia(current, next));
+                }}
+                stream={stream}
+              />
+            </View>
           )
         ) : null}
       </View>
@@ -1736,6 +1760,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 14,
     paddingVertical: 8,
+  },
+  playerCapture: {
+    flex: 1,
   },
   playerWebView: {
     backgroundColor: '#000000',

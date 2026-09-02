@@ -11,12 +11,23 @@ internal class HlsWindow(
   private val lock = Any()
   private val segments = ArrayDeque<Segment>()
   private var nextMediaSequence = 0L
+  private var width = 0
+  private var height = 0
+  private var codecs = ""
 
   data class Segment(
     val durationSeconds: Double,
     val index: Long,
     val payload: ByteArray,
   )
+
+  fun setProgram(codedWidth: Int, codedHeight: Int, codecList: String) {
+    synchronized(lock) {
+      width = codedWidth
+      height = codedHeight
+      codecs = codecList
+    }
+  }
 
   fun add(durationSeconds: Double, payload: ByteArray): Long {
     synchronized(lock) {
@@ -30,14 +41,28 @@ internal class HlsWindow(
     }
   }
 
-  fun playlist(): String {
+  fun masterPlaylist(): String {
+    synchronized(lock) {
+      if (width <= 0 || height <= 0 || segments.isEmpty()) {
+        return ""
+      }
+      val bandwidth = 2_500_000
+      val codecsAttr = if (codecs.isNotEmpty()) "CODECS=\"$codecs\"," else ""
+      return "#EXTM3U\n" +
+        "#EXT-X-VERSION:6\n" +
+        "#EXT-X-INDEPENDENT-SEGMENTS\n" +
+        "#EXT-X-STREAM-INF:BANDWIDTH=$bandwidth,${codecsAttr}" +
+        "RESOLUTION=${width}x${height},FRAME-RATE=30.000\n" +
+        "index.m3u8\n"
+    }
+  }
+
+  fun mediaPlaylist(): String {
     synchronized(lock) {
       if (segments.isEmpty()) {
         return ""
       }
       val first = segments.first.index
-      // RFC 8216 requires TARGETDURATION to be at least the longest EXTINF in the window, and
-      // players size their live holdback from it, so it has to follow the real segments.
       val targetDuration = maxOf(
         minTargetDurationSeconds,
         ceil(segments.maxOf { it.durationSeconds }).toInt(),
@@ -49,7 +74,7 @@ internal class HlsWindow(
       builder.append("#EXT-X-MEDIA-SEQUENCE:$first\n")
       for (segment in segments) {
         builder.append(
-          "#EXTINF:${"%.3f".format(Locale.US, segment.durationSeconds)},\n",
+          "#EXTINF:${"%.5f".format(Locale.US, segment.durationSeconds)},\n",
         )
         builder.append("seg-${segment.index}.ts\n")
       }
@@ -72,6 +97,8 @@ internal class HlsWindow(
   fun clear() {
     synchronized(lock) {
       segments.clear()
+      width = 0
+      height = 0
     }
   }
 }

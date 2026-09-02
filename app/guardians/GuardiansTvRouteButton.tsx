@@ -1,29 +1,57 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   PermissionsAndroid,
+  PixelRatio,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { CastContext } from 'react-native-google-cast';
+import { CastContext, useRemoteMediaClient } from 'react-native-google-cast';
 import {
   getLiveHlsStatus,
   isLiveHlsAvailable,
   liveHlsPlaylistUrl,
   startLiveHls,
+  stopLiveHls,
+  type LiveHlsCrop,
 } from '../modules/danner-live-hls/src';
 import {
   GuardiansCastButton,
+  castContentTypeForUrl,
   castStreamTypeForContentType,
 } from './GuardiansCastButton';
-import { HLS_CONTENT_TYPE } from './webMediaDiscoveryInjection';
+import {
+  type DiscoveredMedia,
+} from './webMediaDiscoveryInjection';
 
-export type DiscoveredMedia = {
-  contentType: string;
-  url: string;
-};
+export type { DiscoveredMedia };
+export type { LiveHlsCrop };
+
+export function measureViewCrop(
+  view: View | null,
+): Promise<LiveHlsCrop | undefined> {
+  return new Promise((resolve) => {
+    if (!view || typeof view.measureInWindow !== 'function') {
+      resolve(undefined);
+      return;
+    }
+    view.measureInWindow((x, y, width, height) => {
+      if (width < 16 || height < 16) {
+        resolve(undefined);
+        return;
+      }
+      const ratio = PixelRatio.get();
+      resolve({
+        x: Math.round(x * ratio),
+        y: Math.round(y * ratio),
+        width: Math.round(width * ratio),
+        height: Math.round(height * ratio),
+      });
+    });
+  });
+}
 
 function isGranted(value: string | undefined): boolean {
   return value === PermissionsAndroid.RESULTS.GRANTED;
@@ -67,10 +95,12 @@ async function waitForMedia(
 }
 
 export function GuardiansTvRouteButton({
+  measurePlayer,
   media,
   onFailed,
   visible,
 }: {
+  measurePlayer?: () => Promise<LiveHlsCrop | undefined>;
   media?: DiscoveredMedia;
   onFailed: (message?: string) => void;
   visible: boolean;
@@ -80,34 +110,32 @@ export function GuardiansTvRouteButton({
   const [busy, setBusy] = useState(false);
   const mediaRef = useRef<DiscoveredMedia | undefined>(media);
   mediaRef.current = media;
+  const client = useRemoteMediaClient();
 
   useEffect(() => {
-    void getLiveHlsStatus().then((status) => {
-      if (status.running && typeof status.origin === 'string' && status.origin) {
-        setLiveUrl(liveHlsPlaylistUrl(status.origin));
-      }
-    });
-  }, []);
+    if (!media) {
+      setSending(undefined);
+      return;
+    }
+    void stopLiveHls();
+  }, [media]);
 
   if (!visible || !isLiveHlsAvailable()) {
     return <View style={styles.headerSpacer} />;
   }
 
   // The page's own media URL reaches the receiver directly. Screen capture stays the
-  // fallback for a page that never reports one.
+  // fallback for a page that never reports one. A leftover converter origin is not
+  // treated as that page URL.
   const sent = sending ?? media;
   const playbackUrl = sent?.url ?? liveUrl;
-  const contentType = sent?.contentType ?? HLS_CONTENT_TYPE;
+  const contentType = sent?.contentType ?? castContentTypeForUrl(playbackUrl);
   const streamType = sent
     ? castStreamTypeForContentType(sent.contentType)
     : 'live';
 
   const onPress = async () => {
     if (busy) {
-      return;
-    }
-    if (playbackUrl) {
-      await CastContext.showCastDialog();
       return;
     }
 
@@ -117,22 +145,56 @@ export function GuardiansTvRouteButton({
       const discovered =
         media ?? (await waitForMedia(() => mediaRef.current, 6_000));
       if (discovered) {
+        console.log(`[DannerCast] discovered ${discovered.url}`);
         setSending(discovered);
-        await CastContext.showCastDialog();
+        setLiveUrl('');
+        await stopLiveHls();
+        if (!client) {
+          await CastContext.showCastDialog();
+        }
         return;
       }
+
+      if (liveUrl) {
+        console.log(`[DannerCast] converter ${liveUrl}`);
+        if (!client) {
+          await CastContext.showCastDialog();
+        }
+        return;
+      }
+
+      const existing = await getLiveHlsStatus();
+      if (
+        existing.running &&
+        typeof existing.origin === 'string' &&
+        existing.origin
+      ) {
+        const existingUrl = liveHlsPlaylistUrl(existing.origin);
+        console.log(`[DannerCast] converter ${existingUrl}`);
+        setLiveUrl(existingUrl);
+        if (!client) {
+          await CastContext.showCastDialog();
+        }
+        return;
+      }
+
       const permitted = await requestAndroidCapturePermissions();
       if (!permitted) {
         onFailed('TV send needs permission.');
         return;
       }
-      const started = await startLiveHls();
+      const crop = (await measurePlayer?.()) ?? undefined;
+      const started = await startLiveHls(crop);
       if (!started) {
         onFailed('Could not send to the TV.');
         return;
       }
-      setLiveUrl(liveHlsPlaylistUrl(started.origin));
-      await CastContext.showCastDialog();
+      const startedUrl = liveHlsPlaylistUrl(started.origin);
+      console.log(`[DannerCast] converter ${startedUrl}`);
+      setLiveUrl(startedUrl);
+      if (!client) {
+        await CastContext.showCastDialog();
+      }
     } finally {
       setBusy(false);
     }

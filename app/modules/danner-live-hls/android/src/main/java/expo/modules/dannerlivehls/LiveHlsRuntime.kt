@@ -11,9 +11,7 @@ internal object LiveHlsRuntime {
   const val ACTION_STOP = "expo.modules.dannerlivehls.STOP"
   const val EXTRA_DATA = "data"
   const val EXTRA_RESULT_CODE = "resultCode"
-  // Publish only once the window holds more than a conformant live player's ~3x target-duration
-  // holdback, so the receiver's start position lands on a segment that exists.
-  const val MIN_SEGMENTS = 5
+  const val MIN_SEGMENTS = 3
   const val READY_TIMEOUT_MS = 25_000L
 
   @Volatile
@@ -25,6 +23,25 @@ internal object LiveHlsRuntime {
   @Volatile
   var running: Boolean = false
 
+  @Volatile
+  var cropX: Int = 0
+
+  @Volatile
+  var cropY: Int = 0
+
+  @Volatile
+  var cropWidth: Int = 0
+
+  @Volatile
+  var cropHeight: Int = 0
+
+  fun setCrop(x: Int, y: Int, width: Int, height: Int) {
+    cropX = x.coerceAtLeast(0)
+    cropY = y.coerceAtLeast(0)
+    cropWidth = width.coerceAtLeast(0)
+    cropHeight = height.coerceAtLeast(0)
+  }
+
   private val lock = Object()
   private var readyLatch = CountDownLatch(1)
   private val failed = AtomicBoolean(false)
@@ -34,6 +51,10 @@ internal object LiveHlsRuntime {
       origin = null
       port = 0
       running = false
+      cropX = 0
+      cropY = 0
+      cropWidth = 0
+      cropHeight = 0
       failed.set(false)
       readyLatch = CountDownLatch(1)
     }

@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Rect
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Build
@@ -49,11 +50,14 @@ internal class LiveHlsService : Service() {
         ?: throw IllegalStateException("missing projection")
       mediaProjection = projection
       projection.registerCallback(projectionCallback, null)
-      val size = captureSize()
+      val layout = captureLayout()
       val session = ScreenHlsPipeline(
         projection,
-        size.first,
-        size.second,
+        layout.captureWidth,
+        layout.captureHeight,
+        layout.encodeWidth,
+        layout.encodeHeight,
+        layout.crop,
         resources.displayMetrics.densityDpi,
         window,
       ) { count ->
@@ -145,24 +149,80 @@ internal class LiveHlsService : Service() {
     wakeLock = null
   }
 
-  private fun captureSize(): Pair<Int, Int> {
-    val metrics = resources.displayMetrics
-    var width = metrics.widthPixels
-    var height = metrics.heightPixels
+  private fun captureLayout(): CaptureLayout {
+    val screen = displaySize()
+    val capture = scaleToLongEdge(screen.first, screen.second)
+    val screenCrop = Rect(
+      LiveHlsRuntime.cropX,
+      LiveHlsRuntime.cropY,
+      LiveHlsRuntime.cropX + LiveHlsRuntime.cropWidth,
+      LiveHlsRuntime.cropY + LiveHlsRuntime.cropHeight,
+    )
+    val crop = mapCrop(screenCrop, screen.first, screen.second, capture.first, capture.second)
+    val encoded = alignCoded(crop.width(), crop.height())
+    return CaptureLayout(
+      capture.first,
+      capture.second,
+      encoded.first,
+      encoded.second,
+      crop,
+    )
+  }
+
+  private fun displaySize(): Pair<Int, Int> {
+    var width = resources.displayMetrics.widthPixels
+    var height = resources.displayMetrics.heightPixels
     val windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
       val bounds = windowManager.currentWindowMetrics.bounds
       width = bounds.width()
       height = bounds.height()
     }
+    return Pair(width.coerceAtLeast(16), height.coerceAtLeast(16))
+  }
+
+  private fun scaleToLongEdge(rawWidth: Int, rawHeight: Int): Pair<Int, Int> {
+    var width = rawWidth
+    var height = rawHeight
     val longest = maxOf(width, height)
     if (longest > MAX_LONG_EDGE) {
       val scale = MAX_LONG_EDGE.toFloat() / longest.toFloat()
       width = (width * scale).toInt()
       height = (height * scale).toInt()
     }
-    width = width and 1.inv()
-    height = height and 1.inv()
+    return alignCoded(width, height)
+  }
+
+  private fun mapCrop(
+    screenCrop: Rect,
+    screenWidth: Int,
+    screenHeight: Int,
+    captureWidth: Int,
+    captureHeight: Int,
+  ): Rect {
+    if (screenCrop.width() < 32 || screenCrop.height() < 32) {
+      return Rect(0, 0, captureWidth, captureHeight)
+    }
+    val left = (screenCrop.left.toLong() * captureWidth / screenWidth)
+      .toInt()
+      .coerceIn(0, captureWidth - 16)
+    val top = (screenCrop.top.toLong() * captureHeight / screenHeight)
+      .toInt()
+      .coerceIn(0, captureHeight - 16)
+    val right = (screenCrop.right.toLong() * captureWidth / screenWidth)
+      .toInt()
+      .coerceIn(left + 16, captureWidth)
+    val bottom = (screenCrop.bottom.toLong() * captureHeight / screenHeight)
+      .toInt()
+      .coerceIn(top + 16, captureHeight)
+    return Rect(left, top, right, bottom)
+  }
+
+  private fun alignCoded(rawWidth: Int, rawHeight: Int): Pair<Int, Int> {
+    var width = minOf(rawWidth, MAX_LONG_EDGE)
+    var height = minOf(rawHeight, MAX_LONG_EDGE)
+    width -= width % 16
+    height -= height % 16
     if (width < 16) {
       width = 16
     }
@@ -186,7 +246,15 @@ internal class LiveHlsService : Service() {
 
   companion object {
     private const val CHANNEL_ID = "danner-live-hls"
-    private const val MAX_LONG_EDGE = 1280
+    private const val MAX_LONG_EDGE = 1080
     private const val NOTIFICATION_ID = 7108
   }
+
+  private data class CaptureLayout(
+    val captureWidth: Int,
+    val captureHeight: Int,
+    val encodeWidth: Int,
+    val encodeHeight: Int,
+    val crop: Rect,
+  )
 }

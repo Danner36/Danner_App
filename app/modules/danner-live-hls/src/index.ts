@@ -6,6 +6,13 @@ export type LiveHlsOrigin = {
   port: number;
 };
 
+export type LiveHlsCrop = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 type LiveHlsStatus = {
   origin?: string;
   port?: number;
@@ -15,7 +22,12 @@ type LiveHlsStatus = {
 type DannerLiveHlsModule = {
   getStatus: () => Promise<LiveHlsStatus>;
   showAirPlayPicker: () => Promise<void>;
-  start: () => Promise<LiveHlsOrigin>;
+  start: (
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ) => Promise<LiveHlsOrigin>;
   stop: () => Promise<void>;
 };
 
@@ -31,13 +43,20 @@ export function liveHlsPlaylistUrl(origin: string): string {
   return `${origin.replace(/\/$/, '')}/live.m3u8`;
 }
 
-export async function startLiveHls(): Promise<LiveHlsOrigin | undefined> {
+export async function startLiveHls(
+  crop?: LiveHlsCrop,
+): Promise<LiveHlsOrigin | undefined> {
   if (!nativeModule) {
     return undefined;
   }
 
   try {
-    const result = await nativeModule.start();
+    const result = await nativeModule.start(
+      crop?.x ?? 0,
+      crop?.y ?? 0,
+      crop?.width ?? 0,
+      crop?.height ?? 0,
+    );
     if (
       typeof result?.origin !== 'string' ||
       result.origin.length === 0 ||

@@ -193,11 +193,22 @@ const tapIfPresent = async (label, predicate) => {
 };
 
 const fetchPlaylist = async (hostPort) => {
-  const response = await fetch(`http://127.0.0.1:${hostPort}/live.m3u8`);
-  if (!response.ok) {
+  const mp4 = await fetch(`http://127.0.0.1:${hostPort}/live.mp4`);
+  if (mp4.ok) {
+    return 'mp4';
+  }
+  const master = await fetch(`http://127.0.0.1:${hostPort}/live.m3u8`);
+  if (!master.ok) {
     return undefined;
   }
-  const body = await response.text();
+  let body = await master.text();
+  if (body.includes('#EXT-X-STREAM-INF')) {
+    const media = await fetch(`http://127.0.0.1:${hostPort}/index.m3u8`);
+    if (!media.ok) {
+      return undefined;
+    }
+    body = await media.text();
+  }
   if (!body.includes('#EXTM3U') || !body.includes('#EXTINF')) {
     return undefined;
   }
@@ -213,12 +224,9 @@ const hasFfprobe = async () => {
   }
 };
 
-// TS framing alone proves nothing: a stream whose audio and video sit on different clocks is
-// still 188-byte aligned and still starts with 0x47, and it renders as a black screen on the
-// Chromecast. Decode the segment and check the two elementary streams agree.
-const probeSegment = async (bytes) => {
+const probeTs = async (segmentBytes) => {
   const file = path.join(tmpdir(), `danner-live-hls-probe-${Date.now()}.ts`);
-  await writeFile(file, bytes);
+  await writeFile(file, segmentBytes);
   try {
     const result = await run('ffprobe', [
       '-v', 'error',
@@ -285,10 +293,21 @@ const probeSegment = async (bytes) => {
 };
 
 const validateSegment = async (hostPort, playlist) => {
+  if (playlist === 'mp4') {
+    const response = await fetch(`http://127.0.0.1:${hostPort}/live.mp4`);
+    if (!response.ok) {
+      throw new Error(`MP4 HTTP ${response.status}`);
+    }
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length < 16 || bytes.toString('ascii', 4, 8) !== 'ftyp') {
+      throw new Error('Origin is not an MP4 movie');
+    }
+    return { bytes: bytes.length, decode: 'mp4' };
+  }
   const matches = [...playlist.matchAll(/seg-(\d+)\.ts/g)];
   const match = matches.at(-1);
   if (!match) {
-    throw new Error('Playlist has no segments');
+    throw new Error('Playlist has no MPEG-TS segments');
   }
   const response = await fetch(`http://127.0.0.1:${hostPort}/seg-${match[1]}.ts`);
   if (!response.ok) {
@@ -299,7 +318,7 @@ const validateSegment = async (hostPort, playlist) => {
     throw new Error('Segment is not MPEG-TS');
   }
   const decode = (await hasFfprobe())
-    ? await probeSegment(bytes)
+    ? await probeTs(bytes)
     : 'skipped (ffprobe is not on PATH)';
   return { bytes: bytes.length, decode };
 };

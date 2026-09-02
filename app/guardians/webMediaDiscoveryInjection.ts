@@ -37,6 +37,43 @@ export function castableDiscoveredContentType(
   return contentType;
 }
 
+export type DiscoveredMediaSource = 'player' | 'network';
+
+export type DiscoveredMedia = {
+  contentType: string;
+  source?: DiscoveredMediaSource;
+  url: string;
+};
+
+/**
+ * Keeps the URL the player itself named. Network-only playlist variants and audio
+ * renditions that appear after that are ignored. A later player HLS or DASH URL
+ * replaces a player MP4.
+ */
+export function preferDiscoveredMedia(
+  current: DiscoveredMedia | undefined,
+  next: DiscoveredMedia,
+): DiscoveredMedia {
+  if (!current) {
+    return next;
+  }
+  if (next.source === 'player' && current.source !== 'player') {
+    return next;
+  }
+  if (current.source === 'player' && next.source !== 'player') {
+    return current;
+  }
+  if (
+    current.source === 'player' &&
+    next.source === 'player' &&
+    current.contentType === MP4_CONTENT_TYPE &&
+    next.contentType !== MP4_CONTENT_TYPE
+  ) {
+    return next;
+  }
+  return current;
+}
+
 /**
  * Reports the media URL an approved player page is actually loading, together with the
  * content type that identified it. A provider playlist is often served from a path with no
@@ -54,6 +91,8 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
   var DASH = '${DASH_CONTENT_TYPE}';
   var MP4 = '${MP4_CONTENT_TYPE}';
   var reported = {};
+  var playerNamed = false;
+  var networkLocked = false;
 
   var typeFromPath = function (value) {
     var path = String(value).split('#')[0].split('?')[0].toLowerCase();
@@ -83,7 +122,7 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     return '';
   };
 
-  var send = function (value, knownType) {
+  var send = function (value, knownType, fromPlayer) {
     if (typeof value !== 'string' || !value) {
       return;
     }
@@ -103,16 +142,28 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     if (!contentType) {
       return;
     }
+    if (playerNamed) {
+      return;
+    }
+    if (!fromPlayer && networkLocked) {
+      return;
+    }
     var key = url + '|' + contentType;
     if (reported[key]) {
       return;
     }
     reported[key] = true;
+    if (fromPlayer) {
+      playerNamed = true;
+    } else {
+      networkLocked = true;
+    }
     try {
       if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
         window.ReactNativeWebView.postMessage(
           JSON.stringify({
             contentType: contentType,
+            source: fromPlayer ? 'player' : 'network',
             type: 'media-url',
             url: url,
           }),
@@ -125,9 +176,9 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     var nodes = document.querySelectorAll('video, audio, source');
     for (var index = 0; index < nodes.length; index += 1) {
       var node = nodes[index];
-      send(node.currentSrc);
-      send(node.src);
-      send(node.getAttribute && node.getAttribute('src'));
+      send(node.getAttribute && node.getAttribute('src'), '', true);
+      send(node.src, '', true);
+      send(node.currentSrc, '', true);
     }
   };
 
@@ -152,7 +203,7 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
       ) {
         var original = window.Hls.prototype.loadSource;
         window.Hls.prototype.loadSource = function (url) {
-          send(String(url || ''), HLS);
+          send(String(url || ''), HLS, true);
           return original.apply(this, arguments);
         };
         window.Hls.prototype.__dannerHooked = true;

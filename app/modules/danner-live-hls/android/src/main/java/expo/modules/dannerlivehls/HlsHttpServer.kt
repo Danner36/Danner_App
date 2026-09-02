@@ -90,12 +90,15 @@ internal class HlsHttpServer(
     }
     val served = stats.requests.incrementAndGet()
     stats.bytes.addAndGet(byteCount.toLong())
-    if (status != 200) {
+    if (status != 200 && status != 206) {
       val misses = stats.misses.incrementAndGet()
       if (misses <= MAX_MISS_LOGS) {
         Log.w(TAG, "client $remote got $status for $path")
       }
       return
+    }
+    if (served <= FIRST_PATH_LOGS) {
+      Log.i(TAG, "client $remote $path $byteCount")
     }
     if (served % SUMMARY_EVERY == 0L) {
       Log.i(
@@ -156,7 +159,26 @@ internal class HlsHttpServer(
       var served = 0
       when {
         path == "/live.m3u8" -> {
-          val body = window.playlist().toByteArray(StandardCharsets.UTF_8)
+          val body = window.masterPlaylist().toByteArray(StandardCharsets.UTF_8)
+          if (body.isEmpty()) {
+            writeHeaders(output, 404, "Not Found", "text/plain", 0)
+          } else {
+            writeHeaders(
+              output,
+              200,
+              "OK",
+              "application/vnd.apple.mpegurl",
+              body.size,
+            )
+            if (withBody) {
+              output.write(body)
+            }
+            status = 200
+            served = body.size
+          }
+        }
+        path == "/index.m3u8" -> {
+          val body = window.mediaPlaylist().toByteArray(StandardCharsets.UTF_8)
           if (body.isEmpty()) {
             writeHeaders(output, 404, "Not Found", "text/plain", 0)
           } else {
@@ -180,7 +202,7 @@ internal class HlsHttpServer(
           if (payload == null) {
             writeHeaders(output, 404, "Not Found", "text/plain", 0)
           } else {
-            writeHeaders(output, 200, "OK", "video/MP2T", payload.size)
+            writeHeaders(output, 200, "OK", "video/mp2t", payload.size)
             if (withBody) {
               output.write(payload)
             }
@@ -234,16 +256,13 @@ internal class HlsHttpServer(
     builder.append("Access-Control-Allow-Origin: *\r\n")
     builder.append("Access-Control-Allow-Methods: GET, HEAD, OPTIONS\r\n")
     builder.append("Access-Control-Allow-Headers: *\r\n")
-    // Content-Length is not CORS-safelisted, so the receiver's player cannot read it without
-    // this. Range is unsupported, and saying so keeps clients from probing for it.
-    builder.append("Access-Control-Expose-Headers: Content-Length, Content-Type\r\n")
+    builder.append("Access-Control-Expose-Headers: Content-Length, Content-Type, Accept-Ranges\r\n")
     builder.append("Accept-Ranges: none\r\n")
     builder.append("Cache-Control: no-store\r\n")
     builder.append("Connection: close\r\n")
     if (contentType != null) {
       builder.append("Content-Type: $contentType\r\n")
     }
-    // A 204 carries no representation, so it must not announce a length.
     if (length != null) {
       builder.append("Content-Length: $length\r\n")
     }
@@ -254,6 +273,9 @@ internal class HlsHttpServer(
   private companion object {
     /** Shared with LiveHlsService so one logcat filter covers the whole session. */
     const val TAG = "DannerLiveHls"
+
+    /** First successful fetches from a client, including init and the opening segments. */
+    const val FIRST_PATH_LOGS = 12L
 
     /** At roughly one request per second, a summary line every ~50 seconds. */
     const val SUMMARY_EVERY = 50L

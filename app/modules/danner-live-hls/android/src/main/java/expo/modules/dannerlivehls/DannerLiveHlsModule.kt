@@ -13,7 +13,7 @@ class DannerLiveHlsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DannerLiveHls")
 
-    AsyncFunction("start") { promise: Promise ->
+    AsyncFunction("start") { cropX: Double, cropY: Double, cropWidth: Double, cropHeight: Double, promise: Promise ->
       val existingOrigin = LiveHlsRuntime.origin
       val existingPort = LiveHlsRuntime.port
       if (LiveHlsRuntime.running && existingOrigin != null && existingPort != 0) {
@@ -33,6 +33,12 @@ class DannerLiveHlsModule : Module() {
       pendingStart?.reject("ERR_CANCELLED", "Screen capture was replaced.", null)
       pendingStart = promise
       LiveHlsRuntime.resetForStart()
+      LiveHlsRuntime.setCrop(
+        cropX.toInt(),
+        cropY.toInt(),
+        cropWidth.toInt(),
+        cropHeight.toInt(),
+      )
       val manager =
         activity.getSystemService(Activity.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
       activity.startActivityForResult(

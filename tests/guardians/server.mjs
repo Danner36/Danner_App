@@ -129,13 +129,14 @@ const server = createServer(async (request, response) => {
     try {
       const fixture = await readFixtureDocument();
       const gameDate = easternDateString(new Date());
+      const advertisedHost = request.headers.host ?? `10.0.2.2:${port}`;
       const streams = fixture.streams.map((stream) => ({
         allowInsecureHttp: stream.allowInsecureHttp ?? false,
         gameDates: [gameDate],
         gameNumbers: [1],
         kind: stream.kind,
         trustedHosts: stream.trustedHosts ?? [],
-        url: stream.url,
+        url: stream.url.replaceAll('10.0.2.2:8108', advertisedHost),
       }));
       response.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
@@ -208,15 +209,21 @@ const server = createServer(async (request, response) => {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Cast web source</title>
         </head>
         <body style="background:#000;margin:0">
+          <div style="color:#fff;font:16px sans-serif;left:12px;position:absolute;top:12px;z-index:2">Cast web source</div>
           <video
             controls
             playsinline
+            preload="metadata"
             src="https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
             style="height:100vh;width:100%"
             x-webkit-airplay="allow"
           ></video>
+          <script>
+            fetch('https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8');
+          </script>
         </body>
       </html>`);
     return;
@@ -234,8 +241,10 @@ const server = createServer(async (request, response) => {
         <head>
           <meta charset="utf-8" />
           <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>Convert source</title>
         </head>
         <body style="background:#081f37;margin:0">
+          <div style="color:#fff;font:16px sans-serif;left:12px;position:absolute;top:12px;z-index:2">Convert source</div>
           <canvas id="board" style="display:block;height:100vh;width:100%"></canvas>
           <script>
             const board = document.getElementById('board');
@@ -267,7 +276,7 @@ const server = createServer(async (request, response) => {
               context.fillRect(x - 36, y - 36, 72, 72);
               context.fillStyle = '#F7F7F2';
               context.font = '32px sans-serif';
-              context.fillText(new Date(now).toISOString(), 24, 48);
+              context.fillText(new Date().toISOString(), 24, 48);
               requestAnimationFrame(draw);
             }
             requestAnimationFrame(draw);

@@ -5,7 +5,7 @@ public final class DannerLiveHlsModule: Module {
   public func definition() -> ModuleDefinition {
     Name("DannerLiveHls")
 
-    AsyncFunction("start") { () -> [String: Any] in
+    AsyncFunction("start") { (_ cropX: Double, _ cropY: Double, _ cropWidth: Double, _ cropHeight: Double) -> [String: Any] in
       let result = try LiveHlsEngine.shared.start()
       return [
         "origin": result.origin,
