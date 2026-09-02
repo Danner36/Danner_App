@@ -24,7 +24,8 @@
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
-- TV control on web games that captures the on-screen player and sends a local live playlist to Cast on Android and iPhone
+- TV control on web games that Casts the page's HLS, DASH, or MP4 URL when the player reports one, and otherwise captures the on-screen player into a local live playlist
+- iPhone web player pages use the Android Chrome user agent so they receive the same player build as Android
 - YouTube TV location workflow
 - Offline United States location map
 - iPhone SideStore expiration warning

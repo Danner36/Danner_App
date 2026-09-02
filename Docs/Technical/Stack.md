@@ -14,8 +14,8 @@ Phase: MVP
 ## Native integrations
 
 - `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled. iPhone native controls include AirPlay for those URLs.
-- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that live-converts the on-screen player through `modules/danner-live-hls/` and then Cast of that local playlist on Android and iPhone. `youtube` sources stay phone-only.
-- `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages enable WKWebView AirPlay and opt in HTML5 video and audio tags; YouTube embeds are not injected.
+- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that Casts a page-reported HLS, DASH, or MP4 URL when the isolated player reports one, and otherwise live-converts the on-screen player through `modules/danner-live-hls/` and Casts that local playlist on Android and iPhone. MPEG-TS is declared only for the captured playlist. `youtube` sources stay phone-only.
+- `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages report an Android Chrome user agent, enable WKWebView AirPlay, and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
 - `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians and Patriots source documents.
 - `expo-asset` installs and opens the generated offline map HTML on Android and iOS.
@@ -88,6 +88,7 @@ npm run test:guardians:android:ready
 npm run test:guardians:android:delayed
 npm run test:guardians:android:live
 npm run test:guardians:snapshot
+npm run test:guardians:cast-discovery
 npm run test:guardians:android:final
 npm run test:guardians:android:live-hls
 npm run test:guardians:android:get-video

@@ -15,7 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { GuardiansAudioPlayer } from '../guardians/GuardiansAudioPlayer';
 import {
@@ -23,8 +23,17 @@ import {
   castContentTypeForUrl,
   castStreamTypeForUrl,
 } from '../guardians/GuardiansCastButton';
-import { GuardiansTvRouteButton } from '../guardians/GuardiansTvRouteButton';
+import {
+  GuardiansTvRouteButton,
+  type DiscoveredMedia,
+} from '../guardians/GuardiansTvRouteButton';
 import { WEB_AIRPLAY_INJECTION } from '../guardians/webAirPlayInjection';
+import {
+  WEB_MEDIA_DISCOVERY_INJECTION,
+  castableDiscoveredContentType,
+} from '../guardians/webMediaDiscoveryInjection';
+import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
+import { stopLiveHls } from '../modules/danner-live-hls/src';
 import { fetchEspnPatriotsEvents } from './espnNfl';
 import {
   fetchLiveFootballScoreboard,
@@ -380,7 +389,13 @@ function youtubePlayerHtml(embedUrl: string): string {
     </html>`;
 }
 
-function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
+function IsolatedWebStreamPlayer({
+  onMedia,
+  stream,
+}: {
+  onMedia?: (media: DiscoveredMedia) => void;
+  stream: PlayableStream;
+}) {
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
   const isYoutube = stream.kind === 'youtube';
   const isWeb = stream.kind === 'web';
@@ -393,7 +408,9 @@ function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
       allowedNavigationHosts,
       stream.allowInsecureHttp === true,
     );
-  const webAirPlayInjection = isWeb ? WEB_AIRPLAY_INJECTION : undefined;
+  const webInjection = isWeb
+    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_MEDIA_DISCOVERY_INJECTION}`
+    : undefined;
 
   useEffect(() => {
     setPromotedPopupUrl(undefined);
@@ -410,8 +427,29 @@ function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
       cacheEnabled={false}
       geolocationEnabled={false}
       incognito
-      injectedJavaScript={webAirPlayInjection}
-      injectedJavaScriptBeforeContentLoaded={webAirPlayInjection}
+      injectedJavaScript={webInjection}
+      injectedJavaScriptBeforeContentLoaded={webInjection}
+      onMessage={(event) => {
+        try {
+          const payload = JSON.parse(event.nativeEvent.data) as {
+            contentType?: unknown;
+            type?: unknown;
+            url?: unknown;
+          };
+          if (payload.type !== 'media-url' || typeof payload.url !== 'string') {
+            return;
+          }
+          const contentType = castableDiscoveredContentType(
+            payload.url,
+            payload.contentType,
+            stream.allowInsecureHttp === true,
+          );
+          if (!contentType) {
+            return;
+          }
+          onMedia?.({ contentType, url: payload.url });
+        } catch {}
+      }}
       javaScriptEnabled
       javaScriptCanOpenWindowsAutomatically={false}
       mediaPlaybackRequiresUserAction={false}
@@ -448,6 +486,7 @@ function IsolatedWebStreamPlayer({ stream }: { stream: PlayableStream }) {
       startInLoadingState
       style={styles.playerWebView}
       thirdPartyCookiesEnabled={false}
+      userAgent={isWeb ? webPlayerUserAgent() : undefined}
     />
   );
 }
@@ -460,21 +499,36 @@ function StreamPlayer({
   onClose: () => void;
 }) {
   const [tvError, setTvError] = useState<string>();
+  const insets = useSafeAreaInsets();
+  const [media, setMedia] = useState<DiscoveredMedia>();
+  const closePlayer = () => {
+    void stopLiveHls();
+    onClose();
+  };
+
+  useEffect(() => {
+    setMedia(undefined);
+  }, [stream?.playbackUrl]);
 
   return (
     <Modal
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={closePlayer}
       presentationStyle="fullScreen"
       visible={Boolean(stream)}
     >
-      <SafeAreaView edges={['top', 'bottom']} style={styles.playerScreen}>
+      <View
+        style={[
+          styles.playerScreen,
+          { paddingBottom: insets.bottom, paddingTop: insets.top },
+        ]}
+      >
         <View style={styles.playerHeader}>
           <Pressable
             accessibilityLabel="Close video"
             accessibilityRole="button"
             hitSlop={12}
-            onPress={onClose}
+            onPress={closePlayer}
             style={({ pressed }) => [
               styles.headerButton,
               pressed && styles.pressed,
@@ -494,7 +548,11 @@ function StreamPlayer({
               visible
             />
           ) : stream?.kind === 'web' ? (
-            <GuardiansTvRouteButton onFailed={setTvError} visible />
+            <GuardiansTvRouteButton
+              media={media}
+              onFailed={setTvError}
+              visible
+            />
           ) : (
             <View style={styles.headerSpacer} />
           )}
@@ -509,10 +567,10 @@ function StreamPlayer({
           stream.kind === 'direct' ? (
             <DirectStreamPlayer stream={stream} />
           ) : (
-            <IsolatedWebStreamPlayer stream={stream} />
+            <IsolatedWebStreamPlayer onMedia={setMedia} stream={stream} />
           )
         ) : null}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

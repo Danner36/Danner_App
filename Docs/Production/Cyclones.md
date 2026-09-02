@@ -50,7 +50,7 @@ This is the working template Cyclones copies. It is not Cyclones work.
 
 - `app/App.tsx` routes `'patriots'` to `PatriotsScreen`.
 - `app/hub/HubScreen.tsx` is a two-row 2×2 of 101.2dp tiles, 28dp gaps, cluster on the two-thirds line (`marginTop: -115.2`). Row 1 Guardians then Patriots. Row 2 YouTube TV then spacer.
-- `app/patriots/` dashboard: ESPN leftover games, countdown, `Time TBA`, football scoreboard, Play / Listen / Get video, isolated players. Reuses Guardians Cast, audio, TV capture, and AirPlay.
+- `app/patriots/` dashboard: ESPN leftover games, countdown, `Time TBA`, football scoreboard, Play / Listen / Get video, isolated players. Reuses Guardians Cast, audio, TV send, and AirPlay.
 - Get video POSTs `{ pin, module: "patriots" }` using `EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL` and `EXPO_PUBLIC_GUARDIANS_FAMILY_PIN`. Polls `GET /streams?module=patriots` for up to 5 minutes.
 - Patriots parser reuses the Guardians six-field schema and **rejects extra keys**. Cyclones therefore needs its own parser (six fields plus required `sport`).
 - Tests: `tests/patriots/` dashboard harness **8108**, Get video **8112**. Snapshot `npm run test:patriots:snapshot` passed. Emulator `SKIP_ANDROID_BUILD=1 npm run test:patriots:android:get-video` on `emulator-5554` passed (Play after publish, no restart). Separate today / ready / delayed / Final Metro launches were not run.
@@ -178,7 +178,7 @@ Show the status on the featured/recap area when that sport is the featured story
 
 ### 4. Watch / Get video
 
-Same 15-minute window, icon-only Play, Listen / Cast / TV capture, isolated players.
+Same 15-minute window, icon-only Play, Listen / Cast / TV send, isolated players.
 
 Phone POST:
 

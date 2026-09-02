@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -49,7 +49,7 @@ Last updated: 2026-09-01
 | Patriots source schema | Pass | Parser reuses the Guardians six-field checks against root `patriots_streams.json` (guide plus inactive example only) |
 | Patriots GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=patriots` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=patriots` returned 200 after the 2026-09-01 Worker deploy |
 | Patriots Get video | Pass | 2026-08-29 Pixel emulator `emulator-5554`: `npm run test:patriots:android:get-video` posted `{ pin, module: "patriots" }`, polled `/streams?module=patriots` on port 8112, and showed Play after publish without restart |
-| Guardians Listen and TV send | Pass | Source: Listen is `direct` only; header Cast loads the JSON URL for `direct` without forcing MPEG-TS; header TV captures `web` into local HLS and declares MPEG-TS to the receiver. `test:guardians:android:live-hls` exercises the capture path |
+| Guardians Listen and TV send | Review | Source: Listen is `direct` only; header Cast loads the JSON URL for `direct` without forcing MPEG-TS; header TV Casts a page-reported HLS, DASH, or MP4 URL when the injection names a matching content type, otherwise captures `web` into local HLS and declares MPEG-TS only for that playlist. Cast load is keyed by client plus media so a later session is not skipped. `test:guardians:cast-discovery` covers the URL gate; `test:guardians:android:live-hls` exercises the capture path. Physical TV confirmation of the discovered-URL path remains |
 | Parent-friendly guided home | Pass | Large cards, progress, current-step emphasis, completion, retry, and QR-code instructions render at 1080 by 2400 |
 | Simplified step 3 | Pass | Installed release hierarchy and capture show only `Update on this phone` and the `Update the TV location` button, with no explanatory or bridge-status copy |
 | TV-specific step 4 | Pass | Installed release says the `Welcome to...` message appears on the TV before returning to the TV main screen and selecting `Live` |
@@ -119,7 +119,7 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - Opening Patriots fetches leftover ESPN NFL games and root `patriots_streams.json`. Official dates are America/New_York. Get video POSTs `{ pin, module: "patriots" }` to the shared Worker. The hero record stays `0–0` until a regular-season game is Final.
 - Today's scheduled game counts down every second. A live game refreshes its park-style scoreboard every five seconds. Icon-only Play controls become eligible 15 minutes before game time. Missing video states that it is not ready and continues checking each minute. Get video appears when the worker origin and family PIN are in the build.
 - Play appears when a date- and game-number-matched URL is already in `guardians_streams.json`. That file already has dated production `web` entries plus the inactive example. HTTPS works by default; an HTTP source must opt in explicitly.
-- Direct media bypasses webpage execution and can offer Listen and Cast. `web` sources use an isolated WebView and can offer TV capture. YouTube stays phone-only. An HTTP opt-in does not relax popup, redirect, file, cookie, or download gates.
+- Direct media bypasses webpage execution and can offer Listen and Cast. `web` sources use an isolated WebView and can offer TV send of a page-reported media URL or captured playlist. YouTube stays phone-only. An HTTP opt-in does not relax popup, redirect, file, cookie, or download gates.
 - Test fixtures and test media URLs remain outside production artifacts, and the release build restored MLB data with no simulated live card or test buttons.
 - Tripoli is the default; searched cities and dropped map points persist with their nearest-place label across launches.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico without map-network access or satellite imagery.

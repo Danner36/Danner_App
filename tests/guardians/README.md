@@ -13,6 +13,7 @@ npm run test:guardians:android:delayed
 npm run test:guardians:android:final
 npm run test:guardians:android:live
 npm run test:guardians:snapshot
+npm run test:guardians:cast-discovery
 npm run test:guardians:android:live-hls
 npm run test:guardians:android:shell-fix
 npm run test:guardians:android:get-video
@@ -26,6 +27,7 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android:final` | Today's completed game with WIN badge, score, and pitcher line |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
+| `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate: HTTPS, HTTP opt-in, extensionless playlist, rejected types |
 | `npm run test:guardians:android:live-hls` | Live game plus capture-pattern page; taps TV and checks a local MPEG-TS playlist |
 | `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; denied TV grants show the failure and no location prompt |
 | `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |

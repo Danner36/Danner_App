@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   PermissionsAndroid,
   Platform,
@@ -9,12 +9,21 @@ import {
 } from 'react-native';
 import { CastContext } from 'react-native-google-cast';
 import {
+  getLiveHlsStatus,
   isLiveHlsAvailable,
   liveHlsPlaylistUrl,
   startLiveHls,
-  stopLiveHls,
 } from '../modules/danner-live-hls/src';
-import { GuardiansCastButton } from './GuardiansCastButton';
+import {
+  GuardiansCastButton,
+  castStreamTypeForContentType,
+} from './GuardiansCastButton';
+import { HLS_CONTENT_TYPE } from './webMediaDiscoveryInjection';
+
+export type DiscoveredMedia = {
+  contentType: string;
+  url: string;
+};
 
 function isGranted(value: string | undefined): boolean {
   return value === PermissionsAndroid.RESULTS.GRANTED;
@@ -40,31 +49,64 @@ async function requestAndroidCapturePermissions(): Promise<boolean> {
   return granted;
 }
 
+async function waitForMedia(
+  read: () => DiscoveredMedia | undefined,
+  timeoutMs: number,
+): Promise<DiscoveredMedia | undefined> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const current = read();
+    if (current) {
+      return current;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 250);
+    });
+  }
+  return read();
+}
+
 export function GuardiansTvRouteButton({
+  media,
   onFailed,
   visible,
 }: {
+  media?: DiscoveredMedia;
   onFailed: (message?: string) => void;
   visible: boolean;
 }) {
   const [liveUrl, setLiveUrl] = useState('');
+  const [sending, setSending] = useState<DiscoveredMedia>();
   const [busy, setBusy] = useState(false);
+  const mediaRef = useRef<DiscoveredMedia | undefined>(media);
+  mediaRef.current = media;
 
   useEffect(() => {
-    return () => {
-      void stopLiveHls();
-    };
+    void getLiveHlsStatus().then((status) => {
+      if (status.running && typeof status.origin === 'string' && status.origin) {
+        setLiveUrl(liveHlsPlaylistUrl(status.origin));
+      }
+    });
   }, []);
 
   if (!visible || !isLiveHlsAvailable()) {
     return <View style={styles.headerSpacer} />;
   }
 
+  // The page's own media URL reaches the receiver directly. Screen capture stays the
+  // fallback for a page that never reports one.
+  const sent = sending ?? media;
+  const playbackUrl = sent?.url ?? liveUrl;
+  const contentType = sent?.contentType ?? HLS_CONTENT_TYPE;
+  const streamType = sent
+    ? castStreamTypeForContentType(sent.contentType)
+    : 'live';
+
   const onPress = async () => {
     if (busy) {
       return;
     }
-    if (liveUrl) {
+    if (playbackUrl) {
       await CastContext.showCastDialog();
       return;
     }
@@ -72,6 +114,13 @@ export function GuardiansTvRouteButton({
     setBusy(true);
     onFailed();
     try {
+      const discovered =
+        media ?? (await waitForMedia(() => mediaRef.current, 6_000));
+      if (discovered) {
+        setSending(discovered);
+        await CastContext.showCastDialog();
+        return;
+      }
       const permitted = await requestAndroidCapturePermissions();
       if (!permitted) {
         onFailed('TV send needs permission.');
@@ -93,11 +142,11 @@ export function GuardiansTvRouteButton({
     <View style={styles.slot}>
       <View style={styles.castHost} pointerEvents="none">
         <GuardiansCastButton
-          contentType="application/x-mpegURL"
-          mpegTsSegments
+          contentType={contentType}
+          mpegTsSegments={!sent}
           onFailed={onFailed}
-          playbackUrl={liveUrl}
-          streamType="live"
+          playbackUrl={playbackUrl}
+          streamType={streamType}
           visible
         />
       </View>

@@ -66,7 +66,7 @@ Postponed, suspended, and canceled games do not expose Watch actions. A delayed 
 
 - `direct`: HLS, MP4, DASH, or another native-player-compatible media URL. It runs in `expo-video` with caching disabled. No webpage JavaScript, popup, page storage, or page advertisement executes. Listen uses the same URL as audio-only. The player header shows a Cast control that loads that JSON URL on the default receiver.
 - `youtube`: a YouTube watch, live, embed, or `youtu.be` URL. The app extracts the video identifier and uses a local wrapper around YouTube's privacy-enhanced embed. YouTube sources must use HTTPS. YouTube does not offer Listen or TV send.
-- `web`: an approved player page. The initial hostname is trusted. `trustedHosts` adds exact hostnames required for top-level redirects. The player header shows a TV control that captures the on-screen player into a local HLS origin and opens the Cast picker.
+- `web`: an approved player page. The initial hostname is trusted. `trustedHosts` adds exact hostnames required for top-level redirects. The player header shows a TV control. When the page reports a castable HLS, DASH, or MP4 URL that matches the source transport policy, that URL loads on the default Cast receiver. Otherwise the control captures the on-screen player into a local HLS origin and Casts that playlist. MPEG-TS is declared only for the captured playlist. On iPhone, isolated web pages report an Android Chrome user agent so the approved page serves the same player build as Android.
 
 HTTPS is accepted by default. HTTP is rejected unless the same entry sets `allowInsecureHttp: true`.
 

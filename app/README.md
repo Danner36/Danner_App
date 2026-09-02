@@ -30,6 +30,7 @@ npm run test:guardians:android:delayed
 npm run test:guardians:android:final
 npm run test:guardians:android:live
 npm run test:guardians:snapshot
+npm run test:guardians:cast-discovery
 npm run test:guardians:android:live-hls
 npm run test:guardians:android:get-video
 npm run test:guardians:server

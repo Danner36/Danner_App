@@ -12,7 +12,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import {
   DESTINATION_STORAGE_KEY,
@@ -169,6 +169,7 @@ function MapPicker({
   onSave: (destination: Destination) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(destination);
+  const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -194,7 +195,12 @@ function MapPicker({
       onRequestClose={onCancel}
       visible={visible}
     >
-      <SafeAreaView edges={['top', 'bottom']} style={styles.mapSafeArea}>
+      <View
+        style={[
+          styles.mapSafeArea,
+          { paddingBottom: insets.bottom, paddingTop: insets.top },
+        ]}
+      >
         <View style={styles.mapHeader}>
           <Pressable
             accessibilityRole="button"
@@ -231,7 +237,7 @@ function MapPicker({
             />
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }

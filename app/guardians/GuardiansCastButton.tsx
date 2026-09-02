@@ -6,17 +6,22 @@ import {
   MediaStreamType,
   useRemoteMediaClient,
 } from 'react-native-google-cast';
+import {
+  DASH_CONTENT_TYPE,
+  HLS_CONTENT_TYPE,
+  MP4_CONTENT_TYPE,
+} from './webMediaDiscoveryInjection';
 
 export function castContentTypeForUrl(playbackUrl: string): string {
   const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
   if (path.endsWith('.m3u8')) {
-    return 'application/x-mpegURL';
+    return HLS_CONTENT_TYPE;
   }
   if (path.endsWith('.mp4')) {
-    return 'video/mp4';
+    return MP4_CONTENT_TYPE;
   }
   if (path.endsWith('.mpd')) {
-    return 'application/dash+xml';
+    return DASH_CONTENT_TYPE;
   }
   return 'video/*';
 }
@@ -26,6 +31,14 @@ export function castStreamTypeForUrl(
 ): 'buffered' | 'live' {
   const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
   return path.endsWith('.m3u8') || path.endsWith('.mpd') ? 'live' : 'buffered';
+}
+
+export function castStreamTypeForContentType(
+  contentType: string,
+): 'buffered' | 'live' {
+  return contentType === HLS_CONTENT_TYPE || contentType === DASH_CONTENT_TYPE
+    ? 'live'
+    : 'buffered';
 }
 
 export function GuardiansCastButton({
@@ -50,7 +63,10 @@ export function GuardiansCastButton({
 }) {
   const client = useRemoteMediaClient({});
   const loadedKey = useRef<string | undefined>(undefined);
-  const startedByThisPlayer = useRef(false);
+  // A later Cast session starts on an idle receiver, so the same media has to be loaded
+  // again. Tracking the client alongside the key keeps a reconnect from being treated as
+  // an already-loaded request, which leaves the receiver on its splash screen.
+  const loadedClient = useRef<unknown>(undefined);
 
   useEffect(() => {
     if (!visible || !client || !playbackUrl) {
@@ -58,12 +74,12 @@ export function GuardiansCastButton({
     }
 
     const key = `${playbackUrl}|${contentType}|${streamType ?? ''}`;
-    if (loadedKey.current === key) {
+    if (loadedClient.current === client && loadedKey.current === key) {
       return;
     }
 
+    loadedClient.current = client;
     loadedKey.current = key;
-    startedByThisPlayer.current = true;
     let cancelled = false;
     void client
       .loadMedia({
@@ -91,6 +107,7 @@ export function GuardiansCastButton({
           return;
         }
         // Let the next render retry rather than sticking on a key that never loaded.
+        loadedClient.current = undefined;
         loadedKey.current = undefined;
         onFailed?.('The TV could not start the video.');
       });
@@ -107,17 +124,6 @@ export function GuardiansCastButton({
     streamType,
     visible,
   ]);
-
-  useEffect(() => {
-    return () => {
-      if (!startedByThisPlayer.current) {
-        return;
-      }
-      startedByThisPlayer.current = false;
-      loadedKey.current = undefined;
-      void client?.stop();
-    };
-  }, [client]);
 
   if (!visible) {
     return null;
