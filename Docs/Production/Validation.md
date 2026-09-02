@@ -81,8 +81,8 @@ Last updated: 2026-09-02
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
-| GitHub release publication | Pass | Latest published family tag is [`v1.4.4`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.4) (2026-09-02). It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed |
-| Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.4` → `1.4.4` / `10404`). Local builds without that env stay `1.0` / 1 |
+| GitHub release publication | Pass | Latest published family tag is [`v1.4.5`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.5) (2026-09-02). It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed |
+| Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.5` → `1.4.5` / `10405`). Local builds without that env stay `1.0` / 1 |
 | App update version tests | Pass | `npm run test:app-update` covers semver compare, trailing-garbage tag rejection, trusted HTTPS GitHub asset URLs, manifest parse, signing-warning suppression, session dismiss, SideStore install URL encoding, and `release/build-update-assets.mjs` output |
 | Android in-app APK update | Review | Source downloads the release APK over trusted GitHub redirects, verifies SHA-256, and commits a `PackageInstaller` session. The download status clears when the system Update sheet appears. Physical Yes → system Update sheet is still required |
 | iPhone SideStore update handoff | Review | Source opens `sidestore://install?url=` for the release IPA and does not present that prompt after leaving the hub. Physical LocalDevVPN + SideStore install is still required |
@@ -90,7 +90,7 @@ Last updated: 2026-09-02
 ## Android identifiers
 
 - Package: `com.example.location_helper`
-- Version: local/default `1.0`, code 1; release builds use the GitHub tag (`v1.4.4` → name `1.4.4`, code `10404`)
+- Version: local/default `1.0`, code 1; release builds use the GitHub tag (`v1.4.5` → name `1.4.5`, code `10405`)
 - Minimum SDK: 29
 - Target and compile SDK: 36
 - App label: `Danner Apps`
@@ -100,13 +100,13 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## GitHub release artifacts checked
 
-- Release: [Danner Apps v1.4.4](https://github.com/Danner36/Danner_App/releases/tag/v1.4.4)
+- Release: [Danner Apps v1.4.5](https://github.com/Danner36/Danner_App/releases/tag/v1.4.5)
 - Android asset: `Danner-Apps-Android.apk`
-- Android asset size: 94,969,018 bytes
-- Android SHA-256: `87874d0d2bd45092cd35d8c07b740775c94ca9ab2c35524d115ddc2589c58a4e`
+- Android asset size: 94,989,194 bytes
+- Android SHA-256: `1fcd0c74cdcc85671ea5e22a6519c063161444795c2c0a240d07140e03829c6e`
 - iPhone asset: `Danner-Apps-iOS.ipa`
-- iPhone asset size: 11,908,405 bytes
-- iPhone SHA-256: `f66f3b75a8395081a09df58136e7bd5d2e71f27e270eec66afe0c7576e48fc90`
+- iPhone asset size: 11,910,576 bytes
+- iPhone SHA-256: `fda59ce5168d531c0871064d4372de484c9b58c3142697c8836fc15d35276e1a`
 - Setup asset: `IPHONE_SETUP.md`
 - Integrity asset: `SHA256SUMS.txt`
 - Update assets: `version-manifest.json`, `sidestore-source.json`
@@ -114,7 +114,7 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## Current behavior confirmed
 
-- Android and iOS share the Danner app hub, Guardians and Patriots dashboards and players, `TV Location` flow, offline map, and verification implementation. Published `v1.4.4` includes the two-row hub and Patriots tile. Installed `v1.3.3` phones still show the previous two-tile row until that APK or IPA is installed.
+- Android and iOS share the Danner app hub, Guardians and Patriots dashboards and players, `TV Location` flow, offline map, and verification implementation. Published `v1.4.5` includes the two-row hub and Patriots tile. Installed `v1.3.3` phones still show the previous two-tile row until that APK or IPA is installed.
 - Opening Guardians fetches current MLB data and root `guardians_streams.json`; today's, a live, or today's completed game receives its own featured card and is omitted from the remaining schedule.
 - Opening Patriots fetches leftover ESPN NFL games and root `patriots_streams.json`. Official dates are America/New_York. Get video POSTs `{ pin, module: "patriots" }` to the shared Worker. The hero record stays `0–0` until a regular-season game is Final.
 - Today's scheduled game counts down every second. A live game refreshes its park-style scoreboard every five seconds. Icon-only Play controls become eligible 15 minutes before game time. Missing video states that it is not ready and continues checking each minute. Get video appears when the worker origin and family PIN are in the build.
@@ -127,4 +127,4 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - Android hardware Back on Guardians closes the Play modal when it is open, then returns to the hub.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected Tripoli coordinates.
-- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.4.4`, which also publishes `version-manifest.json` and `sidestore-source.json`. A `v1.4.3` hub can offer an in-place Android install or a SideStore IPA handoff for `v1.4.4`. Phones still on `v1.3.3` do not have that prompt. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.4.5`, which also publishes `version-manifest.json` and `sidestore-source.json`. A `v1.4.4` hub can offer an in-place Android install or a SideStore IPA handoff for `v1.4.5`. Phones still on `v1.3.3` do not have that prompt. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
