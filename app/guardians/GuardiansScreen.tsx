@@ -570,9 +570,6 @@ function IsolatedWebStreamPlayer({
       style={styles.playerWebView}
       thirdPartyCookiesEnabled={false}
       userAgent={isWeb ? webPlayerUserAgent() : undefined}
-      {...(isWeb && Platform.OS === 'android'
-        ? { androidLayerType: 'software' as const }
-        : {})}
     />
   );
 }

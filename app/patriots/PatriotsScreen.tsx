@@ -492,9 +492,6 @@ function IsolatedWebStreamPlayer({
       }
       startInLoadingState
       style={styles.playerWebView}
-      {...(isWeb && Platform.OS === 'android'
-        ? { androidLayerType: 'software' as const }
-        : {})}
       thirdPartyCookiesEnabled={false}
       userAgent={isWeb ? webPlayerUserAgent() : undefined}
     />
