@@ -5,6 +5,10 @@ import { Platform } from 'react-native';
  * than Android. Reporting an Android browser from iOS keeps those pages on the build that
  * is verified working. Player-side feature detection is unaffected, so a page that has no
  * Media Source Extensions still falls back to native HLS on the phone.
+ *
+ * iPhone AirPlay depends on this. A Media Source Extensions player cannot be routed to an
+ * AirPlay target, so the page's iPhone branch plays to the phone only; the native-HLS
+ * branch this override selects is what makes the game reach a TV.
  */
 const ANDROID_PLAYER_USER_AGENT =
   'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36';
