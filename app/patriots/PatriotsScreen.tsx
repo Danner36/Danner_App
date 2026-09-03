@@ -35,7 +35,7 @@ import {
   preferDiscoveredMedia,
 } from '../guardians/webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
-import { stopLiveHls } from '../modules/danner-live-hls/src';
+import { stopHlsProxy, stopLiveHls } from '../modules/danner-live-hls/src';
 import { fetchEspnPatriotsEvents } from './espnNfl';
 import {
   fetchLiveFootballScoreboard,
@@ -510,6 +510,7 @@ function StreamPlayer({
   const [media, setMedia] = useState<DiscoveredMedia>();
   const playerRef = useRef<View>(null);
   const closePlayer = () => {
+    void stopHlsProxy();
     void stopLiveHls();
     onClose();
   };
@@ -561,6 +562,7 @@ function StreamPlayer({
               measurePlayer={() => measureViewCrop(playerRef.current)}
               media={media}
               onFailed={setTvError}
+              pageUrl={stream.playbackUrl}
               visible
             />
           ) : (

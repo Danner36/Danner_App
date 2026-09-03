@@ -51,6 +51,39 @@ class DannerLiveHlsModule : Module() {
       stopCapture()
     }
 
+    AsyncFunction("startProxy") { sourceUrl: String, referer: String, promise: Promise ->
+      try {
+        val (origin, port) = HlsProxyRuntime.start(sourceUrl, referer)
+        promise.resolve(
+          mapOf(
+            "origin" to origin,
+            "port" to port,
+          ),
+        )
+      } catch (error: Exception) {
+        promise.reject("ERR_PROXY", error.message, error)
+      }
+    }
+
+    AsyncFunction("stopProxy") {
+      HlsProxyRuntime.stop()
+    }
+
+    AsyncFunction("getProxyStatus") {
+      val origin = HlsProxyRuntime.origin
+      val port = HlsProxyRuntime.port
+      val status = mutableMapOf<String, Any>(
+        "running" to HlsProxyRuntime.running,
+      )
+      if (origin != null) {
+        status["origin"] = origin
+      }
+      if (port != 0) {
+        status["port"] = port
+      }
+      status
+    }
+
     AsyncFunction("getStatus") {
       val origin = LiveHlsRuntime.origin
       val port = LiveHlsRuntime.port
@@ -116,6 +149,7 @@ class DannerLiveHlsModule : Module() {
     OnDestroy {
       pendingStart?.reject("ERR_CANCELLED", "Screen capture was replaced.", null)
       pendingStart = null
+      HlsProxyRuntime.stop()
     }
   }
 

@@ -46,7 +46,7 @@ import {
   measureViewCrop,
   type DiscoveredMedia,
 } from './GuardiansTvRouteButton';
-import { stopLiveHls } from '../modules/danner-live-hls/src';
+import { stopHlsProxy, stopLiveHls } from '../modules/danner-live-hls/src';
 import { GuardiansScoreboard } from './GuardiansScoreboard';
 import {
   fetchLiveScoreboard,
@@ -586,6 +586,7 @@ function StreamPlayer({
   const [media, setMedia] = useState<DiscoveredMedia>();
   const playerRef = useRef<View>(null);
   const closePlayer = () => {
+    void stopHlsProxy();
     void stopLiveHls();
     onClose();
   };
@@ -637,6 +638,7 @@ function StreamPlayer({
               measurePlayer={() => measureViewCrop(playerRef.current)}
               media={media}
               onFailed={setTvError}
+              pageUrl={stream.playbackUrl}
               visible
             />
           ) : (

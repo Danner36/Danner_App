@@ -445,7 +445,7 @@ final class LiveHlsEngine: @unchecked Sendable {
     return out
   }
 
-  private static func lanIPv4() -> String {
+  static func lanIPv4() -> String {
     var address = "127.0.0.1"
     var ifaddr: UnsafeMutablePointer<ifaddrs>?
     guard getifaddrs(&ifaddr) == 0, let first = ifaddr else {

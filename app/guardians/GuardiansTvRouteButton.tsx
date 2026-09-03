@@ -13,21 +13,30 @@ import {
   getLiveHlsStatus,
   isLiveHlsAvailable,
   liveHlsPlaylistUrl,
+  startHlsProxy,
   startLiveHls,
+  stopHlsProxy,
   stopLiveHls,
   type LiveHlsCrop,
 } from '../modules/danner-live-hls/src';
 import {
   GuardiansCastButton,
-  castContentTypeForUrl,
   castStreamTypeForContentType,
 } from './GuardiansCastButton';
 import {
+  HLS_CONTENT_TYPE,
   type DiscoveredMedia,
 } from './webMediaDiscoveryInjection';
 
 export type { DiscoveredMedia };
 export type { LiveHlsCrop };
+
+/** What the receiver is asked to load, once a phone-side route exists for it. */
+type CastRoute = {
+  contentType: string;
+  mpegTsSegments: boolean;
+  url: string;
+};
 
 export function measureViewCrop(
   view: View | null,
@@ -94,48 +103,58 @@ async function waitForMedia(
   return read();
 }
 
+/** The provider gates its playlists on the player page, so that page is the `Referer`. */
+function pageReferer(pageUrl: string): string {
+  try {
+    const parsed = new URL(pageUrl);
+    return `${parsed.protocol}//${parsed.host}/`;
+  } catch {
+    return pageUrl;
+  }
+}
+
 export function GuardiansTvRouteButton({
   measurePlayer,
   media,
   onFailed,
+  pageUrl,
   visible,
 }: {
   measurePlayer?: () => Promise<LiveHlsCrop | undefined>;
   media?: DiscoveredMedia;
   onFailed: (message?: string) => void;
+  pageUrl: string;
   visible: boolean;
 }) {
-  const [liveUrl, setLiveUrl] = useState('');
-  const [sending, setSending] = useState<DiscoveredMedia>();
+  const [route, setRoute] = useState<CastRoute>();
   const [busy, setBusy] = useState(false);
   const mediaRef = useRef<DiscoveredMedia | undefined>(media);
   mediaRef.current = media;
   const client = useRemoteMediaClient();
 
   useEffect(() => {
-    if (!media) {
-      setSending(undefined);
-      return;
-    }
-    void stopLiveHls();
-  }, [media]);
+    setRoute(undefined);
+  }, [pageUrl]);
 
   if (!visible || !isLiveHlsAvailable()) {
     return <View style={styles.headerSpacer} />;
   }
 
-  // The page's own media URL reaches the receiver directly. Screen capture stays the
-  // fallback for a page that never reports one. A leftover converter origin is not
-  // treated as that page URL.
-  const sent = sending ?? media;
-  const playbackUrl = sent?.url ?? liveUrl;
-  const contentType = sent?.contentType ?? castContentTypeForUrl(playbackUrl);
-  const streamType = sent
-    ? castStreamTypeForContentType(sent.contentType)
-    : 'live';
+  const playbackUrl = route?.url ?? '';
+  const contentType = route?.contentType ?? HLS_CONTENT_TYPE;
+
+  const openPicker = async () => {
+    if (!client) {
+      await CastContext.showCastDialog();
+    }
+  };
 
   const onPress = async () => {
     if (busy) {
+      return;
+    }
+    if (route) {
+      await openPicker();
       return;
     }
 
@@ -144,23 +163,25 @@ export function GuardiansTvRouteButton({
     try {
       const discovered =
         media ?? (await waitForMedia(() => mediaRef.current, 6_000));
-      if (discovered) {
-        console.log(`[DannerCast] discovered ${discovered.url}`);
-        setSending(discovered);
-        setLiveUrl('');
-        await stopLiveHls();
-        if (!client) {
-          await CastContext.showCastDialog();
-        }
-        return;
-      }
 
-      if (liveUrl) {
-        console.log(`[DannerCast] converter ${liveUrl}`);
-        if (!client) {
-          await CastContext.showCastDialog();
+      // The page's media URL cannot be handed to the receiver directly: the provider
+      // answers playlists only for its own page, and its segments carry no CORS header.
+      // The phone relays both and passes the media through untouched.
+      if (discovered) {
+        await stopLiveHls();
+        const proxy = await startHlsProxy(discovered.url, pageReferer(pageUrl));
+        if (proxy) {
+          const proxyUrl = liveHlsPlaylistUrl(proxy.origin);
+          console.log(`[DannerCast] proxy ${proxyUrl} for ${discovered.url}`);
+          setRoute({
+            contentType: HLS_CONTENT_TYPE,
+            mpegTsSegments: true,
+            url: proxyUrl,
+          });
+          await openPicker();
+          return;
         }
-        return;
+        console.log('[DannerCast] proxy unavailable, capturing instead');
       }
 
       const existing = await getLiveHlsStatus();
@@ -171,10 +192,12 @@ export function GuardiansTvRouteButton({
       ) {
         const existingUrl = liveHlsPlaylistUrl(existing.origin);
         console.log(`[DannerCast] converter ${existingUrl}`);
-        setLiveUrl(existingUrl);
-        if (!client) {
-          await CastContext.showCastDialog();
-        }
+        setRoute({
+          contentType: HLS_CONTENT_TYPE,
+          mpegTsSegments: true,
+          url: existingUrl,
+        });
+        await openPicker();
         return;
       }
 
@@ -191,10 +214,12 @@ export function GuardiansTvRouteButton({
       }
       const startedUrl = liveHlsPlaylistUrl(started.origin);
       console.log(`[DannerCast] converter ${startedUrl}`);
-      setLiveUrl(startedUrl);
-      if (!client) {
-        await CastContext.showCastDialog();
-      }
+      setRoute({
+        contentType: HLS_CONTENT_TYPE,
+        mpegTsSegments: true,
+        url: startedUrl,
+      });
+      await openPicker();
     } finally {
       setBusy(false);
     }
@@ -205,10 +230,10 @@ export function GuardiansTvRouteButton({
       <View style={styles.castHost} pointerEvents="none">
         <GuardiansCastButton
           contentType={contentType}
-          mpegTsSegments={!sent}
+          mpegTsSegments={route?.mpegTsSegments ?? false}
           onFailed={onFailed}
           playbackUrl={playbackUrl}
-          streamType={streamType}
+          streamType={castStreamTypeForContentType(contentType)}
           visible
         />
       </View>
