@@ -15,8 +15,6 @@ npm run test:guardians:android:live
 npm run test:guardians:snapshot
 npm run test:guardians:cast-discovery
 npm run test:guardians:android:cast-web
-npm run test:guardians:android:cast-convert
-npm run test:guardians:android:live-hls
 npm run test:guardians:android:shell-fix
 npm run test:guardians:android:get-video
 ```
@@ -30,9 +28,7 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
 | `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate: HTTPS, HTTP opt-in, extensionless playlist, rejected types |
-| `npm run test:guardians:android:cast-web` | Live game plus native HLS page; taps TV and asserts the receiver plays the page-reported URL with no capture sheet |
-| `npm run test:guardians:android:cast-convert` | Live game plus capture-pattern page; taps TV and asserts Cast plays the phone-encoded playlist |
-| `npm run test:guardians:android:live-hls` | Live game plus capture-pattern page; taps TV and checks a local MPEG-TS HLS origin |
+| `npm run test:guardians:android:cast-web` | Live game plus native HLS page; taps TV and asserts the receiver plays the page-reported URL relayed from the phone |
 | `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; denied TV grants show the failure and no location prompt |
 | `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
 
@@ -42,6 +38,6 @@ The shared fixture runner starts on port 8108. `test:guardians:android:get-video
 
 `live-game.fixture.json` controls the simulated score, remaining schedule, and test URLs. The server assigns the current date and game number to its emitted source document. The direct HTTPS entry tests native playback without webpage code. The direct HTTP entry tests the same player through the fixed `/http-media/` proxy. The YouTube entry tests the isolated embed. The local HTTP web entry tests approved and rejected popup and redirect requests. Every HTTP fixture uses the same explicit opt-in required by production entries.
 
-`GET /native-hls-player` is a single HTML5 `<video>` of a public HLS test stream. Play video 5 loads that page so Cast can be checked on a page-reported media URL: the TV receives that playlist and the phone is not captured. The same page is also the iPhone AirPlay check. `GET /capture-pattern` is a moving canvas used to prove the `danner-live-hls` converter when a page never reports a URL. Production `web` entries are the exact page URLs in root `guardians_streams.json` and are not assumed to match these pages. The HTTP media route can request only files beneath that public HLS example path. It does not accept an arbitrary upstream URL.
+`GET /native-hls-player` is a single HTML5 `<video>` of a public HLS test stream. Play video 5 loads that page so Cast can be checked on a page-reported media URL: the TV receives that playlist and the phone is not captured. The same page is also the iPhone AirPlay check. `GET /capture-pattern` is a moving canvas kept for the archived converter under `reference/screen-capture-hls/`, which the app no longer builds. Production `web` entries are the exact page URLs in root `guardians_streams.json` and are not assumed to match these pages. The HTTP media route can request only files beneath that public HLS example path. It does not accept an arbitrary upstream URL.
 
 Production-approved links belong in root `guardians_streams.json`.

@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   PermissionsAndroid,
-  PixelRatio,
   Platform,
   Pressable,
   StyleSheet,
@@ -10,14 +9,9 @@ import {
 } from 'react-native';
 import { CastContext, useRemoteMediaClient } from 'react-native-google-cast';
 import {
-  getLiveHlsStatus,
   isLiveHlsAvailable,
   liveHlsPlaylistUrl,
   startHlsProxy,
-  startLiveHls,
-  stopHlsProxy,
-  stopLiveHls,
-  type LiveHlsCrop,
 } from '../modules/danner-live-hls/src';
 import {
   GuardiansCastButton,
@@ -29,61 +23,25 @@ import {
 } from './webMediaDiscoveryInjection';
 
 export type { DiscoveredMedia };
-export type { LiveHlsCrop };
 
-/** What the receiver is asked to load, once a phone-side route exists for it. */
-type CastRoute = {
-  contentType: string;
-  mpegTsSegments: boolean;
-  url: string;
-};
-
-export function measureViewCrop(
-  view: View | null,
-): Promise<LiveHlsCrop | undefined> {
-  return new Promise((resolve) => {
-    if (!view || typeof view.measureInWindow !== 'function') {
-      resolve(undefined);
-      return;
-    }
-    view.measureInWindow((x, y, width, height) => {
-      if (width < 16 || height < 16) {
-        resolve(undefined);
-        return;
-      }
-      const ratio = PixelRatio.get();
-      resolve({
-        x: Math.round(x * ratio),
-        y: Math.round(y * ratio),
-        width: Math.round(width * ratio),
-        height: Math.round(height * ratio),
-      });
-    });
-  });
-}
-
-function isGranted(value: string | undefined): boolean {
-  return value === PermissionsAndroid.RESULTS.GRANTED;
-}
-
-async function requestAndroidCapturePermissions(): Promise<boolean> {
+/**
+ * Android shows the TV send's ongoing notification from a foreground service, and that
+ * service is what keeps the relay reachable once the screen is off. A denied notification
+ * does not block the send.
+ */
+async function requestNotificationPermission(): Promise<void> {
   if (Platform.OS !== 'android') {
-    return true;
+    return;
   }
-
-  const permissions = [PermissionsAndroid.PERMISSIONS.RECORD_AUDIO];
-  const postNotifications = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
-  if (typeof Platform.Version === 'number' && Platform.Version >= 33 && postNotifications) {
-    permissions.push(postNotifications);
+  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+  if (typeof Platform.Version !== 'number' || Platform.Version < 33 || !permission) {
+    return;
   }
-  const nearbyWifi = PermissionsAndroid.PERMISSIONS.NEARBY_WIFI_DEVICES;
-  if (typeof Platform.Version === 'number' && Platform.Version >= 33 && nearbyWifi) {
-    permissions.push(nearbyWifi);
+  try {
+    await PermissionsAndroid.request(permission);
+  } catch {
+    return;
   }
-
-  const result = await PermissionsAndroid.requestMultiple(permissions);
-  const granted = permissions.every((permission) => isGranted(result[permission]));
-  return granted;
 }
 
 async function waitForMedia(
@@ -114,34 +72,29 @@ function pageReferer(pageUrl: string): string {
 }
 
 export function GuardiansTvRouteButton({
-  measurePlayer,
   media,
   onFailed,
   pageUrl,
   visible,
 }: {
-  measurePlayer?: () => Promise<LiveHlsCrop | undefined>;
   media?: DiscoveredMedia;
   onFailed: (message?: string) => void;
   pageUrl: string;
   visible: boolean;
 }) {
-  const [route, setRoute] = useState<CastRoute>();
+  const [relayUrl, setRelayUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const mediaRef = useRef<DiscoveredMedia | undefined>(media);
   mediaRef.current = media;
   const client = useRemoteMediaClient();
 
   useEffect(() => {
-    setRoute(undefined);
+    setRelayUrl('');
   }, [pageUrl]);
 
   if (!visible || !isLiveHlsAvailable()) {
     return <View style={styles.headerSpacer} />;
   }
-
-  const playbackUrl = route?.url ?? '';
-  const contentType = route?.contentType ?? HLS_CONTENT_TYPE;
 
   const openPicker = async () => {
     if (!client) {
@@ -153,7 +106,7 @@ export function GuardiansTvRouteButton({
     if (busy) {
       return;
     }
-    if (route) {
+    if (relayUrl) {
       await openPicker();
       return;
     }
@@ -163,62 +116,23 @@ export function GuardiansTvRouteButton({
     try {
       const discovered =
         media ?? (await waitForMedia(() => mediaRef.current, 6_000));
+      if (!discovered) {
+        onFailed('This page did not offer a video to send.');
+        return;
+      }
 
       // The page's media URL cannot be handed to the receiver directly: the provider
       // answers playlists only for its own page, and its segments carry no CORS header.
       // The phone relays both and passes the media through untouched.
-      if (discovered) {
-        await stopLiveHls();
-        const proxy = await startHlsProxy(discovered.url, pageReferer(pageUrl));
-        if (proxy) {
-          const proxyUrl = liveHlsPlaylistUrl(proxy.origin);
-          console.log(`[DannerCast] proxy ${proxyUrl} for ${discovered.url}`);
-          setRoute({
-            contentType: HLS_CONTENT_TYPE,
-            mpegTsSegments: true,
-            url: proxyUrl,
-          });
-          await openPicker();
-          return;
-        }
-        console.log('[DannerCast] proxy unavailable, capturing instead');
-      }
-
-      const existing = await getLiveHlsStatus();
-      if (
-        existing.running &&
-        typeof existing.origin === 'string' &&
-        existing.origin
-      ) {
-        const existingUrl = liveHlsPlaylistUrl(existing.origin);
-        console.log(`[DannerCast] converter ${existingUrl}`);
-        setRoute({
-          contentType: HLS_CONTENT_TYPE,
-          mpegTsSegments: true,
-          url: existingUrl,
-        });
-        await openPicker();
-        return;
-      }
-
-      const permitted = await requestAndroidCapturePermissions();
-      if (!permitted) {
-        onFailed('TV send needs permission.');
-        return;
-      }
-      const crop = (await measurePlayer?.()) ?? undefined;
-      const started = await startLiveHls(crop);
-      if (!started) {
+      await requestNotificationPermission();
+      const relay = await startHlsProxy(discovered.url, pageReferer(pageUrl));
+      if (!relay) {
         onFailed('Could not send to the TV.');
         return;
       }
-      const startedUrl = liveHlsPlaylistUrl(started.origin);
-      console.log(`[DannerCast] converter ${startedUrl}`);
-      setRoute({
-        contentType: HLS_CONTENT_TYPE,
-        mpegTsSegments: true,
-        url: startedUrl,
-      });
+      const nextUrl = liveHlsPlaylistUrl(relay.origin);
+      console.log(`[DannerCast] relay ${nextUrl} for ${discovered.url}`);
+      setRelayUrl(nextUrl);
       await openPicker();
     } finally {
       setBusy(false);
@@ -229,11 +143,11 @@ export function GuardiansTvRouteButton({
     <View style={styles.slot}>
       <View style={styles.castHost} pointerEvents="none">
         <GuardiansCastButton
-          contentType={contentType}
-          mpegTsSegments={route?.mpegTsSegments ?? false}
+          contentType={HLS_CONTENT_TYPE}
+          mpegTsSegments
           onFailed={onFailed}
-          playbackUrl={playbackUrl}
-          streamType={castStreamTypeForContentType(contentType)}
+          playbackUrl={relayUrl}
+          streamType={castStreamTypeForContentType(HLS_CONTENT_TYPE)}
           visible
         />
       </View>

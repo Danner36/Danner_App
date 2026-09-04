@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useKeepAwake } from 'expo-keep-awake';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
@@ -43,10 +44,9 @@ import {
 } from './GuardiansCastButton';
 import {
   GuardiansTvRouteButton,
-  measureViewCrop,
   type DiscoveredMedia,
 } from './GuardiansTvRouteButton';
-import { stopHlsProxy, stopLiveHls } from '../modules/danner-live-hls/src';
+import { stopHlsProxy } from '../modules/danner-live-hls/src';
 import { GuardiansScoreboard } from './GuardiansScoreboard';
 import {
   fetchLiveScoreboard,
@@ -583,11 +583,12 @@ function StreamPlayer({
 }) {
   const [tvError, setTvError] = useState<string>();
   const insets = useSafeAreaInsets();
+  // An embedded WebView leaves display power to the host app, so the phone would sleep
+  // mid-game while the page is playing.
+  useKeepAwake();
   const [media, setMedia] = useState<DiscoveredMedia>();
-  const playerRef = useRef<View>(null);
   const closePlayer = () => {
     void stopHlsProxy();
-    void stopLiveHls();
     onClose();
   };
 
@@ -635,7 +636,6 @@ function StreamPlayer({
           ) : stream?.kind === 'web' ? (
             <GuardiansTvRouteButton
               key={stream.playbackUrl}
-              measurePlayer={() => measureViewCrop(playerRef.current)}
               media={media}
               onFailed={setTvError}
               pageUrl={stream.playbackUrl}
@@ -655,18 +655,12 @@ function StreamPlayer({
           stream.kind === 'direct' ? (
             <DirectStreamPlayer stream={stream} />
           ) : (
-            <View
-              ref={playerRef}
-              collapsable={false}
-              style={styles.playerCapture}
-            >
-              <IsolatedWebStreamPlayer
-                onMedia={(next) => {
-                  setMedia((current) => preferDiscoveredMedia(current, next));
-                }}
-                stream={stream}
-              />
-            </View>
+            <IsolatedWebStreamPlayer
+              onMedia={(next) => {
+                setMedia((current) => preferDiscoveredMedia(current, next));
+              }}
+              stream={stream}
+            />
           )
         ) : null}
       </View>
@@ -1759,9 +1753,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 14,
     paddingVertical: 8,
-  },
-  playerCapture: {
-    flex: 1,
   },
   playerWebView: {
     backgroundColor: '#000000',

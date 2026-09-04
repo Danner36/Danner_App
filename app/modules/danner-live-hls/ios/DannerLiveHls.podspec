@@ -1,8 +1,8 @@
 Pod::Spec.new do |s|
   s.name           = 'DannerLiveHls'
   s.version        = '1.0.0'
-  s.summary        = 'Captures the on-screen Guardians web player into a local HLS origin.'
-  s.description    = 'Local Expo module used by Danner Apps to live-convert web playback for AirPlay and Cast.'
+  s.summary        = 'Relays an approved page HLS stream from a local origin.'
+  s.description    = 'Local Expo module used by Danner Apps to relay approved web playback to Cast and AirPlay targets.'
   s.license        = { :type => 'MIT' }
   s.author         = 'Danner Apps'
   s.homepage       = 'https://github.com/Danner36/Danner_App'
@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.frameworks = 'AVFoundation', 'AVKit', 'AudioToolbox', 'CoreMedia', 'Network', 'ReplayKit', 'UIKit', 'VideoToolbox'
+  s.frameworks = 'Network'
 
   s.source_files = '**/*.{h,m,mm,swift}'
   s.pod_target_xcconfig = {

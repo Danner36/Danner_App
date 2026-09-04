@@ -1,11 +1,15 @@
 package expo.modules.dannerlivehls
 
+import android.content.Context
+
 /**
- * Holds the single page-stream proxy. Screen capture keeps its own service and port; this
- * runs in process because it only relays HTTP and needs no projection or notification.
+ * Holds the single page-stream relay and the foreground service that keeps it reachable
+ * while the phone is locked. The server runs in process; the service exists to keep that
+ * process out of Doze and hold the Wi-Fi radio awake.
  */
 internal object HlsProxyRuntime {
   private var server: HlsProxyServer? = null
+  private var appContext: Context? = null
 
   @Volatile
   var origin: String? = null
@@ -23,7 +27,7 @@ internal object HlsProxyRuntime {
     get() = server != null
 
   @Synchronized
-  fun start(source: String, referer: String): Pair<String, Int> {
+  fun start(context: Context, source: String, referer: String): Pair<String, Int> {
     val current = server
     if (current != null && sourceUrl == source) {
       val existingOrigin = origin
@@ -32,18 +36,23 @@ internal object HlsProxyRuntime {
       }
     }
     stop()
+    val application = context.applicationContext
     val next = HlsProxyServer(source, referer)
     val bound = next.start(LanAddresses.FIRST_PORT..LanAddresses.LAST_PORT)
     val nextOrigin = LanAddresses.originForPort(bound)
     server = next
+    appContext = application
     port = bound
     origin = nextOrigin
     sourceUrl = source
+    HlsProxyService.start(application)
     return Pair(nextOrigin, bound)
   }
 
   @Synchronized
   fun stop() {
+    appContext?.let { HlsProxyService.stop(it) }
+    appContext = null
     try {
       server?.stop()
     } catch (_: Exception) {

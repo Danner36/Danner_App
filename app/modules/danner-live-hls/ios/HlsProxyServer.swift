@@ -69,7 +69,7 @@ final class HlsProxyServer: @unchecked Sendable {
         }
         listener = started
         port = candidate
-        let originValue = "http://\(LiveHlsEngine.lanIPv4()):\(candidate)"
+        let originValue = "http://\(HlsProxyServer.lanIPv4()):\(candidate)"
         origin = originValue
         return (originValue, candidate)
       } catch {
@@ -367,6 +367,45 @@ final class HlsProxyServer: @unchecked Sendable {
     connection.send(content: payload, completion: .contentProcessed { _ in
       connection.cancel()
     })
+  }
+
+  /// The receiver reaches this server by address, so the origin has to name the Wi-Fi
+  /// interface rather than loopback.
+  private static func lanIPv4() -> String {
+    var address = "127.0.0.1"
+    var ifaddr: UnsafeMutablePointer<ifaddrs>?
+    guard getifaddrs(&ifaddr) == 0, let first = ifaddr else {
+      return address
+    }
+    defer { freeifaddrs(first) }
+    var pointer: UnsafeMutablePointer<ifaddrs>? = first
+    while let current = pointer {
+      let interface = current.pointee
+      if let addr = interface.ifa_addr, addr.pointee.sa_family == sa_family_t(AF_INET) {
+        let name = String(cString: interface.ifa_name)
+        if name.hasPrefix("en") {
+          var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+          getnameinfo(
+            addr,
+            socklen_t(addr.pointee.sa_len),
+            &hostname,
+            socklen_t(hostname.count),
+            nil,
+            0,
+            NI_NUMERICHOST
+          )
+          let ip = String(cString: hostname)
+          if !ip.hasPrefix("127.") && !ip.hasPrefix("169.254") {
+            address = ip
+            if name == "en0" {
+              break
+            }
+          }
+        }
+      }
+      pointer = interface.ifa_next
+    }
+    return address
   }
 
   private static let playlistPath = "/live.m3u8"
