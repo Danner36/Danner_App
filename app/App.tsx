@@ -5,12 +5,18 @@ import {
   SafeAreaProvider,
   SafeAreaView,
 } from 'react-native-safe-area-context';
+import { CyclonesScreen } from './cyclones/CyclonesScreen';
 import { GuardiansScreen } from './guardians/GuardiansScreen';
 import { HubScreen } from './hub/HubScreen';
 import { PatriotsScreen } from './patriots/PatriotsScreen';
 import { TvLocationScreen } from './tvLocation/TvLocationScreen';
 
-type AppScreen = 'guardians' | 'menu' | 'patriots' | 'tv-location';
+type AppScreen =
+  | 'cyclones'
+  | 'guardians'
+  | 'menu'
+  | 'patriots'
+  | 'tv-location';
 
 export default function App() {
   const [appScreen, setAppScreen] = useState<AppScreen>('menu');
@@ -25,6 +31,7 @@ export default function App() {
       <SafeAreaView edges={['top', 'bottom']} style={styles.systemSafeArea}>
         {appScreen === 'menu' ? (
           <HubScreen
+            onOpenCyclones={() => setAppScreen('cyclones')}
             onOpenGuardians={() => setAppScreen('guardians')}
             onOpenPatriots={() => setAppScreen('patriots')}
             onOpenTvLocation={() => setAppScreen('tv-location')}
@@ -33,6 +40,8 @@ export default function App() {
           <GuardiansScreen onBack={openMenu} />
         ) : appScreen === 'patriots' ? (
           <PatriotsScreen onBack={openMenu} />
+        ) : appScreen === 'cyclones' ? (
+          <CyclonesScreen onBack={openMenu} />
         ) : (
           <TvLocationScreen onBackToMenu={openMenu} />
         )}

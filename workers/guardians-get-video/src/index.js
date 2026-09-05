@@ -14,7 +14,18 @@ const MODULES = {
     streamsPath: 'patriots_streams.json',
     userAgent: 'danner-patriots-get-video',
   },
+  cyclones: {
+    eventType: 'cyclones-get-video',
+    streamsPath: 'cyclones_streams.json',
+    userAgent: 'danner-cyclones-get-video',
+  },
 };
+
+const CYCLONES_SPORTS = new Set([
+  'football',
+  'mens-basketball',
+  'womens-basketball',
+]);
 
 function json(data, status = 200) {
   return new Response(`${JSON.stringify(data)}\n`, {
@@ -74,10 +85,16 @@ function resolveModule(value) {
   if (value === undefined || value === null || value === '') {
     return 'guardians';
   }
-  if (value === 'guardians' || value === 'patriots') {
+  if (value === 'guardians' || value === 'patriots' || value === 'cyclones') {
     return value;
   }
   return undefined;
+}
+
+function resolveCyclonesSport(value) {
+  return typeof value === 'string' && CYCLONES_SPORTS.has(value)
+    ? value
+    : undefined;
 }
 
 async function readJsonBody(request) {
@@ -128,9 +145,13 @@ async function fetchStreamsDocument(env, moduleName) {
   return body;
 }
 
-async function dispatchGetVideo(env, moduleName) {
+async function dispatchGetVideo(env, moduleName, sport) {
   const repo = env.GITHUB_REPO ?? 'Danner36/Danner_App';
   const module = MODULES[moduleName];
+  const clientPayload = { module: moduleName, source: 'phone' };
+  if (sport) {
+    clientPayload.sport = sport;
+  }
   const response = await fetch(
     `https://api.github.com/repos/${repo}/dispatches`,
     {
@@ -142,7 +163,7 @@ async function dispatchGetVideo(env, moduleName) {
         'X-GitHub-Api-Version': '2022-11-28',
       },
       body: JSON.stringify({
-        client_payload: { module: moduleName, source: 'phone' },
+        client_payload: clientPayload,
         event_type: module.eventType,
       }),
     },
@@ -204,6 +225,11 @@ export default {
     if (!moduleName) {
       return json({ error: 'Unknown module.' }, 400);
     }
+    const sport =
+      moduleName === 'cyclones' ? resolveCyclonesSport(body.sport) : undefined;
+    if (moduleName === 'cyclones' && !sport) {
+      return json({ error: 'Unknown sport.' }, 400);
+    }
 
     // Rate limit before checking the PIN. The other way round, a wrong PIN costs nothing
     // and the family PIN can be guessed without limit.
@@ -216,7 +242,7 @@ export default {
     }
 
     try {
-      await dispatchGetVideo(env, moduleName);
+      await dispatchGetVideo(env, moduleName, sport);
     } catch (error) {
       return json(
         {
@@ -226,6 +252,11 @@ export default {
       );
     }
 
-    return json({ message: 'Pipeline started.', module: moduleName, ok: true });
+    return json({
+      message: 'Pipeline started.',
+      module: moduleName,
+      ok: true,
+      ...(sport ? { sport } : {}),
+    });
   },
 };

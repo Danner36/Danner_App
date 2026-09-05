@@ -1,24 +1,24 @@
-Status: PLANNED
-Phase: Not implemented
+Status: ACTIVE
+Phase: Implemented in source
 
 # Iowa State Cyclones — agent brief
 
-This file is the durable brief for the next agent. Cyclones source does not exist yet. The Cursor plan `Cyclones module` (`cyclones_module_5bed3b38`) records the same lock-ins. Prefer this document over chat memory.
+This file keeps the implement lock-ins, listing-href unknowns, and owner ops. Cyclones source lives under `app/cyclones/`. Prefer this document over chat memory for pipeline needles and secrets.
 
 Do not print listing `extract.baseUrl`, family PIN values, Apple Account secrets, pairing files, or device UDIDs. Do not parameterize Guardians or Patriots into a generic sports engine. Do not create a second Cloudflare Worker or a second family PIN.
 
-## Current repo state (2026-08-29)
+## Current repo state (2026-09-04)
 
 | Item | State |
 |------|--------|
-| Cyclones Expo module `app/cyclones/` | Absent |
-| Root `cyclones_streams.json` | Absent |
-| GitHub Action `cyclones-stream-pipeline.yml` | Absent |
-| GitHub secret `CYCLONES_STREAM_PIPELINE_CONFIG` | Not created |
-| Worker `module: "cyclones"` | Absent. Live Worker source knows `guardians` and `patriots` only |
-| Hub row 2 | YouTube TV under Guardians, reserved empty spacer under Patriots |
-| Product rule in `AI_Framework/AI_RULES.md` | Still the spacer layout. Change only when Cyclones is implemented |
-| Latest published family tag | `v1.4.5`. Installed `v1.3.3` phones still have the previous two-tile hub until that APK or IPA is installed |
+| Cyclones Expo module `app/cyclones/` | Implemented |
+| Root `cyclones_streams.json` | On `main` (guide + inactive example) as of 2026-09-04 `9cecfa6` |
+| GitHub Action `cyclones-stream-pipeline.yml` | Present |
+| GitHub secret `CYCLONES_STREAM_PIPELINE_CONFIG` | Set by owner |
+| Worker `module: "cyclones"` | Deployed 2026-09-04. Live `GET /streams?module=cyclones` returns 200 |
+| Hub row 2 | Cyclones under Guardians, YouTube TV under Patriots |
+| Product rule in `AI_Framework/AI_RULES.md` | Cyclones layout |
+| Latest published family tag | `v1.4.9`. Family phones on older tags need this release for the Cyclones tile |
 | Patriots sibling | On `main` and in `v1.4.5`. Treat Patriots as the copy pattern |
 
 Patriots is the required sibling pattern. Read `app/patriots/`, `tests/patriots/`, `Docs/Domain/Patriots.md`, `.github/workflows/patriots-stream-pipeline.yml`, and `workers/guardians-get-video/src/index.js` before writing Cyclones.
@@ -77,14 +77,15 @@ This is the working template Cyclones copies. It is not Cyclones work.
   - `GET /health` → `ok`
   - `GET /streams` and `GET /streams?module=guardians` → `guardians_streams.json` from GitHub `main`
   - `GET /streams?module=patriots` → `patriots_streams.json` from GitHub `main`
-  - `POST /get-video` body `{ pin, module? }`. Missing / legacy module is `guardians`. Unknown module is 400.
-- Dispatch body today: `{ event_type, client_payload: { module, source: "phone" } }`. It does **not** yet forward `sport`. Cyclones needs `sport` in that payload.
+  - `GET /streams?module=cyclones` → `cyclones_streams.json` from GitHub `main`
+  - `POST /get-video` body `{ pin, module?, sport? }`. Missing / legacy module is `guardians`. Cyclones requires `sport`. Unknown module is 400.
+- Dispatch body: `{ event_type, client_payload: { module, source: "phone", sport? } }`. Cyclones POSTs include `sport`. Missing / legacy module stays `guardians`.
 - Rate limit: 3 POSTs / 10 minutes / IP.
 - Cloudflare secrets already set. **Do not put again:**
   - `FAMILY_PIN`
   - `GITHUB_TOKEN`
-- Worker was deployed once after Patriots `module` landed in source (`npx wrangler login` then `npx wrangler deploy` from `workers/guardians-get-video`). The PC does not stay on. Redeploy once more after `cyclones` is added to `MODULES`.
-- `GET /streams?module=patriots` is live and reads `patriots_streams.json` from `main`. `GET /streams?module=cyclones` will 502 until `cyclones_streams.json` exists on `main`.
+- Worker was deployed after `cyclones` landed in `MODULES` (`npx wrangler deploy` from `workers/guardians-get-video` on 2026-09-04). Do not put `FAMILY_PIN` or `GITHUB_TOKEN` again.
+- `GET /streams?module=patriots` and `GET /streams?module=cyclones` are live and read the matching root files from `main`.
 
 ### GitHub (repo `Danner36/Danner_App`)
 
@@ -97,14 +98,14 @@ This is the working template Cyclones copies. It is not Cyclones work.
 | `PATRIOTS_STREAM_PIPELINE_CONFIG` | Repo secret | Leave alone. Same `extract.baseUrl`, `sport: "nfl"`, `hrefNeedle: "new-england-patriots"`, writes `patriots_streams.json` |
 | `EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL` | Actions secret | Leave alone. Worker origin, no trailing slash |
 | `EXPO_PUBLIC_GUARDIANS_FAMILY_PIN` | Actions secret | Leave alone. Same value as Cloudflare `FAMILY_PIN` |
-| `CYCLONES_STREAM_PIPELINE_CONFIG` | Repo secret | **Create after implement.** Copy only `extract.baseUrl` from an existing pipeline secret. Never print it |
-| `cyclones-stream-pipeline.yml` | Workflow | **Create.** `repository_dispatch` type `cyclones-get-video` |
+| `CYCLONES_STREAM_PIPELINE_CONFIG` | Repo secret | **Owner creates.** Copy only `extract.baseUrl` from an existing pipeline secret. Never print it |
+| `cyclones-stream-pipeline.yml` | Workflow | Present. `repository_dispatch` type `cyclones-get-video` |
 | `guardians_streams.json` | Root file on `main` | Production Guardians URLs. Do not change schema |
 | `patriots_streams.json` | Root file | Present locally (guide + inactive example). Must be on `main` or Patriots Worker GET 502s |
 
-## What still must be built (Cyclones)
+## Implemented lock-ins (Cyclones)
 
-Implement as a Patriots sibling under `app/cyclones/`. Do not fold into Patriots.
+Source under `app/cyclones/` is implemented. Remaining owner work is later listing-needle inspect after the first football listing row. Family release is `v1.4.9`. Do not fold Cyclones into Patriots.
 
 ### 1. Hub and route
 
@@ -268,10 +269,10 @@ When Cyclones source exists, update:
 
 ### 9. Owner ops after source exists
 
-1. Create GitHub secret `CYCLONES_STREAM_PIPELINE_CONFIG` (copy `extract.baseUrl` only; needles as above).
-2. Commit and push `cyclones_streams.json` to `main` or Worker GET 502s.
-3. `cd workers/guardians-get-video` → `npx wrangler deploy` once. Do not put `FAMILY_PIN` or `GITHUB_TOKEN` again.
-4. Family phones still need a new GitHub release after Cyclones is on `main`. Needle patches later do not.
+1. Create GitHub secret `CYCLONES_STREAM_PIPELINE_CONFIG` (copy `extract.baseUrl` only; needles as above). Still owner.
+2. `cyclones_streams.json` is on `main` (2026-09-04 `9cecfa6`).
+3. Worker redeployed 2026-09-04. Do not put `FAMILY_PIN` or `GITHUB_TOKEN` again.
+4. Family phones still need a new GitHub release after Cyclones source is on `main`. Needle patches later do not.
 
 ## GitHub / Cloudflare inventory for the next agent
 

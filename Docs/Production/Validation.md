@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-09-02
+Last updated: 2026-09-04
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -14,13 +14,13 @@ Last updated: 2026-09-02
 | Android prebuild | Pass | 2026-08-29 local `npx expo prebuild --platform android --no-install`: manifest blocks fine and coarse location with `tools:node="remove"`, Nearby Wi-Fi has `neverForLocation`, one official Cast `onCreate`, and `play-services-cast-framework` pinned at 21.5.0 |
 | Android standalone release APK | Pass | Gradle `assembleRelease` completed and embedded the production JavaScript bundle |
 | Standalone emulator launch | Pass | Release APK opened the Danner app hub on Pixel 7 API 34 with Metro stopped and no listener on port 8081 |
-| Parent-friendly app hub | Review | Source now uses a two-row 2×2 grid (Guardians, Patriots, YouTube TV, reserved spacer) centered on the two-thirds line. The last device pass was the previous single row of two tiles at 1080 by 2400 |
+| Parent-friendly app hub | Review | Source now uses a two-row 2×2 grid (Guardians, Patriots, Cyclones, YouTube TV) centered on the two-thirds line. The last device pass predates the Cyclones tile |
 | iPhone signing warning implementation | Pass | The Apple-only local Expo module resolves as pod `DannerProvisioningProfile`, extracts the embedded plist `ExpirationDate`, and returns no value when a profile is absent; the menu reads the profile at launch and on foregrounding; a one-minute timer only advances the displayed remaining time |
 | iPhone signing warning state tests | Pass | Repository-only assertions cover no profile, invalid profile time, more than 48 hours, exactly 48 hours, one day, hourly, final-hour, and expired messages without packaging test controls or fixtures into the app |
 | iPhone signing warning presentation | Review | Source positions the final-48-hour two-line warning above the unchanged one-third-positioned Danner logo and says `Connect to Wi-Fi and charge phone to fix`; an actual expiring SideStore profile is still required for iPhone visual confirmation |
 | Android signing-warning isolation | Review | Source still hides the warning on Android. The last release APK hierarchy had the Danner logo and two module tiles; the two-row hub plus Patriots tile needs a new install to re-confirm |
 | SideStore profile renewal and warning reset | Pending | Requires a physical iPhone signed through SideStore to prove that a locked-phone charger automation renews both profiles and that Danner Apps reads the renewed expiration after returning to the foreground |
-| YouTube TV hub tile | Review | Source places the bundled artwork under Guardians in row 2 and still opens `TV Location`. The last device pass was the previous rightmost single-row tile |
+| YouTube TV hub tile | Review | Source places the bundled artwork under Patriots in row 2 and still opens `TV Location`. The last device pass predates that move |
 | Guardians hub tile | Review | Source keeps the winged-baseball artwork in row 1 left; the last device pass was the previous single-row left tile |
 | Patriots hub tile | Pass | Pixel emulator `emulator-5554` development harness opened `New England Patriots` from the hub and reached the live Patriots card |
 | Guardians live-data response | Pass | The installed release returned Cleveland's 61-66 record, today's San Francisco matchup at 1:10 PM Eastern, and the remaining schedule on 2026-08-20 |
@@ -49,6 +49,12 @@ Last updated: 2026-09-02
 | Patriots source schema | Pass | Parser reuses the Guardians six-field checks against root `patriots_streams.json` (guide plus inactive example only) |
 | Patriots GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=patriots` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=patriots` returned 200 after the 2026-09-01 Worker deploy |
 | Patriots Get video | Pass | 2026-08-29 Pixel emulator `emulator-5554`: `npm run test:patriots:android:get-video` posted `{ pin, module: "patriots" }`, polled `/streams?module=patriots` on port 8112, and showed Play after publish without restart |
+| Cyclones hub tile | Pass | 2026-09-04 Pixel emulator `emulator-5554` Get video harness opened `Iowa State Cyclones` from the hub row-2 tile and reached the live Cyclones card |
+| Cyclones live-data and snapshot | Pass | 2026-09-04: `npm run test:cyclones:snapshot` covers featured live/today/recap across sports, regular-season records ignoring preseason, Chicago official date `2026-09-05` for kickoff `2026-09-05T17:00Z`, elimination versus awaiting-next, and streams that require `sport` |
+| Cyclones dashboard | Review | Pixel emulator Get video harness reached the live featured card and Get video. Separate today, ready, delayed, and Final scenario launches were not run |
+| Cyclones source schema | Pass | Parser requires the six Guardians fields plus `sport` against root `cyclones_streams.json` (guide plus inactive example only) and rejects same-day entries for a different sport |
+| Cyclones GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=cyclones` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=cyclones` returned 200 after the 2026-09-04 Worker deploy and `cyclones_streams.json` on `main` |
+| Cyclones Get video | Pass | 2026-09-04 Pixel emulator `emulator-5554`: `npm run test:cyclones:android:get-video` posted `{ pin, module: "cyclones", sport: "football" }`, polled `/streams?module=cyclones` on port 8113, and showed Play after publish without restart |
 | Guardians Listen and TV send | Pass | Source: Listen is `direct` only; header Cast loads the JSON URL for `direct` without forcing MPEG-TS; header TV relays a page-reported HLS, DASH, or MP4 URL from a phone origin and reports a failure when a page offers none. Cast load is keyed by client plus media so a later session is not skipped. `test:guardians:cast-discovery` covers the URL gate; `test:guardians:android:cast-web` exercises the relay TV path. 2026-09-03 on a live `gooz.aapmains.net` game with v1.4.7: Android Cast to Living Room TV played the relayed page stream, and iPhone AirPlay played the same page stream. The screen-capture converter is archived unbuilt under `reference/screen-capture-hls/`. The Android relay foreground service and the player keep-awake are new in v1.4.8 and need a physical pass |
 | Guardians TV send transport gates | Pass | 2026-09-02 measured against a live provider stream: the master and variant playlists answer 403 without the player page as `Referer` and 403 for a receiver's own `Origin`, and the pre-signed object-store segments answer 200 with no `Access-Control-Allow-Origin`. A receiver therefore cannot load the page URL directly, which is why the phone relays both playlists and passes the segments through with CORS |
 | Parent-friendly guided home | Pass | Large cards, progress, current-step emphasis, completion, retry, and QR-code instructions render at 1080 by 2400 |
@@ -82,7 +88,7 @@ Last updated: 2026-09-02
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
-| GitHub release publication | Pass | Latest published family tag is [`v1.4.5`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.5) (2026-09-02). It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed |
+| GitHub release publication | Pass | Latest published family tag is [`v1.4.8`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.8) (2026-09-04). `v1.4.9` adds the Cyclones tile |
 | Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.5` → `1.4.5` / `10405`). Local builds without that env stay `1.0` / 1 |
 | App update version tests | Pass | `npm run test:app-update` covers semver compare, trailing-garbage tag rejection, trusted HTTPS GitHub asset URLs, manifest parse, signing-warning suppression, session dismiss, SideStore install URL encoding, and `release/build-update-assets.mjs` output |
 | Android in-app APK update | Review | Source downloads the release APK over trusted GitHub redirects, verifies SHA-256, and commits a `PackageInstaller` session. The download status clears when the system Update sheet appears. Physical Yes → system Update sheet is still required |
@@ -115,9 +121,10 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## Current behavior confirmed
 
-- Android and iOS share the Danner app hub, Guardians and Patriots dashboards and players, `TV Location` flow, offline map, and verification implementation. Published `v1.4.5` includes the two-row hub and Patriots tile. Installed `v1.3.3` phones still show the previous two-tile row until that APK or IPA is installed.
+- Android and iOS share the Danner app hub, Guardians, Patriots, and Cyclones dashboards and players, `TV Location` flow, offline map, and verification implementation. `v1.4.9` adds the Cyclones tile and the Patriots navy logo field. Phones on `v1.4.8` and earlier need that update.
 - Opening Guardians fetches current MLB data and root `guardians_streams.json`; today's, a live, or today's completed game receives its own featured card and is omitted from the remaining schedule.
 - Opening Patriots fetches leftover ESPN NFL games and root `patriots_streams.json`. Official dates are America/New_York. Get video POSTs `{ pin, module: "patriots" }` to the shared Worker. The hero record stays `0–0` until a regular-season game is Final.
+- Opening Cyclones fetches leftover ESPN NCAA football, men's basketball, and women's basketball games and root `cyclones_streams.json`. Official dates are America/Chicago. Get video POSTs `{ pin, module: "cyclones", sport }` to the shared Worker. Each sport record stays `0–0` until that sport's first regular-season Final.
 - Today's scheduled game counts down every second. A live game refreshes its park-style scoreboard every five seconds. Icon-only Play controls become eligible 15 minutes before game time. Missing video states that it is not ready and continues checking each minute. Get video appears when the worker origin and family PIN are in the build.
 - Play appears when a date- and game-number-matched URL is already in `guardians_streams.json`. That file already has dated production `web` entries plus the inactive example. HTTPS works by default; an HTTP source must opt in explicitly.
 - Direct media bypasses webpage execution and can offer Listen and Cast. `web` sources use an isolated WebView and can offer TV send of a page-reported media URL or captured playlist. YouTube stays phone-only. An HTTP opt-in does not relax popup, redirect, file, cookie, or download gates.
@@ -128,4 +135,4 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - Android hardware Back on Guardians closes the Play modal when it is open, then returns to the hub.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected Tripoli coordinates.
-- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.4.5`, which also publishes `version-manifest.json` and `sidestore-source.json`. A `v1.4.4` hub can offer an in-place Android install or a SideStore IPA handoff for `v1.4.5`. Phones still on `v1.3.3` do not have that prompt. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag before this Cyclones release is `v1.4.8`. `v1.4.9` publishes `version-manifest.json` and `sidestore-source.json` so a `v1.4.8` hub can offer the update. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.

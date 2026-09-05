@@ -1,0 +1,22 @@
+{
+  "sport": "cyclones",
+  "leadMinutes": 15,
+  "postStartGraceMinutes": 240,
+  "probeTimeoutSeconds": 90,
+  "extract": {
+    "baseUrl": "https://www.example.com/live",
+    "hrefNeedles": {
+      "football": ["iowa-state-cyclones"],
+      "mens-basketball": ["iowa-state-cyclones"],
+      "womens-basketball": ["iowa-state-cyclones"]
+    },
+    "timeoutSeconds": 90
+  },
+  "github": {
+    "owner": "Danner36",
+    "repo": "Danner_App",
+    "branch": "main",
+    "streamsPath": "cyclones_streams.json",
+    "commitMessagePrefix": "cyclones: update stream for"
+  }
+}

@@ -5,7 +5,7 @@ Phase: MVP
 
 ## Product
 
-Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a two-row 2×2 artwork grid on the two-thirds line. Cleveland Guardians and New England Patriots sit on the first row. YouTube TV launches `TV Location` from the cell under Guardians; the cell under Patriots is a reserved empty spacer. Android and iPhone share all three modules.
+Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a two-row 2×2 artwork grid on the two-thirds line. Cleveland Guardians and New England Patriots sit on the first row. Iowa State Cyclones sits under Guardians. YouTube TV launches `TV Location` from the cell under Patriots. Android and iPhone share all four modules.
 
 ## Guardians experience
 
@@ -14,6 +14,10 @@ The Guardians screen retrieves the current record, today's or an active game, sc
 ## Patriots experience
 
 The Patriots screen retrieves leftover preseason, regular-season, and playoff games plus the regular-season record from ESPN whenever it opens. It refreshes that ESPN snapshot every ten minutes, supports pull-to-refresh, omits completed and featured games from the schedule, and presents all start times in the phone's time zone. Today's game is promoted above the schedule with a one-second countdown when the kickoff time is known, or `Time TBA` when it is not. After Final, the featured card stays as today's recap through local midnight of that official date. A live game refreshes a football scoreboard every five seconds. Icon-only Play controls become eligible 15 minutes before game time and appear only for date- and game-number-matched entries fetched from root `patriots_streams.json` on GitHub. Get video POSTs `{ pin, module: "patriots" }` to the same Cloudflare Worker and family PIN used by Guardians, then polls `GET /streams?module=patriots`. Direct video, Listen, Cast, TV send, and isolated player pages follow the same rules as Guardians.
+
+## Cyclones experience
+
+The Cyclones screen retrieves leftover football, men's basketball, and women's basketball games plus three regular-season records from ESPN whenever it opens. It refreshes that ESPN snapshot every ten minutes, supports pull-to-refresh, omits completed and featured games from the schedule, and presents all start times in the phone's time zone. One featured card picks a live game, today's next kickoff, or today's last recap and names the sport. Today's game counts down when the start time is known, or shows `Time TBA` when it is not. After Final, the featured card stays as today's recap through local midnight of that official date. A live game refreshes a football, halves, or quarters board every five seconds. Icon-only Play controls become eligible 15 minutes before game time and appear only for date-, game-number-, and sport-matched entries fetched from root `cyclones_streams.json` on GitHub. Get video POSTs `{ pin, module: "cyclones", sport }` to the same Cloudflare Worker and family PIN used by Guardians, then polls `GET /streams?module=cyclones`. Direct video, Listen, Cast, TV send, and isolated player pages follow the same rules as Guardians.
 
 ## Current experience
 

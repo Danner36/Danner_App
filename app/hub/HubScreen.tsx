@@ -28,10 +28,12 @@ import {
 import { getProvisioningWarning } from './provisioningWarning';
 
 export function HubScreen({
+  onOpenCyclones,
   onOpenGuardians,
   onOpenPatriots,
   onOpenTvLocation,
 }: {
+  onOpenCyclones: () => void;
   onOpenGuardians: () => void;
   onOpenPatriots: () => void;
   onOpenTvLocation: () => void;
@@ -257,6 +259,22 @@ export function HubScreen({
 
         <View style={styles.subAppRow}>
           <Pressable
+            accessibilityLabel="Iowa State Cyclones"
+            accessibilityHint="Opens Cyclones scores, records, schedule, and authorized live video"
+            accessibilityRole="button"
+            onPress={onOpenCyclones}
+            style={({ pressed }) => [
+              styles.subAppTile,
+              pressed && styles.subAppTilePressed,
+            ]}
+          >
+            <Image
+              resizeMode="cover"
+              source={require('../assets/iowa-state-cyclones-logo.jpg')}
+              style={styles.subAppLogoContained}
+            />
+          </Pressable>
+          <Pressable
             accessibilityLabel="TV Location"
             accessibilityHint="Opens the YouTube TV location setup"
             accessibilityRole="button"
@@ -272,7 +290,6 @@ export function HubScreen({
               style={styles.subAppLogoFill}
             />
           </Pressable>
-          <View style={styles.subAppTileSpacer} />
         </View>
       </View>
     </View>
@@ -330,10 +347,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 28,
     justifyContent: 'center',
-  },
-  subAppTileSpacer: {
-    height: 101.2,
-    width: 101.2,
   },
   subAppTile: {
     alignItems: 'center',

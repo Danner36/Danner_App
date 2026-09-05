@@ -5,8 +5,15 @@ const STREAM_FIELDS = new Set([
   'gameDates',
   'gameNumbers',
   'kind',
+  'sport',
   'trustedHosts',
   'url',
+]);
+
+const CYCLONES_SPORTS = new Set([
+  'football',
+  'mens-basketball',
+  'womens-basketball',
 ]);
 
 function isValidGameDate(value) {
@@ -41,7 +48,8 @@ export function streamFromUnknown(candidate) {
       stream.kind !== 'youtube') ||
     typeof stream.url !== 'string' ||
     !Array.isArray(stream.trustedHosts) ||
-    stream.trustedHosts.some((host) => typeof host !== 'string')
+    stream.trustedHosts.some((host) => typeof host !== 'string') ||
+    (stream.sport !== undefined && !CYCLONES_SPORTS.has(stream.sport))
   ) {
     return undefined;
   }
@@ -71,10 +79,16 @@ export async function readStreamsDocument(path) {
 }
 
 export function streamMatchesGame(stream, game) {
-  return (
+  const datesAndNumber =
     stream.gameDates.includes(game.officialDate) &&
-    stream.gameNumbers.includes(game.gameNumber)
-  );
+    stream.gameNumbers.includes(game.gameNumber);
+  if (!datesAndNumber) {
+    return false;
+  }
+  if (game.sport) {
+    return stream.sport === game.sport;
+  }
+  return stream.sport === undefined;
 }
 
 export function upsertStream(document, entry, game) {
@@ -112,7 +126,8 @@ export function entryChanged(existing, nextEntry) {
     existing.kind !== nextEntry.kind ||
     existing.url !== nextEntry.url ||
     existing.allowInsecureHttp !== nextEntry.allowInsecureHttp ||
-    existing.trustedHosts.join(',') !== nextEntry.trustedHosts.join(',')
+    existing.trustedHosts.join(',') !== nextEntry.trustedHosts.join(',') ||
+    existing.sport !== nextEntry.sport
   );
 }
 
@@ -140,5 +155,6 @@ export function buildStreamEntry(game, probeResult, playback) {
     url: probeResult.url,
     allowInsecureHttp: probeResult.allowInsecureHttp,
     trustedHosts: probeResult.trustedHosts ?? playback.trustedHosts ?? [],
+    ...(game.sport ? { sport: game.sport } : {}),
   };
 }

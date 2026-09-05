@@ -12,6 +12,10 @@ import {
   fetchGuardiansGames,
   isBlockedGame,
 } from './mlbSchedule.mjs';
+import {
+  featuredCyclonesGame,
+  fetchCyclonesGames,
+} from './ncaaSchedule.mjs';
 import { fetchPatriotsGames } from './nflSchedule.mjs';
 import { publishStreamsFile } from './publishGithub.mjs';
 import {
@@ -42,17 +46,57 @@ export function streamsPathForConfig(config) {
 }
 
 function noGameMessage(config) {
-  return config.sport === 'nfl'
-    ? 'No Patriots game is scheduled for today.'
-    : 'No Guardians game is scheduled for today.';
+  if (config.sport === 'nfl') {
+    return 'No Patriots game is scheduled for today.';
+  }
+  if (config.sport === 'cyclones') {
+    return 'No Cyclones game is scheduled for today.';
+  }
+  return 'No Guardians game is scheduled for today.';
+}
+
+function scheduleStepName(config) {
+  if (config.sport === 'nfl') {
+    return 'espn_schedule';
+  }
+  if (config.sport === 'cyclones') {
+    return 'ncaa_schedule';
+  }
+  return 'mlb_schedule';
 }
 
 async function fetchConfiguredGames(config, now) {
-  const teamId =
-    config.teamId ?? (config.sport === 'nfl' ? 17 : 114);
-  return config.sport === 'nfl'
-    ? fetchPatriotsGames(teamId, now)
-    : fetchGuardiansGames(teamId, now);
+  if (config.sport === 'nfl') {
+    return fetchPatriotsGames(config.teamId ?? 17, now);
+  }
+  if (config.sport === 'cyclones') {
+    return fetchCyclonesGames(config.teamId ?? 66, now);
+  }
+  return fetchGuardiansGames(config.teamId ?? 114, now);
+}
+
+function featuredGameForConfig(config, games, now, dispatchSport) {
+  if (config.sport === 'cyclones') {
+    const scoped = dispatchSport
+      ? games.filter((game) => game.sport === dispatchSport)
+      : games;
+    return featuredCyclonesGame(scoped, now);
+  }
+  return featuredGame(games, now);
+}
+
+function hrefNeedlesForGame(config, game) {
+  const bySport = config.extract?.hrefNeedles;
+  if (game?.sport && bySport && typeof bySport === 'object') {
+    const needles = bySport[game.sport];
+    if (Array.isArray(needles) && needles.length > 0) {
+      return needles;
+    }
+  }
+  if (typeof config.extract?.hrefNeedle === 'string' && config.extract.hrefNeedle.trim()) {
+    return [config.extract.hrefNeedle.trim()];
+  }
+  return ['cleveland-guardians'];
 }
 
 export function isGameOver(game) {
@@ -170,16 +214,17 @@ async function publishStreamDocument({
 export async function runGoozPipeline(options = {}) {
   const configPath = options.configPath ?? defaultConfigPath;
   const config = await loadConfig(configPath);
-  const teamId = config.teamId ?? 114;
   const leadMinutes = config.leadMinutes ?? 15;
   const timeoutSeconds =
     config.extract?.timeoutSeconds ?? config.probeTimeoutSeconds ?? 90;
   const streamsPath = streamsPathForConfig(config);
   const now = new Date();
   const steps = [];
+  const dispatchSport =
+    options.dispatchSport ?? process.env.DISPATCH_SPORT?.trim() ?? undefined;
 
   const games = await fetchConfiguredGames(config, now);
-  const game = featuredGame(games, now);
+  const game = featuredGameForConfig(config, games, now, dispatchSport);
   if (!game) {
     return {
       outcome: 'no_game',
@@ -190,7 +235,7 @@ export async function runGoozPipeline(options = {}) {
   }
 
   steps.push({
-    step: config.sport === 'nfl' ? 'espn_schedule' : 'mlb_schedule',
+    step: scheduleStepName(config),
     game,
     message: `Featured game ${game.officialDate} #${game.gameNumber} vs ${game.opponentName} (${game.status}).`,
   });
@@ -256,19 +301,15 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
-  const hrefNeedle =
-    typeof config.extract?.hrefNeedle === 'string' &&
-    config.extract.hrefNeedle.trim()
-      ? config.extract.hrefNeedle.trim()
-      : 'cleveland-guardians';
+  const hrefNeedles = hrefNeedlesForGame(config, game);
 
   steps.push({
     step: 'extract_gooz',
-    message: `Extracting gooz URL from ${baseUrl} using href "${hrefNeedle}".`,
+    message: `Extracting gooz URL from ${baseUrl} using href "${hrefNeedles.join(' + ')}".`,
   });
 
   const extraction = await extractGoozFromBasePage(baseUrl, {
-    hrefNeedle,
+    hrefNeedles,
     timeoutSeconds,
   });
   for (const line of extraction.logLines ?? []) {
@@ -287,6 +328,7 @@ export async function runGoozPipeline(options = {}) {
         url: foundUrl,
         allowInsecureHttp: false,
         trustedHosts: [],
+        ...(game.sport ? { sport: game.sport } : {}),
       }
     : buildBlankStreamEntry(game);
 

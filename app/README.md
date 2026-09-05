@@ -2,13 +2,14 @@
 
 Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 
-`App.tsx` is the thin shell: SafeArea, status bar, and a switch among the hub, Guardians, Patriots, and TV Location. Product screens live in sibling folders. `guardians_streams.json` and `patriots_streams.json` stay at the repository root so phones keep fetching `.../main/` those files.
+`App.tsx` is the thin shell: SafeArea, status bar, and a switch among the hub, Guardians, Patriots, Cyclones, and TV Location. Product screens live in sibling folders. `guardians_streams.json`, `patriots_streams.json`, and `cyclones_streams.json` stay at the repository root so phones keep fetching `.../main/` those files.
 
 ## Folders
 
 - `hub/` is the logo-only main menu, the iPhone signing-warning text, and the GitHub-release update prompt.
 - `guardians/` is the Cleveland Guardians dashboard and authorized players.
 - `patriots/` is the New England Patriots dashboard and authorized players.
+- `cyclones/` is the Iowa State Cyclones dashboard and authorized players.
 - `tvLocation/` is the four-step YouTube TV location flow and bundled map.
 - `modules/` holds native Expo modules only, not product screens.
 - `assets/` holds shared logos, splash art, and the generated offline map HTML.
@@ -44,6 +45,14 @@ npm run test:patriots:android:live
 npm run test:patriots:snapshot
 npm run test:patriots:android:get-video
 npm run test:patriots:server
+npm run test:cyclones:android
+npm run test:cyclones:android:ready
+npm run test:cyclones:android:delayed
+npm run test:cyclones:android:final
+npm run test:cyclones:android:live
+npm run test:cyclones:snapshot
+npm run test:cyclones:android:get-video
+npm run test:cyclones:server
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map

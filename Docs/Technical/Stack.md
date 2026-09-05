@@ -17,7 +17,7 @@ Phase: MVP
 - `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that Casts a page-reported HLS, DASH, or MP4 URL when the isolated player reports one, and otherwise live-converts the on-screen player through `modules/danner-live-hls/` and Casts that local playlist on Android and iPhone. MPEG-TS is declared only for the captured playlist. `youtube` sources stay phone-only.
 - `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages report an Android Chrome user agent, enable WKWebView AirPlay, and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
-- `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians and Patriots source documents.
+- `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians, Patriots, and Cyclones source documents.
 - `expo-asset` installs and opens the generated offline map HTML on Android and iOS.
 - `react-native-safe-area-context` preserves readable system-bar insets.
 - `expo-status-bar` and `expo-navigation-bar` keep light system chrome.
@@ -43,13 +43,15 @@ Release builds bake the GitHub tag into the Android version name and version cod
 
 | Path | Role |
 |------|------|
-| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / Guardians / Patriots / TV Location switch |
+| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / Guardians / Patriots / Cyclones / TV Location switch |
 | `app/hub/` | Logo-only two-row menu, iPhone signing-warning text, and GitHub-release update prompt |
 | `app/guardians/` | MLB data retrieval, today/live/recap promotion, countdown, delay state, source refresh and cache, Get video, Listen, Cast/TV send, schedule, and video player |
 | `app/patriots/` | ESPN NFL data retrieval, today/live/recap promotion, football scoreboard, countdown, source refresh and cache, Get video, Listen, Cast/TV send, schedule, and video player |
+| `app/cyclones/` | ESPN NCAA football, men's basketball, and women's basketball retrieval, featured pick across sports, three records, sport-specific boards, countdown, source refresh and cache, Get video with `sport`, and reused Guardians players |
 | `app/tvLocation/` | Guided home, destination storage, bundled map, browser injection, and verification view |
 | `guardians_streams.json` | Owner-edited, GitHub-hosted Guardians playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
 | `patriots_streams.json` | Owner-edited, GitHub-hosted Patriots playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
+| `cyclones_streams.json` | Owner-edited, GitHub-hosted Cyclones playback dates, game numbers, required `sport`, URLs, HTTP opt-ins, and trusted redirect hosts |
 | `app/app.json` | Android and iOS native configuration defaults |
 | `app/app.config.js` | Release-tag overlay for version, versionCode, and buildNumber |
 | `app/eas.json` | Existing internal-distribution development, preview, and production profiles; Android outputs APK while the selected family-iPhone delivery path is SideStore |
@@ -60,12 +62,14 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources |
 | `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
 | `app/android/` | Locally generated and ignored native project |
-| `workers/guardians-get-video/` | Shared Cloudflare Worker that checks the family PIN, starts the Guardians or Patriots stream pipeline from `module`, and serves `GET /streams` for that module |
+| `workers/guardians-get-video/` | Shared Cloudflare Worker that checks the family PIN, starts the Guardians, Patriots, or Cyclones stream pipeline from `module`, forwards Cyclones `sport`, and serves `GET /streams` for that module |
 | `.github/workflows/release.yml` | Tag-triggered Android and iPhone builds plus GitHub Release publication after both artifacts pass |
 | `.github/workflows/guardians-stream-pipeline.yml` | Guardians Get video extract job, started by `repository_dispatch` type `guardians-get-video` |
 | `.github/workflows/patriots-stream-pipeline.yml` | Patriots Get video extract job, started by `repository_dispatch` type `patriots-get-video` |
+| `.github/workflows/cyclones-stream-pipeline.yml` | Cyclones Get video extract job, started by `repository_dispatch` type `cyclones-get-video` |
 | `tests/guardians/` | Repo-only today/ready/delayed/live/final/get-video/live-HLS harness |
 | `tests/patriots/` | Repo-only today/ready/delayed/live/final/get-video harness |
+| `tests/cyclones/` | Repo-only today/ready/delayed/live/final/get-video harness plus snapshot |
 | `release/` | Required GitHub release set, update manifests, and portable iPhone first-install and recovery card linking to official LocalDevVPN, SideStore, iLoader, and Danner release locations |
 | `reference/` | Legacy APK and its technical inventory |
 | `tests/app-update/` | Release-tag compare, manifest parse, and update-asset writer |
@@ -101,6 +105,14 @@ npm run test:patriots:android:live
 npm run test:patriots:snapshot
 npm run test:patriots:android:get-video
 npm run test:patriots:server
+npm run test:cyclones:android
+npm run test:cyclones:android:ready
+npm run test:cyclones:android:delayed
+npm run test:cyclones:android:final
+npm run test:cyclones:android:live
+npm run test:cyclones:snapshot
+npm run test:cyclones:android:get-video
+npm run test:cyclones:server
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map

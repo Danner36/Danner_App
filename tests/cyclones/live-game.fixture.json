@@ -1,0 +1,91 @@
+{
+  "wins": 0,
+  "losses": 0,
+  "ties": 0,
+  "liveGame": {
+    "abstractState": "Live",
+    "gamePk": 401856779,
+    "gameDate": "2026-09-05T17:00:00Z",
+    "gameNumber": 1,
+    "status": "Q2 8:42",
+    "isHome": true,
+    "cyclonesScore": 21,
+    "opponentName": "Southeast Missouri State Redhawks",
+    "opponentScore": 7,
+    "officialDate": "2026-09-05",
+    "seasonType": 2,
+    "sport": "football",
+    "timeValid": true,
+    "notes": "",
+    "scoreboard": {
+      "kind": "football",
+      "status": "Q2 8:42",
+      "clock": "8:42",
+      "period": 2,
+      "down": 2,
+      "distance": 7,
+      "situation": "2nd & 7 at SEMO 33",
+      "possessionTeamId": 66,
+      "away": { "points": 7, "periods": [0, 7] },
+      "home": { "points": 21, "periods": [14, 7] }
+    }
+  },
+  "upcomingGames": [
+    {
+      "abstractState": "Preview",
+      "gamePk": 401856800,
+      "gameDate": "2026-09-12T16:00:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": true,
+      "cyclonesScore": 0,
+      "opponentName": "Iowa Hawkeyes",
+      "opponentScore": 0,
+      "officialDate": "2026-09-12",
+      "seasonType": 2,
+      "sport": "football",
+      "timeValid": true,
+      "notes": ""
+    },
+    {
+      "abstractState": "Preview",
+      "gamePk": 401900001,
+      "gameDate": "2026-11-02T00:00:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": true,
+      "cyclonesScore": 0,
+      "opponentName": "Memphis Tigers",
+      "opponentScore": 0,
+      "officialDate": "2026-11-02",
+      "seasonType": 2,
+      "sport": "mens-basketball",
+      "timeValid": false,
+      "notes": ""
+    }
+  ],
+  "streams": [
+    {
+      "allowInsecureHttp": true,
+      "kind": "direct",
+      "sport": "football",
+      "url": "http://10.0.2.2:8108/http-media/v3/prog_index.m3u8"
+    },
+    {
+      "kind": "direct",
+      "sport": "football",
+      "url": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+    },
+    {
+      "kind": "youtube",
+      "sport": "football",
+      "url": "https://www.youtube.com/watch?v=qjtzooqcjgA"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "sport": "football",
+      "url": "http://10.0.2.2:8108/popup-player"
+    }
+  ]
+}

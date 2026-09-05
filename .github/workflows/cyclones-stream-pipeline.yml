@@ -1,0 +1,88 @@
+name: Cyclones stream pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Extract and log without writing cyclones_streams.json
+        required: false
+        type: boolean
+        default: false
+      force:
+        description: Run even outside the 15-minute pregame window
+        required: false
+        type: boolean
+        default: false
+      sport:
+        description: Featured sport to extract (football, mens-basketball, womens-basketball)
+        required: false
+        type: string
+        default: football
+  repository_dispatch:
+    types: [cyclones-get-video]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cyclones-stream-pipeline
+  cancel-in-progress: false
+
+jobs:
+  extract:
+    name: Extract and publish Cyclones stream
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/guardians-stream-pipeline/package-lock.json
+
+      - name: Install pipeline packages
+        working-directory: scripts/guardians-stream-pipeline
+        run: npm ci
+
+      - name: Restore Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('scripts/guardians-stream-pipeline/package-lock.json') }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: scripts/guardians-stream-pipeline
+        run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: scripts/guardians-stream-pipeline
+        run: npx playwright install-deps chromium
+
+      - name: Write pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          CYCLONES_STREAM_PIPELINE_CONFIG: ${{ secrets.CYCLONES_STREAM_PIPELINE_CONFIG }}
+        run: |
+          if [ -z "$CYCLONES_STREAM_PIPELINE_CONFIG" ]; then
+            echo "CYCLONES_STREAM_PIPELINE_CONFIG secret is not set; using config.cyclones.example.json."
+            cp config.cyclones.example.json config.json
+          else
+            printf '%s' "$CYCLONES_STREAM_PIPELINE_CONFIG" > config.json
+          fi
+
+      - name: Run pipeline
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GUARDIANS_STREAM_CONFIG: config.json
+          DISPATCH_SPORT: ${{ github.event.client_payload.sport || inputs.sport || 'football' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+        run: node run.mjs

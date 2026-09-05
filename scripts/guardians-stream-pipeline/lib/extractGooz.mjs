@@ -146,6 +146,7 @@ function buildStreamEntry(goozUrl, game) {
     gameDates: [game.officialDate],
     gameNumbers: [game.gameNumber],
     ...entry,
+    ...(game.sport ? { sport: game.sport } : {}),
   };
 }
 
@@ -157,6 +158,7 @@ export function buildBlankStreamEntry(game) {
     url: '',
     allowInsecureHttp: false,
     trustedHosts: [],
+    ...(game?.sport ? { sport: game.sport } : {}),
   };
 }
 
@@ -221,10 +223,23 @@ async function extractGoozFromLoadedPage(page, pageUrl, networkUrls) {
   };
 }
 
-async function findInnerLinkByHref(page, options) {
-  const hrefNeedle = (options.hrefNeedle ?? 'cleveland-guardians').toLowerCase();
+function hrefNeedlesFromOptions(options = {}) {
+  if (Array.isArray(options.hrefNeedles) && options.hrefNeedles.length > 0) {
+    return options.hrefNeedles
+      .filter((needle) => typeof needle === 'string' && needle.trim())
+      .map((needle) => needle.trim().toLowerCase());
+  }
+  const single =
+    typeof options.hrefNeedle === 'string' && options.hrefNeedle.trim()
+      ? options.hrefNeedle.trim()
+      : 'cleveland-guardians';
+  return [single.toLowerCase()];
+}
 
-  return page.evaluate(({ hrefNeedle }) => {
+async function findInnerLinkByHref(page, options) {
+  const hrefNeedles = hrefNeedlesFromOptions(options);
+
+  return page.evaluate(({ hrefNeedles }) => {
     const matches = [];
 
     for (const anchor of document.querySelectorAll('a[href]')) {
@@ -245,7 +260,7 @@ async function findInnerLinkByHref(page, options) {
       }
 
       const hrefLower = absoluteHref.toLowerCase();
-      if (!hrefLower.includes(hrefNeedle)) {
+      if (!hrefNeedles.every((needle) => hrefLower.includes(needle))) {
         continue;
       }
 
@@ -269,7 +284,7 @@ async function findInnerLinkByHref(page, options) {
 
     matches.sort((first, second) => second.score - first.score);
     return matches;
-  }, { hrefNeedle });
+  }, { hrefNeedles });
 }
 
 async function activateVideoPlayer(page) {
@@ -421,7 +436,8 @@ export async function extractGoozFromPage(pageUrl, options = {}) {
 
 export async function extractGoozFromBasePage(baseUrl, options = {}) {
   const { chromium } = await import('playwright');
-  const hrefNeedle = (options.hrefNeedle ?? 'cleveland-guardians').trim();
+  const hrefNeedles = hrefNeedlesFromOptions(options);
+  const hrefNeedle = hrefNeedles.join(' + ');
   const steps = [];
   steps.onStep = options.onStep;
   const logLines = [];
@@ -455,7 +471,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     remember(`Searching page elements for href containing "${hrefNeedle}"...`);
 
     const linkMatches = await findInnerLinkByHref(basePage, {
-      hrefNeedle,
+      hrefNeedles,
     });
     const innerLink = linkMatches[0];
 

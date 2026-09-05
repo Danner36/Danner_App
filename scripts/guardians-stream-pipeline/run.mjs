@@ -63,8 +63,10 @@ async function main() {
   }
 
   await loadConfig(options.configPath);
+  const dispatchSport = process.env.DISPATCH_SPORT?.trim() || undefined;
   const result = await runGoozPipeline({
     configPath: options.configPath,
+    dispatchSport,
     dryRun: options.dryRun,
     force: options.force,
   });
