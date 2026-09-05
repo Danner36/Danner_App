@@ -15,6 +15,7 @@ import {
   authorizedStreamsForGame,
   cyclonesStreamsFromDocument,
 } from '../../app/cyclones/cyclonesSources.ts';
+import { liveFootballScoreboardFromEspn } from '../../app/cyclones/espnCyclonesScoreboard.ts';
 
 const recapNow = new Date(2026, 8, 5, 20, 15, 0);
 const gameDay = new Date(2026, 8, 5, 14, 15, 0);
@@ -240,8 +241,140 @@ assert.equal(parsed?.status, 'Scheduled');
 assert.equal(parsed?.timeValid, true);
 assert.equal(parsed?.officialDate, '2026-09-05');
 assert.equal(parsed?.sport, 'football');
+assert.equal(parsed?.cyclonesScore, 0);
+assert.equal(parsed?.opponentScore, 0);
 assert.equal(chicagoDateString(new Date('2026-09-05T17:00:00Z')), '2026-09-05');
 assert.equal(tbaHoops.timeValid, false);
+
+const espnFinal = cyclonesGameFromEspnEvent(
+  espnEvent(
+    {
+      completed: true,
+      description: 'Final',
+      detail: 'Final',
+      name: 'STATUS_FINAL',
+      shortDetail: 'Final',
+      state: 'post',
+    },
+    {
+      competitions: [
+        {
+          timeValid: true,
+          status: {
+            type: {
+              completed: true,
+              description: 'Final',
+              detail: 'Final',
+              name: 'STATUS_FINAL',
+              shortDetail: 'Final',
+              state: 'post',
+            },
+          },
+          competitors: [
+            {
+              homeAway: 'home',
+              id: '66',
+              score: { displayValue: '38', value: 38.0 },
+              team: { displayName: 'Iowa State Cyclones', id: '66' },
+              winner: true,
+            },
+            {
+              homeAway: 'away',
+              id: '2546',
+              score: { displayValue: '10', value: 10.0 },
+              team: {
+                displayName: 'Southeast Missouri State Redhawks',
+                id: '2546',
+              },
+              winner: false,
+            },
+          ],
+        },
+      ],
+    },
+  ),
+  'football',
+);
+assert.equal(espnFinal?.abstractState, 'Final');
+assert.equal(espnFinal?.cyclonesScore, 38);
+assert.equal(espnFinal?.opponentScore, 10);
+assert.equal(espnFinal?.status, 'Final');
+assert.equal(recapResult(espnFinal), 'WIN');
+assert.deepEqual(recordsFromGames([espnFinal]).football, {
+  losses: 0,
+  ties: 0,
+  wins: 1,
+});
+
+const displayValueOnly = cyclonesGameFromEspnEvent(
+  espnEvent(
+    {
+      description: 'Final',
+      detail: 'Final',
+      name: 'STATUS_FINAL',
+      state: 'post',
+    },
+    {
+      competitions: [
+        {
+          status: {
+            type: {
+              description: 'Final',
+              detail: 'Final',
+              name: 'STATUS_FINAL',
+              state: 'post',
+            },
+          },
+          competitors: [
+            {
+              homeAway: 'home',
+              id: '66',
+              score: { displayValue: '21' },
+              team: { displayName: 'Iowa State Cyclones', id: '66' },
+            },
+            {
+              homeAway: 'away',
+              id: '2546',
+              score: { displayValue: '24' },
+              team: {
+                displayName: 'Southeast Missouri State Redhawks',
+                id: '2546',
+              },
+            },
+          ],
+        },
+      ],
+    },
+  ),
+  'football',
+);
+assert.equal(displayValueOnly?.cyclonesScore, 21);
+assert.equal(displayValueOnly?.opponentScore, 24);
+assert.equal(recapResult(displayValueOnly), 'LOSS');
+
+const boardFromScheduleScoreObjects = liveFootballScoreboardFromEspn({
+  competitions: [
+    {
+      competitors: [
+        {
+          homeAway: 'home',
+          score: { displayValue: '38', value: 38.0 },
+        },
+        {
+          homeAway: 'away',
+          score: { displayValue: '10', value: 10.0 },
+        },
+      ],
+      status: {
+        displayClock: '0:00',
+        period: 4,
+        type: { detail: 'Final', shortDetail: 'Final' },
+      },
+    },
+  ],
+});
+assert.equal(boardFromScheduleScoreObjects?.home.points, 38);
+assert.equal(boardFromScheduleScoreObjects?.away.points, 10);
 
 const streams = cyclonesStreamsFromDocument({
   streams: [

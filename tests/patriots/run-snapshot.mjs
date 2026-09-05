@@ -195,4 +195,52 @@ assert.equal(
 assert.equal(easternDateString(new Date('2026-09-10T00:20:00Z')), '2026-09-09');
 assert.equal(tba.timeValid, false);
 
+const espnFinal = patriotsGameFromEspnEvent(
+  espnEvent(
+    {
+      completed: true,
+      description: 'Final',
+      detail: 'Final',
+      name: 'STATUS_FINAL',
+      shortDetail: 'Final',
+      state: 'post',
+    },
+    {
+      competitions: [
+        {
+          timeValid: true,
+          status: {
+            type: {
+              completed: true,
+              description: 'Final',
+              detail: 'Final',
+              name: 'STATUS_FINAL',
+              shortDetail: 'Final',
+              state: 'post',
+            },
+          },
+          competitors: [
+            {
+              homeAway: 'home',
+              id: '26',
+              score: { displayValue: '17', value: 17.0 },
+              team: { displayName: 'Seattle Seahawks', id: '26' },
+            },
+            {
+              homeAway: 'away',
+              id: '17',
+              score: { displayValue: '24', value: 24.0 },
+              team: { displayName: 'New England Patriots', id: '17' },
+            },
+          ],
+        },
+      ],
+    },
+  ),
+);
+assert.equal(espnFinal?.abstractState, 'Final');
+assert.equal(espnFinal?.patriotsScore, 24);
+assert.equal(espnFinal?.opponentScore, 17);
+assert.equal(recapResult(espnFinal), 'WIN');
+
 process.stdout.write('Patriots snapshot assertions passed.\n');
