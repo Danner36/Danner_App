@@ -88,8 +88,8 @@ Last updated: 2026-09-04
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
-| GitHub release publication | Pass | Latest published family tag is [`v1.4.8`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.8) (2026-09-04). `v1.4.9` adds the Cyclones tile |
-| Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.5` → `1.4.5` / `10405`). Local builds without that env stay `1.0` / 1 |
+| GitHub release publication | Pass | Latest published family tag is [`v1.4.9`](https://github.com/Danner36/Danner_App/releases/tag/v1.4.9) (2026-09-04). It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed |
+| Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v1.4.9` → `1.4.9` / `10409`). Local builds without that env stay `1.0` / 1 |
 | App update version tests | Pass | `npm run test:app-update` covers semver compare, trailing-garbage tag rejection, trusted HTTPS GitHub asset URLs, manifest parse, signing-warning suppression, session dismiss, SideStore install URL encoding, and `release/build-update-assets.mjs` output |
 | Android in-app APK update | Review | Source downloads the release APK over trusted GitHub redirects, verifies SHA-256, and commits a `PackageInstaller` session. The download status clears when the system Update sheet appears. Physical Yes → system Update sheet is still required |
 | iPhone SideStore update handoff | Review | Source opens `sidestore://install?url=` for the release IPA and does not present that prompt after leaving the hub. Physical LocalDevVPN + SideStore install is still required |
@@ -97,7 +97,7 @@ Last updated: 2026-09-04
 ## Android identifiers
 
 - Package: `com.example.location_helper`
-- Version: local/default `1.0`, code 1; release builds use the GitHub tag (`v1.4.5` → name `1.4.5`, code `10405`)
+- Version: local/default `1.0`, code 1; release builds use the GitHub tag (`v1.4.9` → name `1.4.9`, code `10409`)
 - Minimum SDK: 29
 - Target and compile SDK: 36
 - App label: `Danner Apps`
@@ -107,13 +107,13 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## GitHub release artifacts checked
 
-- Release: [Danner Apps v1.4.5](https://github.com/Danner36/Danner_App/releases/tag/v1.4.5)
+- Release: [Danner Apps v1.4.9](https://github.com/Danner36/Danner_App/releases/tag/v1.4.9)
 - Android asset: `Danner-Apps-Android.apk`
-- Android asset size: 94,989,194 bytes
-- Android SHA-256: `1fcd0c74cdcc85671ea5e22a6519c063161444795c2c0a240d07140e03829c6e`
+- Android asset size: 95,057,806 bytes
+- Android SHA-256: `4b921ee163bbbc171fcd319d744fcd81e2ed3f3e951ac124c62283741ee4afee`
 - iPhone asset: `Danner-Apps-iOS.ipa`
-- iPhone asset size: 11,910,576 bytes
-- iPhone SHA-256: `fda59ce5168d531c0871064d4372de484c9b58c3142697c8836fc15d35276e1a`
+- iPhone asset size: 11,964,153 bytes
+- iPhone SHA-256: `f215a4302ec57358980d2f283c3264bb98cd10e0916afb9885c727944f25ff48`
 - Setup asset: `IPHONE_SETUP.md`
 - Integrity asset: `SHA256SUMS.txt`
 - Update assets: `version-manifest.json`, `sidestore-source.json`
@@ -135,4 +135,4 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - Android hardware Back on Guardians closes the Play modal when it is open, then returns to the hub.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected Tripoli coordinates.
-- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag before this Cyclones release is `v1.4.8`. `v1.4.9` publishes `version-manifest.json` and `sidestore-source.json` so a `v1.4.8` hub can offer the update. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. Latest published family tag is `v1.4.9`, which also publishes `version-manifest.json` and `sidestore-source.json`. A `v1.4.8` hub can offer an in-place Android install or a SideStore IPA handoff for `v1.4.9`. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
