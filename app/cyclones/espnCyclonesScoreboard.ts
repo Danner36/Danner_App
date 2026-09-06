@@ -36,6 +36,10 @@ const SUMMARY_PATHS: Record<CyclonesSport, string> = {
 };
 
 function finiteCount(value: unknown): number | undefined {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const raw = value as { displayValue?: unknown; value?: unknown };
+    return finiteCount(raw.value ?? raw.displayValue);
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.trunc(value));
   }

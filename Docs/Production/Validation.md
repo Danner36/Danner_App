@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-09-04
+Last updated: 2026-09-05
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -44,13 +44,13 @@ Last updated: 2026-09-04
 | Guardians popup and redirect gate | Pass | On the opted-in HTTP test page, Pixel 7 API 34 retained the original player after unapproved popup and redirect requests, promoted an approved popup into the same isolated player, and followed its approved redirect; the official HTTPS MLB YouTube archive continued playing afterward |
 | Guardians production live playback | Review | Root `guardians_streams.json` holds dated `web` entries for 2026-08-20, 08-25, 08-26, and 08-28 plus the inactive example. Play still requires a date- and game-number match for the featured game. The 2026-08-29 featured game has no matching URL in that file |
 | Guardians Get video | Pass | Source POSTs `{ pin }` to the Worker, then polls Worker `/streams`, raw-by-commit SHA, then raw `main` for up to 5 minutes. Pixel 7 API 34 development harness showed Getting video then Play without restart. Live Worker `/streams` returned 200 after the 2026-09-01 Worker deploy |
-| Patriots live-data and snapshot | Pass | Repository snapshot tests cover featured live/today/recap selection, regular-season record ignoring preseason, Time TBA, ESPN event parse (scheduled contests map to `Scheduled` rather than ESPN kickoff `detail`), and Eastern official date `2026-09-09` for kickoff `2026-09-10T00:20Z` |
+| Patriots live-data and snapshot | Pass | Repository snapshot tests cover featured live/today/recap selection, regular-season record ignoring preseason, Time TBA, ESPN event parse (scheduled contests map to `Scheduled` rather than ESPN kickoff `detail`), Eastern official date `2026-09-09` for kickoff `2026-09-10T00:20Z`, and ESPN schedule `{ value, displayValue }` scores |
 | Patriots dashboard | Review | Pixel emulator Get video harness reached the live featured card and Get video. Separate today, ready, delayed, and Final scenario launches were not run |
 | Patriots source schema | Pass | Parser reuses the Guardians six-field checks against root `patriots_streams.json` (guide plus inactive example only) |
 | Patriots GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=patriots` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=patriots` returned 200 after the 2026-09-01 Worker deploy |
 | Patriots Get video | Pass | 2026-08-29 Pixel emulator `emulator-5554`: `npm run test:patriots:android:get-video` posted `{ pin, module: "patriots" }`, polled `/streams?module=patriots` on port 8112, and showed Play after publish without restart |
 | Cyclones hub tile | Pass | 2026-09-04 Pixel emulator `emulator-5554` Get video harness opened `Iowa State Cyclones` from the hub row-2 tile and reached the live Cyclones card |
-| Cyclones live-data and snapshot | Pass | 2026-09-04: `npm run test:cyclones:snapshot` covers featured live/today/recap across sports, regular-season records ignoring preseason, Chicago official date `2026-09-05` for kickoff `2026-09-05T17:00Z`, elimination versus awaiting-next, and streams that require `sport` |
+| Cyclones live-data and snapshot | Pass | 2026-09-05: `npm run test:cyclones:snapshot` covers featured live/today/recap across sports, regular-season records ignoring preseason, Chicago official date `2026-09-05` for kickoff `2026-09-05T17:00Z`, elimination versus awaiting-next, streams that require `sport`, and ESPN schedule `{ value, displayValue }` scores (SEMO Final parses as WIN 38–10, not TIE 0–0). Live ESPN schedule `401856779` parsed the same way. |
 | Cyclones dashboard | Review | Pixel emulator Get video harness reached the live featured card and Get video. Separate today, ready, delayed, and Final scenario launches were not run |
 | Cyclones source schema | Pass | Parser requires the six Guardians fields plus `sport` against root `cyclones_streams.json` (guide plus inactive example only) and rejects same-day entries for a different sport |
 | Cyclones GitHub source retrieval | Pass | Source tries Worker `GET /streams?module=cyclones` first when that origin is set, then raw `main`, with last-valid cache. Live Worker `GET /streams?module=cyclones` returned 200 after the 2026-09-04 Worker deploy and `cyclones_streams.json` on `main` |

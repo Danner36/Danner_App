@@ -33,6 +33,9 @@ function seasonYearForSport(sport, now) {
 }
 
 function finiteScore(value) {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return finiteScore(value.value ?? value.displayValue);
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.trunc(value));
   }

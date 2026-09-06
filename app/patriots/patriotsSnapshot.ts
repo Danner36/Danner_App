@@ -173,6 +173,10 @@ export function snapshotFromGames(
 }
 
 function finiteScore(value: unknown): number {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    const raw = value as { displayValue?: unknown; value?: unknown };
+    return finiteScore(raw.value ?? raw.displayValue);
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.max(0, Math.trunc(value));
   }
