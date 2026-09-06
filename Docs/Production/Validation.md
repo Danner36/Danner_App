@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-09-05
+Last updated: 2026-09-06
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -26,7 +26,7 @@ Last updated: 2026-09-05
 | Guardians live-data response | Pass | The installed release returned Cleveland's 61-66 record, today's San Francisco matchup at 1:10 PM Eastern, and the remaining schedule on 2026-08-20 |
 | Guardians featured game and schedule | Pass | Today's game was promoted above the schedule; filtering removed completed and featured games and sorted all retained games by MLB start timestamp |
 | Guardians post-game recap selection | Pass | Snapshot tests: live and later-today beat recap; today's Final is featured; completed games stay out of the schedule; recap ends after the local official date |
-| Guardians post-game recap presentation | Pending | Featured card WIN/LOSS/TIE, score, and decision line without park board or Play; needs harness `final` or a completed gameday on a device |
+| Guardians post-game recap presentation | Review | Featured card WIN/LOSS/TIE and score without park board, Play, or pitcher names. Snapshot tests no longer emit a decision line. Device harness `final` still needed for visual confirmation |
 | Guardians today countdown | Pass | The standalone release displayed `TODAY`, `STARTS IN`, a one-second 2-hour countdown, and `Video starts 15 minutes before game time.` with no early Play control |
 | Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB on mount, pull-to-refresh, and every 10 minutes, fetches source data every 60 seconds, and exposes pull-to-refresh plus retry |
 | Guardians Android interaction | Pass | Installed release rendered the current featured game, record, and Eastern-time schedule at 1080 by 2400, showed no harness controls, and ran with Metro stopped |

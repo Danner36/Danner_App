@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 
 import {
   guardiansGameFromMlb,
-  lastNameFromFullName,
-  recapDecisionLine,
   recapResult,
   snapshotFromGames,
 } from '../../app/guardians/guardiansSnapshot.ts';
@@ -28,7 +26,6 @@ function game(overrides) {
 
 const win = game({
   abstractState: 'Final',
-  decisions: { save: 'Clase', winner: 'Allen' },
   gamePk: 10,
   guardiansScore: 7,
   opponentScore: 3,
@@ -36,7 +33,6 @@ const win = game({
 });
 const loss = game({
   abstractState: 'Final',
-  decisions: { loser: 'Bibee' },
   gamePk: 11,
   guardiansScore: 2,
   opponentName: 'New York Yankees',
@@ -163,21 +159,8 @@ assert.equal(
   recapResult(game({ guardiansScore: 3, opponentScore: 3 })),
   'TIE',
 );
-assert.equal(recapDecisionLine(win), 'Win Allen · Save Clase');
-assert.equal(recapDecisionLine(loss), 'Loss Bibee');
-assert.equal(
-  recapDecisionLine(game({ guardiansScore: 3, opponentScore: 3 })),
-  undefined,
-);
-assert.equal(lastNameFromFullName('Gavin Williams'), 'Williams');
-assert.equal(lastNameFromFullName('Kenley Jansen Jr.'), 'Jansen');
 
 const parsed = guardiansGameFromMlb({
-  decisions: {
-    loser: { fullName: 'Landen Roupp' },
-    save: { fullName: 'Cade Smith' },
-    winner: { fullName: 'Gavin Williams' },
-  },
   gameDate: '2026-08-20T17:10:00Z',
   gameNumber: 1,
   gamePk: 824395,
@@ -188,9 +171,11 @@ const parsed = guardiansGameFromMlb({
     home: { score: 5, team: { id: 114, name: 'Cleveland Guardians' } },
   },
 });
-assert.equal(parsed?.decisions?.winner, 'Williams');
-assert.equal(parsed?.decisions?.save, 'Smith');
-assert.equal(parsed?.decisions?.loser, 'Roupp');
-assert.equal(recapDecisionLine(parsed), 'Win Williams · Save Smith');
+assert.ok(parsed);
+assert.equal(parsed.guardiansScore, 5);
+assert.equal(parsed.opponentScore, 2);
+assert.equal(parsed.opponentName, 'San Francisco Giants');
+assert.equal(recapResult(parsed), 'WIN');
+assert.equal('decisions' in parsed, false);
 
 console.log('Guardians snapshot recap states passed.');

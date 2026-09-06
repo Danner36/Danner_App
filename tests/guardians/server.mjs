@@ -40,10 +40,6 @@ function snapshotForScenario(fixture, scenario) {
       liveGame: {
         ...fixture.liveGame,
         abstractState: 'Final',
-        decisions: {
-          save: 'Clase',
-          winner: 'Allen',
-        },
         gameDate: gameDate.toISOString(),
         guardiansScore: 7,
         officialDate: easternDateString(new Date()),
