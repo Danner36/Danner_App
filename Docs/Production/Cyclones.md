@@ -18,7 +18,7 @@ Do not print listing `extract.baseUrl`, family PIN values, Apple Account secrets
 | Worker `module: "cyclones"` | Deployed 2026-09-04. Live `GET /streams?module=cyclones` returns 200 |
 | Hub row 2 | Cyclones under Guardians, YouTube TV under Patriots |
 | Product rule in `AI_Framework/AI_RULES.md` | Cyclones layout |
-| Latest published family tag | `v1.4.9`. Family phones on older tags need this release for the Cyclones tile |
+| Latest published family tag | `v1.4.10`. Family phones on older tags need `v1.4.9` or newer for the Cyclones tile |
 | Patriots sibling | On `main` and in `v1.4.5`. Treat Patriots as the copy pattern |
 
 Patriots is the required sibling pattern. Read `app/patriots/`, `tests/patriots/`, `Docs/Domain/Patriots.md`, `.github/workflows/patriots-stream-pipeline.yml`, and `workers/guardians-get-video/src/index.js` before writing Cyclones.
@@ -105,7 +105,7 @@ This is the working template Cyclones copies. It is not Cyclones work.
 
 ## Implemented lock-ins (Cyclones)
 
-Source under `app/cyclones/` is implemented. Remaining owner work is later listing-needle inspect after the first football listing row. Family release is `v1.4.9`. Do not fold Cyclones into Patriots.
+Source under `app/cyclones/` is implemented. Remaining owner work is later listing-needle inspect after the first football listing row. Family release is `v1.4.10`. Do not fold Cyclones into Patriots.
 
 ### 1. Hub and route
 
