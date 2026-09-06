@@ -9,7 +9,7 @@ Opening the Cleveland Guardians tile requests the current season record and sche
 
 An in-progress game is shown in the prominent top card. If no game is live and a game is scheduled today, today's game uses that card and is removed from the upcoming schedule. It shows the opponent, phone-local start time, a one-second countdown, and `Video starts 15 minutes before game time.`
 
-After today's game reaches Final, that same card stays through local midnight of the MLB official date. It shows `WIN`, `LOSS`, or `TIE`, `Home vs` or `Away v`, `Final` or `Final/10`, the Guardians-first score, and Win / Loss / Save last names when MLB returns them. It does not show the park-style scoreboard, Play, Listen, or Get video. A later game still today keeps the featured card. A doubleheader recap is the last completed game of that official date.
+After today's game reaches Final, that same card stays through local midnight of the MLB official date. It shows `WIN`, `LOSS`, or `TIE`, `Home vs` or `Away v`, `Final` or `Final/10`, and the Guardians-first score. It does not show the park-style scoreboard, Play, Listen, or Get video. A later game still today keeps the featured card. A doubleheader recap is the last completed game of that official date.
 
 Delayed, postponed, suspended, and canceled games state the condition directly. A live game shows the current score, MLB game-state label, and the park-style scoreboard (innings, R/H/E, count, outs, batter and pitcher numbers). The season record and remaining schedule stay below the featured card.
 

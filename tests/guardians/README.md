@@ -24,7 +24,7 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android` | Game today, starts in 45 minutes, no Watch actions |
 | `npm run test:guardians:android:ready` | Game today, starts in 10 minutes, Watch actions visible |
 | `npm run test:guardians:android:delayed` | Delayed game with direct delay text |
-| `npm run test:guardians:android:final` | Today's completed game with WIN badge, score, and pitcher line |
+| `npm run test:guardians:android:final` | Today's completed game with WIN badge and score |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
 | `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate: HTTPS, HTTP opt-in, extensionless playlist, rejected types |

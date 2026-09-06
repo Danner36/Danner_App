@@ -59,7 +59,6 @@ import {
   guardiansGameFromHarness,
   guardiansGameFromMlb,
   localDateString,
-  recapDecisionLine,
   recapResult,
   snapshotFromGames,
   type GameInterruption,
@@ -68,7 +67,7 @@ import {
 } from './guardiansSnapshot';
 
 const REFRESH_INTERVAL_MS = 60_000;
-// The schedule query spans the rest of the season with linescore/team/decisions hydrated, so
+// The schedule query spans the rest of the season with linescore/team hydrated, so
 // it is by far the heaviest call here. Live scores come from fetchLiveScoreboard instead, and
 // the game list and season record barely move, so this does not need the 60s source cadence.
 const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
@@ -187,7 +186,7 @@ async function fetchGuardiansSnapshot(): Promise<GuardiansSnapshot> {
   const scheduleEnd = new Date(season, 11, 31);
   const scheduleQuery = new URLSearchParams({
     endDate: localDateString(scheduleEnd),
-    hydrate: 'linescore,team,decisions',
+    hydrate: 'linescore,team',
     sportId: '1',
     startDate: localDateString(scheduleStart),
     teamId: String(GUARDIANS_TEAM_ID),
@@ -740,7 +739,6 @@ function FeaturedGameCard({
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
   const recap = isFinal ? recapResult(game) : undefined;
-  const decisionLine = isFinal ? recapDecisionLine(game) : undefined;
   const blocksVideo =
     interruption === 'canceled' ||
     interruption === 'postponed' ||
@@ -826,10 +824,6 @@ function FeaturedGameCard({
             <Text style={styles.scoreNumber}>{game.opponentScore}</Text>
           </View>
         </View>
-      ) : null}
-
-      {decisionLine ? (
-        <Text style={styles.recapDecision}>{decisionLine}</Text>
       ) : null}
 
       {isTodayScheduled ? (
@@ -1527,13 +1521,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     marginTop: 3,
-  },
-  recapDecision: {
-    color: '#0B2B4C',
-    fontSize: 17,
-    fontWeight: '800',
-    marginTop: 12,
-    textAlign: 'center',
   },
   interruptionBox: {
     backgroundColor: '#FFF0D8',
