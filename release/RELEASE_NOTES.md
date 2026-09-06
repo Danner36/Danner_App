@@ -24,7 +24,8 @@
 - Cleveland Guardians record, current game, countdown, remaining schedule, and approved playback
 - New England Patriots leftover schedule, regular-season record, football scoreboard, countdown, and the same Play, Listen, Get video, and TV send controls
 - Patriots remaining schedule shows each game's phone-local date and time once
-- Post-game recap on the featured card after Final: WIN, LOSS, or TIE, the score, and pitcher decisions. No park board or Play
+- Post-game recap on the featured card after Final: WIN, LOSS, or TIE and the score. No park board, Play, or pitcher names
+- Guardians Final recap no longer shows MLB Win / Loss / Save last names
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
