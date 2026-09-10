@@ -5,6 +5,8 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   EXTRACT_USER_AGENT,
+  extractRunsHeaded,
+  isCloudflareChallengeTitle,
   isIgnoredPlayerFrame,
   videoPlayMethod,
 } from './lib/extractGooz.mjs';
@@ -56,4 +58,52 @@ test('extractor source does not load the Guardians MLB schedule', async () => {
   assert.equal(source.includes('mlbSchedule'), false);
   assert.equal(source.includes('getFeaturedGuardiansGame'), false);
   assert.equal(source.includes('No featured Guardians game'), false);
+});
+
+test('detects Cloudflare challenge page titles', () => {
+  assert.equal(isCloudflareChallengeTitle('Just a moment...'), true);
+  assert.equal(
+    isCloudflareChallengeTitle('Seattle Seahawks vs New England Patriots'),
+    false,
+  );
+});
+
+test('extractRunsHeaded follows EXTRACT_HEADED and GITHUB_ACTIONS', () => {
+  const saved = {
+    EXTRACT_HEADED: process.env.EXTRACT_HEADED,
+    EXTRACT_HEADLESS: process.env.EXTRACT_HEADLESS,
+    GITHUB_ACTIONS: process.env.GITHUB_ACTIONS,
+  };
+  try {
+    process.env.EXTRACT_HEADED = '';
+    process.env.EXTRACT_HEADLESS = '';
+    process.env.GITHUB_ACTIONS = '';
+    assert.equal(extractRunsHeaded(), false);
+
+    process.env.GITHUB_ACTIONS = 'true';
+    assert.equal(extractRunsHeaded(), true);
+
+    process.env.EXTRACT_HEADLESS = '1';
+    assert.equal(extractRunsHeaded(), false);
+
+    process.env.GITHUB_ACTIONS = '';
+    process.env.EXTRACT_HEADLESS = '';
+    process.env.EXTRACT_HEADED = '1';
+    assert.equal(extractRunsHeaded(), true);
+  } finally {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
+});
+
+test('extractor opens the inner page by clicking the listing link', async () => {
+  const source = await readFile(extractSourcePath, 'utf8');
+  assert.match(source, /openInnerPageFromLink/);
+  assert.match(source, /waitForPlayerEmbeds/);
+  assert.equal(source.includes('await basePage.close();'), false);
 });

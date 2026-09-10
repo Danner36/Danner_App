@@ -4,6 +4,9 @@ const GOOZ_URL_PATTERN =
   /https?:\/\/(?:[a-z0-9-]+\.)*gooz\.aapmains\.net[^\s"'<>)]*/gi;
 export const EXTRACT_USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+export const PLAYER_EMBED_WAIT_MS = 20_000;
+export const GOOZ_IFRAME_WAIT_MS = 8_000;
+export const POST_PLAY_WAIT_MS = 5_000;
 
 // Matches on a label boundary, the same way GOOZ_URL_PATTERN does. A bare endsWith would
 // also accept `notgooz.aapmains.net`, letting a squatted sibling host through the checks
@@ -291,8 +294,21 @@ function hrefNeedlesFromOptions(options = {}) {
   return [single.toLowerCase()];
 }
 
-async function launchExtractBrowser(headless) {
+export function extractRunsHeaded() {
+  if (process.env.EXTRACT_HEADLESS === '1') {
+    return false;
+  }
+  if (process.env.EXTRACT_HEADED === '1') {
+    return true;
+  }
+  return process.env.GITHUB_ACTIONS === 'true';
+}
+
+async function launchExtractBrowser(options = {}) {
   const { chromium } = await import('playwright');
+  const headless =
+    options.headless ??
+    (options.forceHeaded ? false : !extractRunsHeaded());
   return chromium.launch({
     args: ['--disable-blink-features=AutomationControlled'],
     headless,
@@ -318,21 +334,103 @@ async function waitForInnerLinkByHref(page, options, timeoutMs = 15_000) {
   return matches;
 }
 
+export function isCloudflareChallengeTitle(title) {
+  return (
+    typeof title === 'string' &&
+    title.toLowerCase().includes('just a moment')
+  );
+}
+
 async function playerPageSummary(page) {
   const frameUrls = page
     .frames()
     .map((frame) => frame.url())
     .filter((url) => url && url !== 'about:blank' && !isIgnoredPlayerFrame(url));
-  const iframes = await page.evaluate(() =>
-    [...document.querySelectorAll('iframe[src], iframe[data-src]')]
+  const details = await page.evaluate(() => ({
+    iframes: [...document.querySelectorAll('iframe[src], iframe[data-src]')]
       .map((node) => node.getAttribute('src') || node.getAttribute('data-src'))
       .filter(Boolean)
       .slice(0, 12),
-  );
+    title: document.title,
+    url: window.location.href,
+  }));
   return {
+    cloudflareChallenge: isCloudflareChallengeTitle(details.title),
     frameUrls: frameUrls.slice(0, 12),
-    iframes,
+    iframes: details.iframes,
+    title: details.title,
+    url: details.url,
   };
+}
+
+function networkHasGooz(networkUrls) {
+  return networkUrls.some((url) => isValidGoozPlayerUrl(url));
+}
+
+function pageHasGoozFrame(page) {
+  return page.frames().some((frame) => {
+    const frameUrl = frame.url();
+    return frameUrl && isGoozUrl(frameUrl);
+  });
+}
+
+export async function waitForPlayerEmbeds(page, networkUrls, timeoutMs = PLAYER_EMBED_WAIT_MS) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (networkHasGooz(networkUrls) || pageHasGoozFrame(page)) {
+      return true;
+    }
+    const summary = await playerPageSummary(page);
+    if (summary.iframes.length > 0 || summary.frameUrls.length > 1) {
+      return true;
+    }
+    await page.waitForTimeout(1_000);
+  }
+  return false;
+}
+
+async function primePlayerPage(page) {
+  try {
+    await page.evaluate(() => {
+      window.scrollTo(0, Math.floor(document.body.scrollHeight / 2));
+    });
+    await page.mouse.click(640, 360);
+  } catch {}
+}
+
+async function openInnerPageFromLink(page, innerLink, options) {
+  const timeoutMs = (options.timeoutSeconds ?? 90) * 1000;
+  const clicked = await page.evaluate(({ href }) => {
+    for (const anchor of document.querySelectorAll('a[href]')) {
+      const rawHref = anchor.getAttribute('href');
+      if (!rawHref) {
+        continue;
+      }
+      let absoluteHref;
+      try {
+        absoluteHref = new URL(rawHref, window.location.href).toString();
+      } catch {
+        continue;
+      }
+      if (absoluteHref !== href) {
+        continue;
+      }
+      anchor.click();
+      return true;
+    }
+    return false;
+  }, { href: innerLink.href });
+
+  if (clicked) {
+    await page.waitForLoadState('domcontentloaded', { timeout: timeoutMs });
+  } else {
+    await page.goto(innerLink.href, {
+      waitUntil: 'domcontentloaded',
+      timeout: timeoutMs,
+    });
+  }
+
+  await page.waitForTimeout(3_000);
 }
 
 async function listingPageSummary(page) {
@@ -399,7 +497,16 @@ async function findInnerLinkByHref(page, options) {
   }, { hrefNeedles });
 }
 
-async function activateVideoPlayer(page) {
+async function activateVideoPlayer(page, networkUrls = [], options = {}) {
+  if (!options.skipEmbedWait) {
+    await waitForPlayerEmbeds(
+      page,
+      networkUrls,
+      options.embedWaitMs ?? PLAYER_EMBED_WAIT_MS,
+    );
+  }
+  await primePlayerPage(page);
+
   const playSelectors = [
     '.media-control-button.media-control-icon.paused',
     'button[aria-label*="Play" i]',
@@ -467,12 +574,22 @@ async function activateVideoPlayer(page) {
 
   try {
     await page.waitForSelector('iframe[src*="gooz.aapmains.net"]', {
-      timeout: 15_000,
+      timeout: GOOZ_IFRAME_WAIT_MS,
     });
   } catch {}
 
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(POST_PLAY_WAIT_MS);
   return method;
+}
+
+async function extractGoozWithRetries(page, pageUrl, networkUrls) {
+  const firstPass = await extractGoozFromLoadedPage(page, pageUrl, networkUrls);
+  if (firstPass.found) {
+    return firstPass;
+  }
+
+  await page.waitForTimeout(3_000);
+  return extractGoozFromLoadedPage(page, pageUrl, networkUrls);
 }
 
 async function openPageWithGoozCapture(context, pageUrl, options) {
@@ -502,7 +619,7 @@ async function openPageWithGoozCapture(context, pageUrl, options) {
     waitUntil: 'domcontentloaded',
     timeout: timeoutMs,
   });
-  await page.waitForTimeout(5_000);
+  await page.waitForTimeout(POST_PLAY_WAIT_MS);
 
   return { networkUrls, page };
 }
@@ -512,7 +629,7 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
     throw new Error('Invalid gooz player URL.');
   }
 
-  const browser = await launchExtractBrowser(false);
+  const browser = await launchExtractBrowser({ forceHeaded: true });
   const page = await browser.newPage({
     locale: 'en-US',
     timezoneId: 'America/New_York',
@@ -524,7 +641,7 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
     waitUntil: 'domcontentloaded',
     timeout: (options.timeoutSeconds ?? 90) * 1000,
   });
-  const playMethod = await activateVideoPlayer(page);
+  const playMethod = await activateVideoPlayer(page, []);
 
   return {
     browser,
@@ -535,7 +652,7 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
 }
 
 export async function extractGoozFromPage(pageUrl, options = {}) {
-  const browser = await launchExtractBrowser(true);
+  const browser = await launchExtractBrowser();
   const context = await newExtractContext(browser);
 
   try {
@@ -544,8 +661,8 @@ export async function extractGoozFromPage(pageUrl, options = {}) {
       pageUrl,
       options,
     );
-    await activateVideoPlayer(page);
-    const extraction = await extractGoozFromLoadedPage(
+    await activateVideoPlayer(page, networkUrls);
+    const extraction = await extractGoozWithRetries(
       page,
       pageUrl,
       networkUrls,
@@ -566,7 +683,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
   const steps = [];
   steps.onStep = options.onStep;
   const logLines = [];
-  const browser = await launchExtractBrowser(true);
+  const browser = await launchExtractBrowser();
   const context = await newExtractContext(browser);
 
   const remember = (message) => {
@@ -574,10 +691,13 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
   };
 
   try {
+    if (extractRunsHeaded()) {
+      remember('Running headed browser for Cloudflare-protected pages.');
+    }
     pushStep(steps, 'connect_base', `Connected to base URL: ${baseUrl}`);
     remember(`Connected to base URL: ${baseUrl}`);
 
-    const { page: basePage } = await openPageWithGoozCapture(
+    const { networkUrls, page: basePage } = await openPageWithGoozCapture(
       context,
       baseUrl,
       options,
@@ -637,8 +757,6 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     remember(`Found link element: "${innerLink.text}"`);
     remember(`Link href is: ${innerLink.href}`);
 
-    await basePage.close();
-
     pushStep(
       steps,
       'open_video_page',
@@ -647,17 +765,35 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     );
     remember(`Opening video page: ${innerLink.href}`);
 
-    const { networkUrls, page: innerPage } = await openPageWithGoozCapture(
-      context,
-      innerLink.href,
-      options,
-    );
+    await openInnerPageFromLink(basePage, innerLink, options);
+    const innerPage = basePage;
     pushStep(steps, 'video_page_loaded', 'Video page loaded.');
     remember('Video page loaded.');
 
+    const embedsReady = await waitForPlayerEmbeds(innerPage, networkUrls);
+    if (embedsReady) {
+      pushStep(steps, 'embeds_ready', 'Player embeds are present on the video page.', {
+        success: true,
+      });
+      remember('Player embeds are present on the video page.');
+    } else {
+      const playerBeforePlay = await playerPageSummary(innerPage);
+      pushStep(steps, 'embeds_missing', 'Player embeds did not appear on the video page.', {
+        success: false,
+      });
+      remember('Player embeds did not appear on the video page.');
+      if (playerBeforePlay.cloudflareChallenge) {
+        remember(
+          `Cloudflare challenge page is still showing: "${playerBeforePlay.title}".`,
+        );
+      }
+    }
+
     pushStep(steps, 'press_play', 'Pressing play on the video player...');
     remember('Pressing play on the video player...');
-    const playMethod = await activateVideoPlayer(innerPage);
+    const playMethod = await activateVideoPlayer(innerPage, networkUrls, {
+      skipEmbedWait: true,
+    });
     if (playMethod) {
       pushStep(steps, 'play_pressed', `Play activated using: ${playMethod}`, {
         playMethod,
@@ -674,7 +810,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     pushStep(steps, 'scan_gooz', 'Scanning video page for gooz player URL...');
     remember('Scanning video page for gooz player URL...');
 
-    const extraction = await extractGoozFromLoadedPage(
+    const extraction = await extractGoozWithRetries(
       innerPage,
       innerLink.href,
       networkUrls,
@@ -709,6 +845,9 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       remember(
         `Player page iframes: ${player.iframes.join(' ') || 'none'}.`,
       );
+      if (player.cloudflareChallenge) {
+        remember(`Cloudflare challenge page title: "${player.title}".`);
+      }
       extraction.streamEntry = undefined;
     }
 
