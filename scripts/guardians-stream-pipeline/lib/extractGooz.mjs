@@ -2,6 +2,8 @@ const GOOZ_HOST = 'gooz.aapmains.net';
 const GOOZ_EMBED_PATH = /\/new-stream-embed\/([^/?#]+)/;
 const GOOZ_URL_PATTERN =
   /https?:\/\/(?:[a-z0-9-]+\.)*gooz\.aapmains\.net[^\s"'<>)]*/gi;
+export const EXTRACT_USER_AGENT =
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 // Matches on a label boundary, the same way GOOZ_URL_PATTERN does. A bare endsWith would
 // also accept `notgooz.aapmains.net`, letting a squatted sibling host through the checks
@@ -285,6 +287,46 @@ function hrefNeedlesFromOptions(options = {}) {
   return [single.toLowerCase()];
 }
 
+async function launchExtractBrowser(headless) {
+  const { chromium } = await import('playwright');
+  return chromium.launch({
+    args: ['--disable-blink-features=AutomationControlled'],
+    headless,
+  });
+}
+
+async function newExtractContext(browser) {
+  return browser.newContext({
+    locale: 'en-US',
+    timezoneId: 'America/New_York',
+    userAgent: EXTRACT_USER_AGENT,
+    viewport: { width: 1280, height: 720 },
+  });
+}
+
+async function waitForInnerLinkByHref(page, options, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  let matches = await findInnerLinkByHref(page, options);
+  while (!matches[0] && Date.now() < deadline) {
+    await page.waitForTimeout(1_000);
+    matches = await findInnerLinkByHref(page, options);
+  }
+  return matches;
+}
+
+async function listingPageSummary(page) {
+  const challengeFrames = page
+    .frames()
+    .map((frame) => frame.url())
+    .filter((url) => isIgnoredPlayerFrame(url));
+  const details = await page.evaluate(() => ({
+    anchorCount: document.querySelectorAll('a[href]').length,
+    title: document.title,
+    url: window.location.href,
+  }));
+  return { ...details, challengeFrames };
+}
+
 async function findInnerLinkByHref(page, options) {
   const hrefNeedles = hrefNeedlesFromOptions(options);
 
@@ -448,9 +490,13 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
     throw new Error('Invalid gooz player URL.');
   }
 
-  const { chromium } = await import('playwright');
-  const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage();
+  const browser = await launchExtractBrowser(false);
+  const page = await browser.newPage({
+    locale: 'en-US',
+    timezoneId: 'America/New_York',
+    userAgent: EXTRACT_USER_AGENT,
+    viewport: { width: 1280, height: 720 },
+  });
 
   await page.goto(goozUrl, {
     waitUntil: 'domcontentloaded',
@@ -467,9 +513,8 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
 }
 
 export async function extractGoozFromPage(pageUrl, options = {}) {
-  const { chromium } = await import('playwright');
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const browser = await launchExtractBrowser(true);
+  const context = await newExtractContext(browser);
 
   try {
     const { networkUrls, page } = await openPageWithGoozCapture(
@@ -494,14 +539,13 @@ export async function extractGoozFromPage(pageUrl, options = {}) {
 }
 
 export async function extractGoozFromBasePage(baseUrl, options = {}) {
-  const { chromium } = await import('playwright');
   const hrefNeedles = hrefNeedlesFromOptions(options);
   const hrefNeedle = hrefNeedles.join(' + ');
   const steps = [];
   steps.onStep = options.onStep;
   const logLines = [];
-  const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext();
+  const browser = await launchExtractBrowser(true);
+  const context = await newExtractContext(browser);
 
   const remember = (message) => {
     logLines.push(message);
@@ -527,16 +571,25 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     );
     remember(`Searching page elements for href containing "${hrefNeedle}"...`);
 
-    const linkMatches = await findInnerLinkByHref(basePage, {
+    const linkMatches = await waitForInnerLinkByHref(basePage, {
       hrefNeedles,
     });
     const innerLink = linkMatches[0];
 
     if (!innerLink) {
       const game = featuredGameFromOptions(options);
+      const listing = await listingPageSummary(basePage);
       const message = 'No video found.';
       pushStep(steps, 'link_not_found', message, { success: false });
       remember(message);
+      remember(
+        `Listing page title is "${listing.title}" at ${listing.url} with ${listing.anchorCount} links.`,
+      );
+      if (listing.challengeFrames.length > 0) {
+        remember(
+          `Challenge frame present: ${listing.challengeFrames[0]}`,
+        );
+      }
       rememberFeaturedGame(steps, remember, game);
       return {
         baseUrl,
