@@ -28,6 +28,18 @@
       "url": "https://media.example.com/game/master.m3u8",
       "allowInsecureHttp": false,
       "trustedHosts": []
+    },
+    {
+      "gameDates": [
+        "2026-09-09"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
     }
   ]
 }
