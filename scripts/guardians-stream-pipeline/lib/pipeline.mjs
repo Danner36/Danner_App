@@ -309,6 +309,7 @@ export async function runGoozPipeline(options = {}) {
   });
 
   const extraction = await extractGoozFromBasePage(baseUrl, {
+    game,
     hrefNeedles,
     timeoutSeconds,
   });
@@ -320,37 +321,42 @@ export async function runGoozPipeline(options = {}) {
     extraction.found && isValidGoozPlayerUrl(extraction.goozUrl)
       ? extraction.goozUrl
       : undefined;
-  const nextEntry = foundUrl
-    ? {
-        gameDates: [game.officialDate],
-        gameNumbers: [game.gameNumber],
-        kind: 'web',
-        url: foundUrl,
-        allowInsecureHttp: false,
-        trustedHosts: [],
-        ...(game.sport ? { sport: game.sport } : {}),
-      }
-    : buildBlankStreamEntry(game);
-
   if (!foundUrl) {
     steps.push({
       step: 'gooz_not_found',
       message: 'No video found.',
       success: false,
     });
+    return {
+      game,
+      outcome: 'no_video',
+      message: 'No video found.',
+      nextEntry: buildBlankStreamEntry(game),
+      steps,
+      streamEntry: existing,
+      success: false,
+    };
   }
+
+  const nextEntry = {
+    gameDates: [game.officialDate],
+    gameNumbers: [game.gameNumber],
+    kind: 'web',
+    url: foundUrl,
+    allowInsecureHttp: false,
+    trustedHosts: [],
+    ...(game.sport ? { sport: game.sport } : {}),
+  };
 
   if (!entryChanged(existing, nextEntry)) {
     return {
       game,
-      outcome: foundUrl ? 'unchanged' : 'no_video',
-      message: foundUrl
-        ? 'Stream entry is already up to date; nothing to publish.'
-        : 'No video found.',
+      outcome: 'unchanged',
+      message: 'Stream entry is already up to date; nothing to publish.',
       nextEntry,
       steps,
       streamEntry: existing,
-      success: Boolean(foundUrl),
+      success: true,
     };
   }
 
@@ -365,7 +371,7 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
-  const published = await publishStreamDocument({
+  return publishStreamDocument({
     config,
     document,
     game,
@@ -374,15 +380,4 @@ export async function runGoozPipeline(options = {}) {
     steps,
     streamsPath,
   });
-
-  if (!foundUrl) {
-    return {
-      ...published,
-      outcome: 'no_video',
-      message: 'No video found.',
-      success: false,
-    };
-  }
-
-  return published;
 }

@@ -1,5 +1,3 @@
-import { getFeaturedGuardiansGame } from './mlbSchedule.mjs';
-
 const GOOZ_HOST = 'gooz.aapmains.net';
 const GOOZ_EMBED_PATH = /\/new-stream-embed\/([^/?#]+)/;
 const GOOZ_URL_PATTERN =
@@ -54,6 +52,37 @@ function normalizeUrl(value, baseUrl) {
 function isGoozUrl(url) {
   try {
     return isGoozHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+export function isIgnoredPlayerFrame(url) {
+  if (typeof url !== 'string' || !url.trim()) {
+    return false;
+  }
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (parsed.pathname.includes('/cdn-cgi/challenge-platform/')) {
+      return true;
+    }
+    if (
+      host === 'challenges.cloudflare.com' ||
+      host.endsWith('.challenges.cloudflare.com')
+    ) {
+      return true;
+    }
+    if (
+      host === 'youtube.com' ||
+      host === 'www.youtube.com' ||
+      host === 'youtube-nocookie.com' ||
+      host === 'www.youtube-nocookie.com' ||
+      host.endsWith('.youtube.com')
+    ) {
+      return true;
+    }
+    return host === 'www.recaptcha.net' || host === 'recaptcha.net';
   } catch {
     return false;
   }
@@ -223,6 +252,26 @@ async function extractGoozFromLoadedPage(page, pageUrl, networkUrls) {
   };
 }
 
+function featuredGameFromOptions(options = {}) {
+  const game = options.game;
+  if (!game || typeof game !== 'object') {
+    return undefined;
+  }
+  if (typeof game.officialDate !== 'string' || !game.officialDate.trim()) {
+    return undefined;
+  }
+  return game;
+}
+
+function rememberFeaturedGame(steps, remember, game) {
+  if (!game) {
+    return;
+  }
+  const message = `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`;
+  pushStep(steps, 'featured_game', message, { game, success: true });
+  remember(message);
+}
+
 function hrefNeedlesFromOptions(options = {}) {
   if (Array.isArray(options.hrefNeedles) && options.hrefNeedles.length > 0) {
     return options.hrefNeedles
@@ -327,15 +376,29 @@ async function activateVideoPlayer(page) {
     return undefined;
   }
 
-  let method = await clickPlayInTarget(page);
+  const candidates = [];
   for (const frame of page.frames()) {
-    if (frame === page.mainFrame()) {
+    const url = frame.url();
+    if (isIgnoredPlayerFrame(url)) {
       continue;
     }
-    const frameMethod = await clickPlayInTarget(frame);
-    if (frameMethod) {
-      method = `${frame.url()}: ${frameMethod}`;
+    const isMain = frame === page.mainFrame();
+    candidates.push({
+      label: isMain ? undefined : url,
+      rank: !isMain && isGoozUrl(url) ? 0 : isMain ? 1 : 2,
+      target: isMain ? page : frame,
+    });
+  }
+  candidates.sort((first, second) => first.rank - second.rank);
+
+  let method;
+  for (const { label, target } of candidates) {
+    const frameMethod = await clickPlayInTarget(target);
+    if (!frameMethod) {
+      continue;
     }
+    method = label ? `${label}: ${frameMethod}` : frameMethod;
+    break;
   }
 
   try {
@@ -387,9 +450,7 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
 
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({ headless: false });
-  const page = await browser.newPage({
-    userAgent: 'DannerGuardiansStreamExtractor/1.0',
-  });
+  const page = await browser.newPage();
 
   await page.goto(goozUrl, {
     waitUntil: 'domcontentloaded',
@@ -408,9 +469,7 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
 export async function extractGoozFromPage(pageUrl, options = {}) {
   const { chromium } = await import('playwright');
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'DannerGuardiansStreamExtractor/1.0',
-  });
+  const context = await browser.newContext();
 
   try {
     const { networkUrls, page } = await openPageWithGoozCapture(
@@ -442,9 +501,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
   steps.onStep = options.onStep;
   const logLines = [];
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    userAgent: 'DannerGuardiansStreamExtractor/1.0',
-  });
+  const context = await browser.newContext();
 
   const remember = (message) => {
     logLines.push(message);
@@ -476,15 +533,11 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     const innerLink = linkMatches[0];
 
     if (!innerLink) {
-      const game = await getFeaturedGuardiansGame(options.teamId ?? 114);
+      const game = featuredGameFromOptions(options);
       const message = 'No video found.';
       pushStep(steps, 'link_not_found', message, { success: false });
       remember(message);
-      if (game) {
-        remember(
-          `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
-        );
-      }
+      rememberFeaturedGame(steps, remember, game);
       return {
         baseUrl,
         blankStreamEntry: buildBlankStreamEntry(game),
@@ -552,23 +605,8 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       networkUrls,
     );
 
-    const game = await getFeaturedGuardiansGame(options.teamId ?? 114);
-    if (game) {
-      pushStep(
-        steps,
-        'mlb_game',
-        `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
-        { game, success: true },
-      );
-      remember(
-        `Using game date ${game.officialDate} game ${game.gameNumber} vs ${game.opponentName}.`,
-      );
-    } else {
-      pushStep(steps, 'mlb_game', 'No featured Guardians game found in MLB schedule.', {
-        success: false,
-      });
-      remember('No featured Guardians game found in MLB schedule.');
-    }
+    const game = featuredGameFromOptions(options);
+    rememberFeaturedGame(steps, remember, game);
 
     if (extraction.goozUrl) {
       extraction.streamEntry = buildStreamEntry(extraction.goozUrl, game);
@@ -580,11 +618,11 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
         success: true,
       });
       remember(`Inner gooz URL is: ${extraction.goozUrl}`);
-      pushStep(steps, 'stream_entry_ready', 'Stream entry ready for guardians_streams.json.', {
+      pushStep(steps, 'stream_entry_ready', 'Stream entry ready.', {
         streamEntry: extraction.streamEntry,
         success: true,
       });
-      remember('Stream entry ready for guardians_streams.json.');
+      remember('Stream entry ready.');
     } else {
       const message = 'No video found.';
       pushStep(steps, 'gooz_not_found', message, { success: false });
@@ -606,7 +644,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       userMessage: extraction.found ? undefined : 'No video found.',
       ...extraction,
       message: extraction.found
-        ? 'Guardians stream page and gooz player URL found.'
+        ? 'Stream page and gooz player URL found.'
         : 'No video found.',
     };
   } finally {
