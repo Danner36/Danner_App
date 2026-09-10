@@ -75,11 +75,15 @@ jobs:
             printf '%s' "$PATRIOTS_STREAM_PIPELINE_CONFIG" > config.json
           fi
 
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
       - name: Run pipeline
         working-directory: scripts/guardians-stream-pipeline
         env:
+          EXTRACT_HEADED: '1'
           GITHUB_TOKEN: ${{ github.token }}
           GUARDIANS_STREAM_CONFIG: config.json
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
-        run: node run.mjs
+        run: xvfb-run -a node run.mjs
