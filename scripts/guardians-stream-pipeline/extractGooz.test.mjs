@@ -3,7 +3,10 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { isIgnoredPlayerFrame } from './lib/extractGooz.mjs';
+import {
+  EXTRACT_USER_AGENT,
+  isIgnoredPlayerFrame,
+} from './lib/extractGooz.mjs';
 
 const extractSourcePath = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -33,6 +36,13 @@ test('skips Cloudflare Turnstile and YouTube chat frames', () => {
     ),
     false,
   );
+});
+
+test('extractor uses a desktop Chrome user agent', () => {
+  assert.match(EXTRACT_USER_AGENT, /Windows NT 10\.0/);
+  assert.match(EXTRACT_USER_AGENT, /Chrome\/\d+/);
+  assert.equal(EXTRACT_USER_AGENT.includes('HeadlessChrome'), false);
+  assert.equal(EXTRACT_USER_AGENT.includes('DannerGuardians'), false);
 });
 
 test('extractor source does not load the Guardians MLB schedule', async () => {
