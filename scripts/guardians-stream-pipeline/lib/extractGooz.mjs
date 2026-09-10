@@ -90,6 +90,10 @@ export function isIgnoredPlayerFrame(url) {
   }
 }
 
+export function videoPlayMethod(videoCount) {
+  return Number(videoCount) > 0 ? 'video.play()' : undefined;
+}
+
 function scoreGoozUrl(url) {
   if (!isValidGoozPlayerUrl(url)) {
     return -1;
@@ -314,6 +318,23 @@ async function waitForInnerLinkByHref(page, options, timeoutMs = 15_000) {
   return matches;
 }
 
+async function playerPageSummary(page) {
+  const frameUrls = page
+    .frames()
+    .map((frame) => frame.url())
+    .filter((url) => url && url !== 'about:blank' && !isIgnoredPlayerFrame(url));
+  const iframes = await page.evaluate(() =>
+    [...document.querySelectorAll('iframe[src], iframe[data-src]')]
+      .map((node) => node.getAttribute('src') || node.getAttribute('data-src'))
+      .filter(Boolean)
+      .slice(0, 12),
+  );
+  return {
+    frameUrls: frameUrls.slice(0, 12),
+    iframes,
+  };
+}
+
 async function listingPageSummary(page) {
   const challengeFrames = page
     .frames()
@@ -406,13 +427,15 @@ async function activateVideoPlayer(page) {
     }
 
     try {
-      await target.evaluate(() => {
-        for (const video of document.querySelectorAll('video')) {
+      const videoCount = await target.evaluate(() => {
+        const videos = document.querySelectorAll('video');
+        for (const video of videos) {
           video.muted = true;
           void video.play();
         }
+        return videos.length;
       });
-      return 'video.play()';
+      return videoPlayMethod(videoCount);
     } catch {}
 
     return undefined;
@@ -440,12 +463,11 @@ async function activateVideoPlayer(page) {
       continue;
     }
     method = label ? `${label}: ${frameMethod}` : frameMethod;
-    break;
   }
 
   try {
     await page.waitForSelector('iframe[src*="gooz.aapmains.net"]', {
-      timeout: 8_000,
+      timeout: 15_000,
     });
   } catch {}
 
@@ -678,8 +700,15 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       remember('Stream entry ready.');
     } else {
       const message = 'No video found.';
+      const player = await playerPageSummary(innerPage);
       pushStep(steps, 'gooz_not_found', message, { success: false });
       remember(message);
+      remember(
+        `Player page frames: ${player.frameUrls.join(' ') || 'none'}.`,
+      );
+      remember(
+        `Player page iframes: ${player.iframes.join(' ') || 'none'}.`,
+      );
       extraction.streamEntry = undefined;
     }
 

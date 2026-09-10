@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import {
   EXTRACT_USER_AGENT,
   isIgnoredPlayerFrame,
+  videoPlayMethod,
 } from './lib/extractGooz.mjs';
 
 const extractSourcePath = path.join(
@@ -36,6 +37,11 @@ test('skips Cloudflare Turnstile and YouTube chat frames', () => {
     ),
     false,
   );
+});
+
+test('video.play() only counts when a video element exists', () => {
+  assert.equal(videoPlayMethod(0), undefined);
+  assert.equal(videoPlayMethod(2), 'video.play()');
 });
 
 test('extractor uses a desktop Chrome user agent', () => {
