@@ -43,6 +43,19 @@
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "sport": "football"
+    },
+    {
+      "gameDates": [
+        "2026-09-12"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/56361?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "sport": "football"
     }
   ]
 }
