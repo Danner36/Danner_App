@@ -27,7 +27,7 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android:final` | Today's completed game with WIN badge and score |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
-| `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate, and the page pause that stops hls.js while a Cast receiver has the relay |
+| `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate, the page pause while a receiver has the relay, and the TV press that reopens the Cast dialog |
 | `npm run test:guardians:android:cast-web` | Live game plus native HLS page; taps TV and asserts the receiver plays the page-reported URL relayed from the phone |
 | `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; denied TV grants show the failure and no location prompt |
 | `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |

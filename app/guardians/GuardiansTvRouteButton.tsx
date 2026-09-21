@@ -19,6 +19,7 @@ import {
 } from './GuardiansCastButton';
 import {
   HLS_CONTENT_TYPE,
+  showCastDialogOnTvPress,
   type DiscoveredMedia,
 } from './webMediaDiscoveryInjection';
 
@@ -98,18 +99,14 @@ export function GuardiansTvRouteButton({
     return <View style={styles.headerSpacer} />;
   }
 
-  const openPicker = async () => {
-    if (!client) {
-      await CastContext.showCastDialog();
-    }
-  };
-
   const onPress = async () => {
     if (busy) {
       return;
     }
     if (relayUrl) {
-      await openPicker();
+      if (showCastDialogOnTvPress(true, client != null)) {
+        await CastContext.showCastDialog();
+      }
       return;
     }
 
@@ -135,7 +132,9 @@ export function GuardiansTvRouteButton({
       const nextUrl = liveHlsPlaylistUrl(relay.origin);
       console.log(`[DannerCast] relay ${nextUrl} for ${discovered.url}`);
       setRelayUrl(nextUrl);
-      await openPicker();
+      if (showCastDialogOnTvPress(false, client != null)) {
+        await CastContext.showCastDialog();
+      }
     } finally {
       setBusy(false);
     }

@@ -10,6 +10,7 @@ import {
   pagePlaybackHoldScript,
   phoneHoldForReceiverState,
   preferDiscoveredMedia,
+  showCastDialogOnTvPress,
 } from '../../app/guardians/webMediaDiscoveryInjection.ts';
 
 assert.equal(
@@ -170,6 +171,10 @@ assert.deepEqual(
   },
 );
 
+assert.equal(showCastDialogOnTvPress(false, false), true);
+assert.equal(showCastDialogOnTvPress(false, true), false);
+assert.equal(showCastDialogOnTvPress(true, true), true);
+assert.equal(showCastDialogOnTvPress(true, false), true);
 assert.equal(phoneHoldForReceiverState('playing'), true);
 assert.equal(phoneHoldForReceiverState('BUFFERING'), true);
 assert.equal(phoneHoldForReceiverState('loading'), true);

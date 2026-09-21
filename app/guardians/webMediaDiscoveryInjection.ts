@@ -359,6 +359,18 @@ export function pagePlaybackHoldScript(held: boolean): string {
  * The phone pauses its page while the receiver is buffering, playing, or paused.
  * Idle means the receiver dropped the stream, so the page may play again.
  */
+/**
+ * The first TV press opens the Cast dialog only when no receiver is connected.
+ * A later press opens it again so the connected dialog can stop the session or
+ * change the volume.
+ */
+export function showCastDialogOnTvPress(
+  alreadyRelaying: boolean,
+  hasClient: boolean,
+): boolean {
+  return alreadyRelaying || !hasClient;
+}
+
 export function phoneHoldForReceiverState(state: unknown): boolean | undefined {
   if (typeof state !== 'string') {
     return undefined;
