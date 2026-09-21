@@ -203,8 +203,15 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
       ) {
         var original = window.Hls.prototype.loadSource;
         window.Hls.prototype.loadSource = function (url) {
+          window.__dannerHls = this;
           send(String(url || ''), HLS, true);
-          return original.apply(this, arguments);
+          var result = original.apply(this, arguments);
+          if (window.__dannerPlaybackHeld && this.stopLoad) {
+            try {
+              this.stopLoad();
+            } catch (_) {}
+          }
+          return result;
         };
         window.Hls.prototype.__dannerHooked = true;
       }
@@ -259,6 +266,76 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     }
   } catch (_) {}
 
+  // While a Cast receiver has the relay, pause the page and stop hls.js so the
+  // phone radio is not also downloading the on-screen copy.
+  var applyPlaybackHold = function (releasing) {
+    var nodes = document.querySelectorAll('video, audio');
+    for (var index = 0; index < nodes.length; index += 1) {
+      try {
+        if (window.__dannerPlaybackHeld) {
+          nodes[index].pause();
+        } else if (releasing) {
+          var pending = nodes[index].play();
+          if (pending && pending.catch) {
+            pending.catch(function () {});
+          }
+        }
+      } catch (_) {}
+    }
+    var hls = window.__dannerHls;
+    if (!hls) {
+      return;
+    }
+    try {
+      if (window.__dannerPlaybackHeld && hls.stopLoad) {
+        hls.stopLoad();
+      } else if (releasing && hls.startLoad) {
+        hls.startLoad();
+      }
+    } catch (_) {}
+  };
+
+  window.__dannerSetPlaybackHeld = function (held) {
+    var next = !!held;
+    if (next === !!window.__dannerPlaybackHeld) {
+      return;
+    }
+    window.__dannerPlaybackHeld = next;
+    if (window.__dannerHoldTimer) {
+      clearInterval(window.__dannerHoldTimer);
+      window.__dannerHoldTimer = 0;
+    }
+    applyPlaybackHold(true);
+    if (!window.__dannerPlaybackHeld) {
+      return;
+    }
+    window.__dannerHoldTimer = setInterval(function () {
+      applyPlaybackHold(false);
+    }, 1000);
+  };
+
+  document.addEventListener(
+    'play',
+    function (event) {
+      if (!window.__dannerPlaybackHeld) {
+        return;
+      }
+      var target = event.target;
+      if (target && target.pause) {
+        try {
+          target.pause();
+        } catch (_) {}
+      }
+      var hls = window.__dannerHls;
+      if (hls && hls.stopLoad) {
+        try {
+          hls.stopLoad();
+        } catch (_) {}
+      }
+    },
+    true,
+  );
+
   hookHls();
   scanMedia();
   scanResources();
@@ -270,3 +347,31 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
 })();
 true;
 `;
+
+/** Asks the isolated page to pause or resume the on-screen player. */
+export function pagePlaybackHoldScript(held: boolean): string {
+  return `window.__dannerSetPlaybackHeld && window.__dannerSetPlaybackHeld(${
+    held ? 'true' : 'false'
+  }); true;`;
+}
+
+/**
+ * The phone pauses its page while the receiver is buffering, playing, or paused.
+ * Idle means the receiver dropped the stream, so the page may play again.
+ */
+export function phoneHoldForReceiverState(state: unknown): boolean | undefined {
+  if (typeof state !== 'string') {
+    return undefined;
+  }
+  switch (state.toLowerCase()) {
+    case 'playing':
+    case 'buffering':
+    case 'loading':
+    case 'paused':
+      return true;
+    case 'idle':
+      return false;
+    default:
+      return undefined;
+  }
+}

@@ -11,3 +11,4 @@ Playback URLs are not stored here. Phones fetch root `patriots_streams.json` fro
 - A live featured game shows a football scoreboard (quarters, clock, down and distance, possession) and refreshes that board every five seconds.
 - Fetches approved playback URLs from root `patriots_streams.json` on GitHub on screen open and every minute, with the last valid file cached on the phone. Entries match the America/New_York official date of kickoff and game number `1`.
 - Get video uses the shared Cloudflare Worker with `module: patriots`, which starts the Patriots stream pipeline. The phone polls `GET /streams?module=patriots`.
+- While a Cast receiver has a web relay, the page pauses and stops its own media load. The page resumes when the receiver goes idle or the load fails.

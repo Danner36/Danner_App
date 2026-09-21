@@ -12,3 +12,4 @@ Playback URLs are not stored here. Phones fetch root `cyclones_streams.json` fro
 - A live featured game shows a football board, men's basketball halves, or women's basketball quarters and refreshes that board every five seconds.
 - Official dates are the America/Chicago calendar date of kickoff. Entries in `cyclones_streams.json` match that date, game number, and `sport`.
 - Get video uses the shared Cloudflare Worker with `{ pin, module: "cyclones", sport }`. The phone polls `GET /streams?module=cyclones`.
+- While a Cast receiver has a web relay, the page pauses and stops its own media load. The page resumes when the receiver goes idle or the load fails.

@@ -32,6 +32,7 @@ import { WEB_AIRPLAY_INJECTION } from '../guardians/webAirPlayInjection';
 import {
   WEB_MEDIA_DISCOVERY_INJECTION,
   castableDiscoveredContentType,
+  pagePlaybackHoldScript,
   preferDiscoveredMedia,
 } from '../guardians/webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
@@ -392,12 +393,17 @@ function youtubePlayerHtml(embedUrl: string): string {
 }
 
 function IsolatedWebStreamPlayer({
+  holdPlayback,
   onMedia,
   stream,
 }: {
+  holdPlayback?: boolean;
   onMedia?: (media: DiscoveredMedia) => void;
   stream: PlayableStream;
 }) {
+  const webViewRef = useRef<WebView>(null);
+  const holdPlaybackRef = useRef(holdPlayback === true);
+  holdPlaybackRef.current = holdPlayback === true;
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
   const isYoutube = stream.kind === 'youtube';
   const isWeb = stream.kind === 'web';
@@ -418,8 +424,18 @@ function IsolatedWebStreamPlayer({
     setPromotedPopupUrl(undefined);
   }, [stream.playbackUrl]);
 
+  useEffect(() => {
+    if (!isWeb) {
+      return;
+    }
+    webViewRef.current?.injectJavaScript(
+      pagePlaybackHoldScript(holdPlayback === true),
+    );
+  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl]);
+
   return (
     <WebView
+      ref={webViewRef}
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}
       allowsAirPlayForMediaPlayback={isWeb}
@@ -471,6 +487,14 @@ function IsolatedWebStreamPlayer({
         }
       }}
       onShouldStartLoadWithRequest={(request) => allowNavigation(request.url)}
+      onLoadEnd={() => {
+        if (!isWeb) {
+          return;
+        }
+        webViewRef.current?.injectJavaScript(
+          pagePlaybackHoldScript(holdPlaybackRef.current),
+        );
+      }}
       originWhitelist={['*']}
       renderLoading={() => (
         <View style={styles.playerLoading}>
@@ -511,6 +535,7 @@ function StreamPlayer({
   // mid-game while the page is playing.
   useKeepAwake();
   const [media, setMedia] = useState<DiscoveredMedia>();
+  const [phoneHeld, setPhoneHeld] = useState(false);
   const closePlayer = () => {
     void stopHlsProxy();
     onClose();
@@ -518,6 +543,7 @@ function StreamPlayer({
 
   useEffect(() => {
     setMedia(undefined);
+    setPhoneHeld(false);
   }, [stream?.playbackUrl]);
 
   return (
@@ -562,6 +588,7 @@ function StreamPlayer({
               key={stream.playbackUrl}
               media={media}
               onFailed={setTvError}
+              onPhoneHeld={setPhoneHeld}
               pageUrl={stream.playbackUrl}
               visible
             />
@@ -580,6 +607,7 @@ function StreamPlayer({
             <DirectStreamPlayer stream={stream} />
           ) : (
             <IsolatedWebStreamPlayer
+              holdPlayback={phoneHeld}
               onMedia={(next) => {
                 setMedia((current) => preferDiscoveredMedia(current, next));
               }}

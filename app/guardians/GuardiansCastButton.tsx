@@ -11,6 +11,7 @@ import {
   DASH_CONTENT_TYPE,
   HLS_CONTENT_TYPE,
   MP4_CONTENT_TYPE,
+  phoneHoldForReceiverState,
 } from './webMediaDiscoveryInjection';
 
 export function castContentTypeForUrl(playbackUrl: string): string {
@@ -46,6 +47,7 @@ export function GuardiansCastButton({
   fmp4Segments,
   mpegTsSegments,
   onFailed,
+  onReceiverActive,
   playbackUrl,
   streamType,
   visible,
@@ -62,11 +64,15 @@ export function GuardiansCastButton({
    */
   mpegTsSegments?: boolean;
   onFailed?: (message: string) => void;
+  /** True while the receiver has the stream, false once that session goes idle. */
+  onReceiverActive?: (active: boolean) => void;
   playbackUrl: string;
   streamType?: 'buffered' | 'live';
   visible: boolean;
 }) {
   const client = useRemoteMediaClient();
+  const onReceiverActiveRef = useRef(onReceiverActive);
+  onReceiverActiveRef.current = onReceiverActive;
   const loadedKey = useRef<string | undefined>(undefined);
   // A later Cast session starts on an idle receiver, so the same media has to be loaded
   // again. Tracking the client alongside the key keeps a reconnect from being treated as
@@ -90,6 +96,10 @@ export function GuardiansCastButton({
       const state = status?.playerState ?? 'none';
       const idle = status?.idleReason ? ` idleReason=${status.idleReason}` : '';
       console.log(`[DannerCast] playerState ${state}${idle}`);
+      const hold = phoneHoldForReceiverState(state);
+      if (hold !== undefined) {
+        onReceiverActiveRef.current?.(hold);
+      }
     });
     // The session reports a client before the receiver can accept media. Loading
     // immediately fails and a remount then skips retry if the key was already stored.
@@ -130,6 +140,7 @@ export function GuardiansCastButton({
           }
           loadedClient.current = client;
           loadedKey.current = key;
+          onReceiverActiveRef.current?.(true);
         })
         .catch((error: unknown) => {
           if (cancelled) {
@@ -138,6 +149,7 @@ export function GuardiansCastButton({
           loadedClient.current = undefined;
           loadedKey.current = undefined;
           console.log(`[DannerCast] loadMedia failed ${String(error)}`);
+          onReceiverActiveRef.current?.(false);
           onFailed?.('The TV could not start the video.');
         });
     }, 500);

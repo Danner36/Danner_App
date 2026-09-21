@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import vm from 'node:vm';
 
 import {
   DASH_CONTENT_TYPE,
@@ -6,6 +7,8 @@ import {
   MP4_CONTENT_TYPE,
   WEB_MEDIA_DISCOVERY_INJECTION,
   castableDiscoveredContentType,
+  pagePlaybackHoldScript,
+  phoneHoldForReceiverState,
   preferDiscoveredMedia,
 } from '../../app/guardians/webMediaDiscoveryInjection.ts';
 
@@ -166,5 +169,105 @@ assert.deepEqual(
     url: 'https://cdn.example.com/game.m3u8',
   },
 );
+
+assert.equal(phoneHoldForReceiverState('playing'), true);
+assert.equal(phoneHoldForReceiverState('BUFFERING'), true);
+assert.equal(phoneHoldForReceiverState('loading'), true);
+assert.equal(phoneHoldForReceiverState('paused'), true);
+assert.equal(phoneHoldForReceiverState('idle'), false);
+assert.equal(phoneHoldForReceiverState('none'), undefined);
+assert.equal(phoneHoldForReceiverState(undefined), undefined);
+assert.equal(
+  pagePlaybackHoldScript(true),
+  'window.__dannerSetPlaybackHeld && window.__dannerSetPlaybackHeld(true); true;',
+);
+assert.equal(
+  pagePlaybackHoldScript(false),
+  'window.__dannerSetPlaybackHeld && window.__dannerSetPlaybackHeld(false); true;',
+);
+assert.match(WEB_MEDIA_DISCOVERY_INJECTION, /__dannerSetPlaybackHeld/);
+assert.match(WEB_MEDIA_DISCOVERY_INJECTION, /stopLoad/);
+
+function bootHeldPage() {
+  const videos = [];
+  const listeners = [];
+  function Hls() {}
+  Hls.prototype.loadSource = function () {
+    this.loaded = (this.loaded ?? 0) + 1;
+    return 'loaded';
+  };
+  Hls.prototype.stopLoad = function () {
+    this.stopped = (this.stopped ?? 0) + 1;
+  };
+  Hls.prototype.startLoad = function () {
+    this.started = (this.started ?? 0) + 1;
+  };
+  const document = {
+    baseURI: 'https://player.example/',
+    querySelectorAll() {
+      return videos;
+    },
+    addEventListener(type, fn, capture) {
+      listeners.push({ type, fn, capture });
+    },
+  };
+  const sandbox = {
+    URL,
+    document,
+    setInterval() {
+      return 1;
+    },
+    clearInterval() {},
+    performance: {
+      getEntriesByType() {
+        return [];
+      },
+    },
+    window: { Hls },
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(WEB_MEDIA_DISCOVERY_INJECTION, sandbox);
+  return { sandbox, videos, listeners };
+}
+
+const heldPage = bootHeldPage();
+const video = {
+  pauseCount: 0,
+  playCount: 0,
+  pause() {
+    this.pauseCount += 1;
+  },
+  play() {
+    this.playCount += 1;
+  },
+};
+heldPage.videos.push(video);
+heldPage.sandbox.window.__dannerSetPlaybackHeld(false);
+assert.equal(video.pauseCount, 0);
+heldPage.sandbox.window.__dannerSetPlaybackHeld(true);
+assert.equal(video.pauseCount, 1);
+
+const player = new heldPage.sandbox.window.Hls();
+assert.equal(player.loadSource('https://cdn.example.com/master.m3u8'), 'loaded');
+assert.equal(player.loaded, 1);
+assert.equal(player.stopped, 1);
+assert.equal(heldPage.sandbox.window.__dannerHls, player);
+
+const playListener = heldPage.listeners.find((entry) => entry.type === 'play');
+assert.equal(playListener.capture, true);
+playListener.fn({ target: video });
+assert.equal(video.pauseCount, 2);
+assert.equal(player.stopped, 2);
+
+heldPage.sandbox.window.__dannerSetPlaybackHeld(true);
+assert.equal(video.playCount, 0);
+heldPage.sandbox.window.__dannerSetPlaybackHeld(false);
+assert.equal(video.playCount, 1);
+assert.equal(player.started, 1);
+player.loadSource('https://cdn.example.com/master.m3u8');
+assert.equal(player.loaded, 2);
+assert.equal(player.stopped, 2);
+heldPage.sandbox.window.__dannerSetPlaybackHeld(false);
+assert.equal(video.playCount, 1);
 
 console.log('cast discovery checks passed');

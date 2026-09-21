@@ -74,11 +74,13 @@ function pageReferer(pageUrl: string): string {
 export function GuardiansTvRouteButton({
   media,
   onFailed,
+  onPhoneHeld,
   pageUrl,
   visible,
 }: {
   media?: DiscoveredMedia;
   onFailed: (message?: string) => void;
+  onPhoneHeld?: (held: boolean) => void;
   pageUrl: string;
   visible: boolean;
 }) {
@@ -146,6 +148,7 @@ export function GuardiansTvRouteButton({
           contentType={HLS_CONTENT_TYPE}
           mpegTsSegments
           onFailed={onFailed}
+          onReceiverActive={onPhoneHeld}
           playbackUrl={relayUrl}
           streamType={castStreamTypeForContentType(HLS_CONTENT_TYPE)}
           visible
