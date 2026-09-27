@@ -11,8 +11,11 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -32,6 +35,12 @@ internal class HlsProxyServer(
   private var serverSocket: ServerSocket? = null
   private var acceptExecutor: ExecutorService? = null
   private var requestExecutor: ExecutorService? = null
+  private val segmentCache = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>?): Boolean {
+      return size > SEGMENT_CACHE_ENTRIES
+    }
+  }
+  private val segmentLoads = ConcurrentHashMap<String, CompletableFuture<ByteArray?>>()
 
   @Volatile
   var port: Int = 0
@@ -73,6 +82,10 @@ internal class HlsProxyServer(
     requestExecutor?.shutdownNow()
     acceptExecutor = null
     requestExecutor = null
+    synchronized(segmentCache) {
+      segmentCache.clear()
+    }
+    segmentLoads.clear()
     port = 0
   }
 
@@ -81,6 +94,7 @@ internal class HlsProxyServer(
     while (running.get()) {
       try {
         val client = socket.accept()
+        client.tcpNoDelay = true
         requestExecutor?.execute { handle(client) }
       } catch (_: Exception) {
         if (!running.get()) {
@@ -169,19 +183,28 @@ internal class HlsProxyServer(
     val media = if (mediaUrl == masterUrl) master else requirePlaylist(fetchText(mediaUrl))
 
     val builder = StringBuilder()
+    val segmentUrls = ArrayList<String>()
+    val initUrls = ArrayList<String>()
     for (rawLine in media.lines()) {
       val line = rawLine.trimEnd('\r')
       when {
         line.isEmpty() -> builder.append('\n')
         line.startsWith("#") -> {
           builder.append(rewriteAttributeUri(line, mediaUrl)).append('\n')
+          mapUri(line, mediaUrl)?.let { initUrls.add(it) }
         }
         else -> {
           val absolute = URL(mediaUrl, line).toString()
+          segmentUrls.add(absolute)
           builder.append(proxyPath(absolute)).append('\n')
         }
       }
     }
+    // The receiver asks for the live edge next. Fetch those segments now so the
+    // TV is not waiting on the provider for every one of them.
+    val prefetchUrls = ArrayList<String>(initUrls)
+    prefetchUrls.addAll(segmentUrls.takeLast(PREFETCH_EDGE).asReversed())
+    prefetch(prefetchUrls)
     return builder.toString()
   }
 
@@ -196,11 +219,16 @@ internal class HlsProxyServer(
     return body
   }
 
-  /** Picks the first variant of a master playlist, or null when this is already media. */
+  /**
+   * Picks a variant the phone can forward, or null when this is already a media playlist.
+   * The first rendition is often the largest, and relaying that one stalls the TV.
+   */
   private fun variantUrl(base: URL, playlist: String): URL? {
     val lines = playlist.lines()
+    val variants = ArrayList<RelayVariant>()
     for (index in lines.indices) {
-      if (!lines[index].startsWith("#EXT-X-STREAM-INF")) {
+      val info = lines[index]
+      if (!info.startsWith("#EXT-X-STREAM-INF")) {
         continue
       }
       for (next in index + 1 until lines.size) {
@@ -208,10 +236,17 @@ internal class HlsProxyServer(
         if (candidate.isEmpty() || candidate.startsWith("#")) {
           continue
         }
-        return URL(base, candidate)
+        variants.add(
+          RelayVariant(
+            audioOnly = streamInfAudioOnly(info),
+            bandwidth = streamInfBandwidth(info),
+            url = URL(base, candidate),
+          ),
+        )
+        break
       }
     }
-    return null
+    return selectRelayVariant(variants)?.url
   }
 
   /** Sends `#EXT-X-KEY` and `#EXT-X-MAP` payloads through this server as well. */
@@ -244,6 +279,23 @@ internal class HlsProxyServer(
       output.flush()
       return
     }
+    val ready = cachedSegment(target) ?: loadSegment(target)
+    if (ready != null) {
+      writeSegment(output, withBody, ready)
+      return
+    }
+    streamSegment(output, withBody, target)
+  }
+
+  private fun writeSegment(output: OutputStream, withBody: Boolean, body: ByteArray) {
+    writeHeaders(output, 200, "OK", SEGMENT_CONTENT_TYPE, body.size)
+    if (withBody) {
+      output.write(body)
+    }
+    output.flush()
+  }
+
+  private fun streamSegment(output: OutputStream, withBody: Boolean, target: String) {
     var connection: HttpURLConnection? = null
     try {
       connection = openConnection(URL(target))
@@ -282,6 +334,121 @@ internal class HlsProxyServer(
       Log.w(TAG, "segment failed: ${error.message}")
     } finally {
       connection?.disconnect()
+    }
+  }
+
+  private fun prefetch(urls: List<String>) {
+    for (url in urls) {
+      if (cachedSegment(url) != null || segmentLoads.containsKey(url)) {
+        continue
+      }
+      requestExecutor?.execute {
+        try {
+          loadSegment(url)
+        } catch (_: Exception) {
+        }
+      }
+    }
+  }
+
+  private fun cachedSegment(url: String): ByteArray? {
+    synchronized(segmentCache) {
+      return segmentCache[url]
+    }
+  }
+
+  private fun rememberSegment(url: String, bytes: ByteArray) {
+    if (bytes.isEmpty() || bytes.size > MAX_CACHED_SEGMENT_BYTES) {
+      return
+    }
+    synchronized(segmentCache) {
+      segmentCache[url] = bytes
+    }
+  }
+
+  /**
+   * One download per segment URL. The receiver and the prefetch share it, so a cache
+   * miss still does not pull the same object twice.
+   */
+  private fun loadSegment(url: String): ByteArray? {
+    cachedSegment(url)?.let { return it }
+    val created = CompletableFuture<ByteArray?>()
+    val prior = segmentLoads.putIfAbsent(url, created)
+    if (prior != null) {
+      return awaitSegment(prior)
+    }
+    var bytes: ByteArray? = null
+    try {
+      bytes = downloadSegment(url)
+      if (bytes != null) {
+        rememberSegment(url, bytes)
+      }
+    } catch (_: Exception) {
+      bytes = null
+    } finally {
+      created.complete(bytes)
+      segmentLoads.remove(url, created)
+    }
+    return bytes
+  }
+
+  private fun awaitSegment(future: CompletableFuture<ByteArray?>): ByteArray? {
+    return try {
+      future.get(READ_TIMEOUT_MS.toLong() + 2_000L, TimeUnit.MILLISECONDS)
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  private fun downloadSegment(url: String): ByteArray? {
+    val connection = openConnection(URL(url))
+    try {
+      val status = connection.responseCode
+      if (status !in 200..299) {
+        return null
+      }
+      if (connection.contentLengthLong > MAX_CACHED_SEGMENT_BYTES) {
+        return null
+      }
+      connection.inputStream.use { stream ->
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+          val read = stream.read(buffer)
+          if (read < 0) {
+            break
+          }
+          if (output.size() + read > MAX_CACHED_SEGMENT_BYTES) {
+            return null
+          }
+          output.write(buffer, 0, read)
+        }
+        return output.toByteArray()
+      }
+    } finally {
+      connection.disconnect()
+    }
+  }
+
+  /** Absolute URL of an `#EXT-X-MAP` or `#EXT-X-KEY` payload, when the line has one. */
+  private fun mapUri(line: String, base: URL): String? {
+    if (!line.startsWith("#EXT-X-MAP") && !line.startsWith("#EXT-X-KEY")) {
+      return null
+    }
+    val marker = "URI=\""
+    val start = line.indexOf(marker)
+    if (start < 0) {
+      return null
+    }
+    val valueStart = start + marker.length
+    val end = line.indexOf('"', valueStart)
+    if (end < 0) {
+      return null
+    }
+    return try {
+      URL(base, line.substring(valueStart, end)).toString()
+    } catch (_: Exception) {
+      null
     }
   }
 
@@ -401,6 +568,9 @@ internal class HlsProxyServer(
     private const val SEGMENT_CONTENT_TYPE = "video/MP2T"
     private const val CONNECT_TIMEOUT_MS = 8_000
     private const val READ_TIMEOUT_MS = 20_000
+    private const val PREFETCH_EDGE = 4
+    private const val SEGMENT_CACHE_ENTRIES = 8
+    private const val MAX_CACHED_SEGMENT_BYTES = 8 * 1024 * 1024
     private const val UPSTREAM_USER_AGENT =
       "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) " +
         "Chrome/140.0.0.0 Mobile Safari/537.36"

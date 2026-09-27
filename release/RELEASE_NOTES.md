@@ -26,10 +26,12 @@
 - Patriots remaining schedule shows each game's phone-local date and time once
 - Post-game recap on the featured card after Final: WIN, LOSS, or TIE and the score. No park board, Play, or pitcher names
 - Guardians Final recap no longer shows MLB Win / Loss / Save last names
+- Guardians games without a published start time show Time TBA instead of 3:33 AM
+- Android Cast of a web game follows the live stream and prefetches the next pieces so the TV does not keep pausing
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
-- TV control on web games that Casts the page's HLS, DASH, or MP4 URL when the player reports one, and otherwise captures the on-screen player into a local live playlist
+- TV control on web games that relays the page's HLS through the phone because the provider will not answer the TV directly
 - iPhone web player pages use the Android Chrome user agent so they receive the same player build as Android
 - YouTube TV location workflow
 - Offline United States location map

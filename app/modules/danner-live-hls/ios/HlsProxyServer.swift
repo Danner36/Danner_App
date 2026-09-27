@@ -243,19 +243,94 @@ final class HlsProxyServer: @unchecked Sendable {
     body.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("#EXTM3U")
   }
 
-  /// Picks the first variant of a master playlist, or nil when this is already media.
+  /// Picks a variant the phone can forward, or nil when this is already a media playlist.
+  /// The first rendition is often the largest, and relaying that one stalls the TV.
+  /// Selection matches `src/relayVariant.ts`.
   private static func variantUrl(base: URL, playlist: String) -> URL? {
     let lines = playlist.components(separatedBy: .newlines)
+    var variants: [(audioOnly: Bool, bandwidth: Int, url: URL)] = []
     for (index, line) in lines.enumerated() where line.hasPrefix("#EXT-X-STREAM-INF") {
       for next in (index + 1)..<lines.count {
         let candidate = lines[next].trimmingCharacters(in: .whitespacesAndNewlines)
         if candidate.isEmpty || candidate.hasPrefix("#") {
           continue
         }
-        return URL(string: candidate, relativeTo: base)
+        guard let url = URL(string: candidate, relativeTo: base) else {
+          break
+        }
+        variants.append((
+          audioOnly: HlsProxyServer.streamInfAudioOnly(line),
+          bandwidth: HlsProxyServer.streamInfBandwidth(line),
+          url: url
+        ))
+        break
       }
     }
-    return nil
+    return HlsProxyServer.selectRelayVariant(variants)?.url
+  }
+
+  private static func selectRelayVariant(
+    _ variants: [(audioOnly: Bool, bandwidth: Int, url: URL)]
+  ) -> (audioOnly: Bool, bandwidth: Int, url: URL)? {
+    guard !variants.isEmpty else { return nil }
+    let video = variants.filter { !$0.audioOnly }
+    let pool = video.isEmpty ? variants : video
+    let known = pool.filter { $0.bandwidth > 0 }
+    let under = known.filter { $0.bandwidth <= relayMaxBandwidth }
+    if let best = under.max(by: { $0.bandwidth < $1.bandwidth }) {
+      return best
+    }
+    if let lowest = known.min(by: { $0.bandwidth < $1.bandwidth }) {
+      return lowest
+    }
+    return pool.first
+  }
+
+  private static func streamInfBandwidth(_ line: String) -> Int {
+    guard let range = line.range(of: "BANDWIDTH=") else {
+      return -1
+    }
+    let start = range.lowerBound
+    if start != line.startIndex {
+      let previous = line[line.index(before: start)]
+      if previous != "," && previous != ":" {
+        if let later = line[range.upperBound...].range(of: "BANDWIDTH=") {
+          return streamInfBandwidth(String(line[later.lowerBound...]))
+        }
+        return -1
+      }
+    }
+    let digits = line[range.upperBound...].prefix { $0.isNumber }
+    return Int(String(digits)) ?? -1
+  }
+
+  private static func streamInfAudioOnly(_ line: String) -> Bool {
+    guard
+      let marker = line.range(of: "CODECS=\""),
+      let closing = line[marker.upperBound...].firstIndex(of: "\"")
+    else {
+      return false
+    }
+    let codecs = line[marker.upperBound..<closing].lowercased()
+    let video =
+      codecs.contains("avc1") ||
+      codecs.contains("avc3") ||
+      codecs.contains("hvc1") ||
+      codecs.contains("hev1") ||
+      codecs.contains("dvh1") ||
+      codecs.contains("dvhe") ||
+      codecs.contains("av01") ||
+      codecs.contains("vp09") ||
+      codecs.contains("vp9")
+    if video {
+      return false
+    }
+    return codecs.contains("mp4a") ||
+      codecs.contains("ac-3") ||
+      codecs.contains("ec-3") ||
+      codecs.contains("opus") ||
+      codecs.contains("flac") ||
+      codecs.contains("alac")
   }
 
   /// Sends `#EXT-X-KEY` and `#EXT-X-MAP` payloads through this server as well.
@@ -408,6 +483,7 @@ final class HlsProxyServer: @unchecked Sendable {
     return address
   }
 
+  private static let relayMaxBandwidth = 3_500_000
   private static let playlistPath = "/live.m3u8"
   private static let segmentPath = "/s"
   private static let firstPort = 8108
