@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-09-06
+Last updated: 2026-09-27
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -25,10 +25,10 @@ Last updated: 2026-09-06
 | Patriots hub tile | Pass | Pixel emulator `emulator-5554` development harness opened `New England Patriots` from the hub and reached the live Patriots card |
 | Guardians live-data response | Pass | The installed release returned Cleveland's 61-66 record, today's San Francisco matchup at 1:10 PM Eastern, and the remaining schedule on 2026-08-20 |
 | Guardians featured game and schedule | Pass | Today's game was promoted above the schedule; filtering removed completed and featured games and sorted all retained games by MLB start timestamp |
-| Guardians post-game recap selection | Pass | Snapshot tests: live and later-today beat recap; today's Final is featured; completed games stay out of the schedule; recap ends after the local official date |
+| Guardians post-game recap selection | Pass | Snapshot tests: live and later-today beat recap; today's Final is featured; completed games stay out of the schedule; recap ends after the local official date. `startTimeTBD` parses as an unknown start time; a published start time stays valid |
 | Guardians post-game recap presentation | Review | Featured card WIN/LOSS/TIE and score without park board, Play, or pitcher names. Snapshot tests no longer emit a decision line. Device harness `final` still needed for visual confirmation |
 | Guardians today countdown | Pass | The standalone release displayed `TODAY`, `STARTS IN`, a one-second 2-hour countdown, and `Video starts 15 minutes before game time.` with no early Play control |
-| Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB on mount, pull-to-refresh, and every 10 minutes, fetches source data every 60 seconds, and exposes pull-to-refresh plus retry |
+| Guardians local times and refresh | Pass | The screen formats MLB UTC timestamps through the device locale, fetches MLB on mount, pull-to-refresh, and every 10 minutes, fetches source data every 60 seconds, and exposes pull-to-refresh plus retry. Games with `startTimeTBD` show `Time TBA` instead of MLB's 3:33 AM Eastern placeholder and do not count down or open Play |
 | Guardians Android interaction | Pass | Installed release rendered the current featured game, record, and Eastern-time schedule at 1080 by 2400, showed no harness controls, and ran with Metro stopped |
 | Guardians source schema | Pass | Parser checks accepted all six required fields, ignored the in-stream placeholder example, matched one URL across multiple dates and doubleheader numbers, rejected missing or extra fields, rejected HTTP without an entry opt-in, and required no owner-entered MLB identifier or source name. Root-level `HOW_TO_GUIDE` is editor text only; the phone does not render it |
 | Guardians GitHub source retrieval | Pass | Production bundles contain the raw `main/guardians_streams.json` URL; the screen checks on open, pull-to-refresh, and every 60 seconds, tries Worker `GET /streams` first when that origin is set, uses an 8-second timeout per attempt so a slow first source cannot abort the fallbacks, and stores the last valid production document for offline fallback. A later list with no featured-game match does not wipe a URL the phone already has |

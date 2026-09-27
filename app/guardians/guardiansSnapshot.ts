@@ -19,6 +19,7 @@ type MlbGame = {
   status?: {
     abstractGameState?: string;
     detailedState?: string;
+    startTimeTBD?: boolean;
   };
   teams?: {
     away?: MlbTeamSide;
@@ -38,6 +39,7 @@ export type GuardiansGame = {
   opponentScore: number;
   scoreboard?: LiveScoreboard;
   status: string;
+  timeValid: boolean;
 };
 
 export type GuardiansSnapshot = {
@@ -183,6 +185,7 @@ export function guardiansGameFromMlb(value: unknown): GuardiansGame | undefined 
     opponentName: opponent.team.name,
     opponentScore: opponent.score ?? 0,
     status: game.status?.detailedState ?? 'Scheduled',
+    timeValid: game.status?.startTimeTBD !== true,
   };
   return parsed;
 }
@@ -225,6 +228,7 @@ export function guardiansGameFromHarness(
     opponentName: game.opponentName,
     opponentScore: game.opponentScore,
     status: game.status,
+    timeValid: game.timeValid !== false,
   };
   if (game.scoreboard !== undefined) {
     parsed.scoreboard = game.scoreboard;

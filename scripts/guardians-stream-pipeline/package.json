@@ -8,7 +8,7 @@
     "extract-gooz": "node extract-gooz.mjs",
     "dry-run": "node run.mjs --dry-run",
     "help": "node run.mjs --help",
-    "test": "node --test extractGooz.test.mjs"
+    "test": "node --test extractGooz.test.mjs pipelineWindow.test.mjs"
   },
   "engines": {
     "node": ">=20"

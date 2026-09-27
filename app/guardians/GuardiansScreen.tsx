@@ -387,14 +387,23 @@ async function fetchGuardiansSources(options?: {
   }
 }
 
-function gameDateLabel(gameDate: string): string {
+function gameDateLabel(game: GuardiansGame): string {
+  if (!game.timeValid) {
+    const datePart = new Intl.DateTimeFormat(undefined, {
+      day: 'numeric',
+      month: 'short',
+      weekday: 'short',
+    }).format(new Date(game.gameDate));
+    return `${datePart} · Time TBA`;
+  }
+
   return new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
     month: 'short',
     weekday: 'short',
-  }).format(new Date(gameDate));
+  }).format(new Date(game.gameDate));
 }
 
 function isAllowedPlayerNavigation(
@@ -774,6 +783,7 @@ function FeaturedGameCard({
     isFinal;
   const videoWindowOpen =
     !blocksVideo &&
+    game.timeValid &&
     (isLive ||
       nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
   const visibleStreams = videoWindowOpen ? streams : [];
@@ -785,7 +795,9 @@ function FeaturedGameCard({
       ? 'LIVE'
       : recap
         ? recap
-        : `TODAY ${gameTimeLabel(game.gameDate)}`;
+        : game.timeValid
+          ? `TODAY ${gameTimeLabel(game.gameDate)}`
+          : 'TODAY TIME TBA';
   const matchupText =
     isTodayScheduled || isFinal
       ? game.isHome
@@ -854,7 +866,7 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
-      {isTodayScheduled ? (
+      {isTodayScheduled && game.timeValid ? (
         <View style={styles.countdownBox}>
           <Text style={styles.countdownLabel}>STARTS IN</Text>
           <Text accessibilityLiveRegion="polite" style={styles.countdownText}>
@@ -863,7 +875,11 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
-      {!videoWindowOpen && !blocksVideo ? (
+      {isTodayScheduled && !game.timeValid ? (
+        <Text style={styles.videoTimingText}>Time TBA</Text>
+      ) : null}
+
+      {!videoWindowOpen && !blocksVideo && game.timeValid ? (
         <Text style={styles.videoTimingText}>
           Video starts 15 minutes before game time.
         </Text>
@@ -1339,7 +1355,7 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
                       <View style={styles.gameRow}>
                         <View style={styles.gameDateColumn}>
                           <Text style={styles.gameDate}>
-                            {gameDateLabel(game.gameDate)}
+                            {gameDateLabel(game)}
                           </Text>
                           {game.status !== 'Scheduled' ? (
                             <Text style={styles.gameStatus}>{game.status}</Text>

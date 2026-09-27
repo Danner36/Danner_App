@@ -175,7 +175,45 @@ assert.ok(parsed);
 assert.equal(parsed.guardiansScore, 5);
 assert.equal(parsed.opponentScore, 2);
 assert.equal(parsed.opponentName, 'San Francisco Giants');
+assert.equal(parsed.timeValid, true);
 assert.equal(recapResult(parsed), 'WIN');
 assert.equal('decisions' in parsed, false);
+
+const postseasonTba = guardiansGameFromMlb({
+  gameDate: '2026-10-03T07:33:00Z',
+  gameNumber: 1,
+  gamePk: 824900,
+  officialDate: '2026-10-03',
+  status: {
+    abstractGameState: 'Preview',
+    detailedState: 'Scheduled',
+    startTimeTBD: true,
+  },
+  teams: {
+    away: { score: 0, team: { id: 114, name: 'Cleveland Guardians' } },
+    home: { score: 0, team: { id: 142, name: 'Minnesota Twins' } },
+  },
+});
+assert.ok(postseasonTba);
+assert.equal(postseasonTba.timeValid, false);
+assert.equal(postseasonTba.officialDate, '2026-10-03');
+assert.equal(postseasonTba.status, 'Scheduled');
+
+const postseasonTimed = guardiansGameFromMlb({
+  gameDate: '2026-10-03T20:08:00Z',
+  gameNumber: 1,
+  gamePk: 824901,
+  officialDate: '2026-10-03',
+  status: {
+    abstractGameState: 'Preview',
+    detailedState: 'Scheduled',
+    startTimeTBD: false,
+  },
+  teams: {
+    away: { score: 0, team: { id: 114, name: 'Cleveland Guardians' } },
+    home: { score: 0, team: { id: 142, name: 'Minnesota Twins' } },
+  },
+});
+assert.equal(postseasonTimed?.timeValid, true);
 
 console.log('Guardians snapshot recap states passed.');

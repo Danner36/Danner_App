@@ -53,6 +53,7 @@ function guardiansGameFromMlb(game, teamId) {
     opponentName: opponent.team.name,
     officialDate:
       game.officialDate ?? localDateString(new Date(game.gameDate)),
+    timeValid: game.status?.startTimeTBD !== true,
   };
 }
 

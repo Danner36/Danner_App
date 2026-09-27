@@ -1,6 +1,6 @@
 # Guardians test harness
 
-Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider. `run-snapshot.mjs` checks featured-card selection for live, later-today, Final recap, and doubleheader cases.
+Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider. `run-snapshot.mjs` checks featured-card selection for live, later-today, Final recap, and doubleheader cases, and maps MLB `startTimeTBD` to an unknown start time.
 
 ## Run on Android
 
