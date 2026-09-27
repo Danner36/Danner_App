@@ -245,6 +245,18 @@
       "url": "https://gooz.aapmains.net/new-stream-embed/57194?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": []
+    },
+    {
+      "gameDates": [
+        "2026-09-27"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/57305?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
     }
   ]
 }
