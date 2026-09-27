@@ -14,6 +14,11 @@ import {
   phoneHoldForReceiverState,
 } from './webMediaDiscoveryInjection';
 
+export {
+  castStreamTypeForContentType,
+  castStreamTypeForUrl,
+} from './castStreamType';
+
 export function castContentTypeForUrl(playbackUrl: string): string {
   const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
   if (path.endsWith('.m3u8')) {
@@ -26,20 +31,6 @@ export function castContentTypeForUrl(playbackUrl: string): string {
     return DASH_CONTENT_TYPE;
   }
   return 'video/*';
-}
-
-export function castStreamTypeForUrl(
-  _playbackUrl: string,
-): 'buffered' | 'live' {
-  // The default receiver on this family's TVs starts buffered VOD and sits on its
-  // splash screen for `live` on those same files.
-  return 'buffered';
-}
-
-export function castStreamTypeForContentType(
-  _contentType: string,
-): 'buffered' | 'live' {
-  return 'buffered';
 }
 
 export function GuardiansCastButton({

@@ -2,6 +2,10 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 
 import {
+  castStreamTypeForContentType,
+  castStreamTypeForUrl,
+} from '../../app/guardians/castStreamType.ts';
+import {
   DASH_CONTENT_TYPE,
   HLS_CONTENT_TYPE,
   MP4_CONTENT_TYPE,
@@ -12,6 +16,11 @@ import {
   preferDiscoveredMedia,
   showCastDialogOnTvPress,
 } from '../../app/guardians/webMediaDiscoveryInjection.ts';
+import {
+  selectRelayVariant,
+  streamInfAudioOnly,
+  streamInfBandwidth,
+} from '../../app/modules/danner-live-hls/src/relayVariant.ts';
 
 assert.equal(
   castableDiscoveredContentType(
@@ -274,5 +283,62 @@ assert.equal(player.loaded, 2);
 assert.equal(player.stopped, 2);
 heldPage.sandbox.window.__dannerSetPlaybackHeld(false);
 assert.equal(video.playCount, 1);
+
+assert.equal(castStreamTypeForUrl('https://cdn.example.com/game.m3u8'), 'buffered');
+assert.equal(castStreamTypeForContentType(HLS_CONTENT_TYPE), 'live');
+
+const high = {
+  audioOnly: false,
+  bandwidth: 8_000_000,
+  url: 'https://cdn.example.com/high.m3u8',
+};
+const mid = {
+  audioOnly: false,
+  bandwidth: 2_500_000,
+  url: 'https://cdn.example.com/mid.m3u8',
+};
+const low = {
+  audioOnly: false,
+  bandwidth: 800_000,
+  url: 'https://cdn.example.com/low.m3u8',
+};
+const audio = {
+  audioOnly: true,
+  bandwidth: 128_000,
+  url: 'https://cdn.example.com/audio.m3u8',
+};
+assert.equal(selectRelayVariant([high, mid, low])?.url, mid.url);
+assert.equal(selectRelayVariant([high, audio])?.url, high.url);
+assert.equal(selectRelayVariant([audio, mid])?.url, mid.url);
+assert.equal(
+  selectRelayVariant([
+    { audioOnly: false, bandwidth: -1, url: 'https://cdn.example.com/a.m3u8' },
+    { audioOnly: false, bandwidth: -1, url: 'https://cdn.example.com/b.m3u8' },
+  ])?.url,
+  'https://cdn.example.com/a.m3u8',
+);
+assert.equal(selectRelayVariant([]), undefined);
+assert.equal(
+  streamInfBandwidth(
+    '#EXT-X-STREAM-INF:AVERAGE-BANDWIDTH=1000000,BANDWIDTH=2500000',
+  ),
+  2_500_000,
+);
+assert.equal(
+  streamInfBandwidth('#EXT-X-STREAM-INF:BANDWIDTH=800000'),
+  800_000,
+);
+assert.equal(
+  streamInfAudioOnly(
+    '#EXT-X-STREAM-INF:BANDWIDTH=128000,CODECS="mp4a.40.2"',
+  ),
+  true,
+);
+assert.equal(
+  streamInfAudioOnly(
+    '#EXT-X-STREAM-INF:BANDWIDTH=2500000,CODECS="avc1.4d401f,mp4a.40.2"',
+  ),
+  false,
+);
 
 console.log('cast discovery checks passed');

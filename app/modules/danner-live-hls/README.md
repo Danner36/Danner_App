@@ -9,6 +9,16 @@ Local Expo module that relays an approved page's own HLS stream from a LAN port 
   source down to a media playlist, fetching each playlist with `referer`, and rewrites every
   media reference to `GET /s?u=<base64url>`. `GET /s` streams that object through as
   `video/MP2T`. Every response carries permissive CORS.
+- The Cast load for this origin is a live stream. A buffered load plays the current window
+  once and then the receiver pauses. Direct files stay buffered; live on those files sits
+  on the receiver splash.
+- A master playlist forwards the highest video variant at or under 3.5 Mbps. When every
+  video variant is above that, it forwards the lowest. Audio-only renditions are skipped.
+  The first rendition is often the largest, and relaying it stalls the TV. Selection
+  matches `src/relayVariant.ts`.
+- Android keeps the last few live-edge segments, plus any init map, in a short memory cache
+  and starts fetching them when the playlist is built. The receiver and that prefetch share
+  one download per URL.
 - The source is re-resolved on each playlist read. The provider returns a fresh variant host
   and time-limited segment URLs each time, so a cached walk goes stale within minutes.
 - A body that is not `#EXTM3U` fails as 502. A dropped stream answers 200 with an error page,
