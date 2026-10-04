@@ -33,10 +33,11 @@ export function getProvisioningWarning(
   } else if (remainingTime < HOUR_MS) {
     title = 'Expires in less than 1 hour';
   } else if (remainingTime < DAY_MS) {
-    const hours = Math.ceil(remainingTime / HOUR_MS);
+    // Whole hours and days left, rounded down so the text never overstates the time remaining.
+    const hours = Math.floor(remainingTime / HOUR_MS);
     title = `Expires in ${hours} ${hours === 1 ? 'hour' : 'hours'}`;
   } else {
-    const days = Math.ceil(remainingTime / DAY_MS);
+    const days = Math.floor(remainingTime / DAY_MS);
     title = `Expires in ${days} ${days === 1 ? 'day' : 'days'}`;
   }
 

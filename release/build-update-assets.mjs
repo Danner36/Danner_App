@@ -2,34 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, statSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-function parseReleaseVersion(raw) {
-  if (typeof raw !== 'string') {
-    return undefined;
-  }
-
-  const version = raw.trim().replace(/^v/i, '');
-  // Keeps this in step with app/hub/appUpdate.ts: parseInt alone accepts trailing garbage,
-  // which would also land unvalidated in the release asset URLs built below.
-  if (!/^\d+\.\d+(?:\.\d+)?$/.test(version)) {
-    return undefined;
-  }
-
-  const parts = version.split('.').map((part) => Number.parseInt(part, 10));
-  if (
-    parts.length < 2 ||
-    parts.length > 3 ||
-    parts.some((part) => !Number.isFinite(part) || part < 0)
-  ) {
-    return undefined;
-  }
-
-  const [major = 0, minor = 0, patch = 0] = parts;
-  return {
-    version:
-      parts.length === 2 ? `${major}.${minor}` : `${major}.${minor}.${patch}`,
-    versionCode: major * 10000 + minor * 100 + patch,
-  };
-}
+import { parseReleaseVersion } from '../app/hub/releaseVersion.js';
 
 function sha256File(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -39,9 +12,16 @@ const tag = process.argv[2];
 const apkPath = process.argv[3];
 const ipaPath = process.argv[4];
 const outDir = process.argv[5];
-const parsed = parseReleaseVersion(tag);
-if (!parsed || !apkPath || !ipaPath || !outDir) {
+if (!tag || !apkPath || !ipaPath || !outDir) {
   throw new Error('Usage: build-update-assets.mjs <tag> <apk> <ipa> <outDir>');
+}
+
+// The tag lands in the asset URLs and the manifest `tag`, which phones require to start with `v`.
+const parsed = tag.startsWith('v') ? parseReleaseVersion(tag) : undefined;
+if (!parsed) {
+  throw new Error(
+    `Release tag "${tag}" must be vMAJOR.MINOR.PATCH with digits only and minor and patch from 0 to 99.`,
+  );
 }
 
 const repo = process.env.GITHUB_REPOSITORY || 'Danner36/Danner_App';

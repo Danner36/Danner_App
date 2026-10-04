@@ -16,13 +16,29 @@ assert.deepEqual(getProvisioningWarning(now + 48 * HOUR_MS, now), {
   instruction: PROVISIONING_WARNING_INSTRUCTION,
   title: 'Expires in 2 days',
 });
+assert.deepEqual(getProvisioningWarning(now + 47 * HOUR_MS + 59 * 60 * 1000, now), {
+  instruction: PROVISIONING_WARNING_INSTRUCTION,
+  title: 'Expires in 1 day',
+});
+assert.deepEqual(getProvisioningWarning(now + 25 * HOUR_MS, now), {
+  instruction: PROVISIONING_WARNING_INSTRUCTION,
+  title: 'Expires in 1 day',
+});
 assert.deepEqual(getProvisioningWarning(now + DAY_MS, now), {
   instruction: PROVISIONING_WARNING_INSTRUCTION,
   title: 'Expires in 1 day',
 });
+assert.deepEqual(getProvisioningWarning(now + DAY_MS - 1, now), {
+  instruction: PROVISIONING_WARNING_INSTRUCTION,
+  title: 'Expires in 23 hours',
+});
 assert.deepEqual(getProvisioningWarning(now + 23 * HOUR_MS, now), {
   instruction: PROVISIONING_WARNING_INSTRUCTION,
   title: 'Expires in 23 hours',
+});
+assert.deepEqual(getProvisioningWarning(now + 90 * 60 * 1000, now), {
+  instruction: PROVISIONING_WARNING_INSTRUCTION,
+  title: 'Expires in 1 hour',
 });
 assert.deepEqual(getProvisioningWarning(now + 59 * 60 * 1000, now), {
   instruction: PROVISIONING_WARNING_INSTRUCTION,

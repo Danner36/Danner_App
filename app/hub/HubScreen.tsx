@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   AppState,
   Image,
@@ -10,7 +11,11 @@ import {
   Text,
   View,
 } from 'react-native';
-import { installReleaseApk } from '../modules/danner-app-update/src';
+import {
+  getActiveReleaseApkInstall,
+  installReleaseApk,
+  type ReleaseApkInstallResult,
+} from '../modules/danner-app-update/src';
 import { getProvisioningExpirationTimestamp } from '../modules/danner-provisioning-profile/src';
 import {
   APP_UPDATE_DOWNLOADING,
@@ -42,111 +47,13 @@ export function HubScreen({
     number | undefined
   >();
   const [currentTime, setCurrentTime] = useState(Date.now());
-  const [profileReady, setProfileReady] = useState(Platform.OS !== 'ios');
-  const [downloadStatus, setDownloadStatus] = useState<string | undefined>();
-  const updatePromptVisible = useRef(false);
-  const updateCheckInFlight = useRef(false);
-  const hubMounted = useRef(true);
+  const [updateDownloading, setUpdateDownloading] = useState(
+    () => getActiveReleaseApkInstall() !== undefined,
+  );
 
   const readProvisioningExpiration = useCallback(() => {
     setProvisioningExpiration(getProvisioningExpirationTimestamp());
     setCurrentTime(Date.now());
-    setProfileReady(true);
-  }, []);
-
-  const applyAppUpdate = useCallback(async (manifest: VersionManifest) => {
-    if (Platform.OS === 'ios') {
-      try {
-        await Linking.openURL(sideStoreInstallUrl(manifest.ios.url));
-      } catch {
-        Alert.alert(APP_UPDATE_PROMPT_TITLE, APP_UPDATE_SIDESTORE_MISSING);
-      }
-      return;
-    }
-
-    if (hubMounted.current) {
-      setDownloadStatus(APP_UPDATE_DOWNLOADING);
-    }
-    const result = await installReleaseApk(
-      manifest.android.url,
-      manifest.android.sha256,
-    );
-    if (!hubMounted.current) {
-      return;
-    }
-    setDownloadStatus(undefined);
-    if (result.status === 'failed' && result.message) {
-      Alert.alert(APP_UPDATE_PROMPT_TITLE, result.message);
-    }
-  }, []);
-
-  const offerAppUpdate = useCallback(
-    async (signingWarningVisible: boolean) => {
-      if (
-        updatePromptVisible.current ||
-        updateCheckInFlight.current ||
-        downloadStatus
-      ) {
-        return;
-      }
-
-      const embeddedVersion = getEmbeddedAppVersion();
-      if (!embeddedVersion) {
-        return;
-      }
-
-      updateCheckInFlight.current = true;
-      let manifest;
-      try {
-        manifest = await fetchVersionManifest();
-      } finally {
-        updateCheckInFlight.current = false;
-      }
-      if (
-        !hubMounted.current ||
-        !manifest ||
-        !shouldOfferAppUpdate({
-          embeddedVersion,
-          hubVisible: hubMounted.current,
-          remoteVersion: manifest.version,
-          signingWarningVisible,
-        })
-      ) {
-        return;
-      }
-
-      updatePromptVisible.current = true;
-      Alert.alert(
-        APP_UPDATE_PROMPT_TITLE,
-        Platform.OS === 'ios' ? APP_UPDATE_PROMPT_IOS : APP_UPDATE_PROMPT_ANDROID,
-        [
-          {
-            text: 'No',
-            style: 'cancel',
-            onPress: () => {
-              updatePromptVisible.current = false;
-              dismissAppUpdatePrompt();
-            },
-          },
-          {
-            text: 'Yes',
-            onPress: () => {
-              updatePromptVisible.current = false;
-              void applyAppUpdate(manifest);
-            },
-          },
-        ],
-        { cancelable: false },
-      );
-    },
-    [applyAppUpdate, downloadStatus],
-  );
-
-  useEffect(() => {
-    hubMounted.current = true;
-    return () => {
-      hubMounted.current = false;
-    };
   }, []);
 
   useEffect(() => {
@@ -171,30 +78,170 @@ export function HubScreen({
     };
   }, [readProvisioningExpiration]);
 
-  const provisioningWarning = getProvisioningWarning(
-    provisioningExpiration,
-    currentTime,
-  );
-
+  // Update checks run when the hub mounts and whenever the app becomes active again. Prompt,
+  // message, and install state live in this effect and in module scope rather than in render
+  // state, so an install finishing never starts another check by itself.
   useEffect(() => {
-    if (!profileReady || provisioningWarning) {
-      return;
+    let hubMounted = true;
+    let promptVisible = false;
+    let messageVisible = false;
+    let checkInFlight = false;
+
+    function updateBlocked(): boolean {
+      return (
+        !hubMounted ||
+        promptVisible ||
+        messageVisible ||
+        checkInFlight ||
+        getActiveReleaseApkInstall() !== undefined
+      );
     }
 
-    void offerAppUpdate(false);
+    function signingWarningVisible(): boolean {
+      return (
+        getProvisioningWarning(getProvisioningExpirationTimestamp(), Date.now()) !==
+        undefined
+      );
+    }
+
+    function showUpdateMessage(message: string, checkAgain: boolean) {
+      messageVisible = true;
+      Alert.alert(
+        APP_UPDATE_PROMPT_TITLE,
+        message,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              messageVisible = false;
+              if (checkAgain) {
+                void offerAppUpdate();
+              }
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    }
+
+    async function followInstall(install: Promise<ReleaseApkInstallResult>) {
+      if (hubMounted) {
+        setUpdateDownloading(true);
+      }
+      const result = await install;
+      if (result.status === 'failed' || result.status === 'needs-permission') {
+        if (hubMounted) {
+          setUpdateDownloading(false);
+          // Once installs from this app are allowed, OK offers the update again.
+          showUpdateMessage(result.message, result.status === 'needs-permission');
+        }
+        return;
+      }
+
+      // The system installer opened, finished, or was cancelled; the prompt stays dismissed
+      // until the app process exits.
+      dismissAppUpdatePrompt();
+      if (hubMounted) {
+        setUpdateDownloading(false);
+      }
+    }
+
+    async function applyAppUpdate(manifest: VersionManifest) {
+      if (Platform.OS === 'ios') {
+        try {
+          await Linking.openURL(sideStoreInstallUrl(manifest.ios.url));
+        } catch {
+          if (hubMounted) {
+            showUpdateMessage(APP_UPDATE_SIDESTORE_MISSING, false);
+          }
+        }
+        return;
+      }
+
+      await followInstall(
+        installReleaseApk(manifest.android.url, manifest.android.sha256),
+      );
+    }
+
+    async function offerAppUpdate() {
+      const embeddedVersion = getEmbeddedAppVersion();
+      if (updateBlocked() || !embeddedVersion || signingWarningVisible()) {
+        return;
+      }
+
+      checkInFlight = true;
+      let manifest: VersionManifest | undefined;
+      try {
+        manifest = await fetchVersionManifest();
+      } finally {
+        checkInFlight = false;
+      }
+      // The hub, the signing warning, and the install state can all change while the
+      // manifest loads.
+      if (
+        !manifest ||
+        updateBlocked() ||
+        !shouldOfferAppUpdate({
+          embeddedVersion,
+          hubVisible: hubMounted,
+          remoteVersion: manifest.version,
+          signingWarningVisible: signingWarningVisible(),
+        })
+      ) {
+        return;
+      }
+
+      const offered = manifest;
+      promptVisible = true;
+      Alert.alert(
+        APP_UPDATE_PROMPT_TITLE,
+        Platform.OS === 'ios' ? APP_UPDATE_PROMPT_IOS : APP_UPDATE_PROMPT_ANDROID,
+        [
+          {
+            text: 'No',
+            style: 'cancel',
+            onPress: () => {
+              promptVisible = false;
+              dismissAppUpdatePrompt();
+            },
+          },
+          {
+            text: 'Yes',
+            onPress: () => {
+              promptVisible = false;
+              void applyAppUpdate(offered);
+            },
+          },
+        ],
+        { cancelable: false },
+      );
+    }
+
+    const activeInstall = getActiveReleaseApkInstall();
+    if (activeInstall) {
+      void followInstall(activeInstall);
+    } else {
+      void offerAppUpdate();
+    }
     const appStateSubscription = AppState.addEventListener(
       'change',
       (nextState) => {
         if (nextState === 'active') {
-          void offerAppUpdate(false);
+          void offerAppUpdate();
         }
       },
     );
 
     return () => {
+      hubMounted = false;
       appStateSubscription.remove();
     };
-  }, [offerAppUpdate, profileReady, provisioningWarning]);
+  }, []);
+
+  const provisioningWarning = getProvisioningWarning(
+    provisioningExpiration,
+    currentTime,
+  );
 
   return (
     <View style={styles.menuScreen}>
@@ -207,9 +254,13 @@ export function HubScreen({
             {provisioningWarning.instruction}
           </Text>
         </View>
-      ) : downloadStatus ? (
-        <View accessibilityRole="alert" style={styles.menuExpiryWarning}>
-          <Text style={styles.menuExpiryWarningInstruction}>{downloadStatus}</Text>
+      ) : updateDownloading ? (
+        <View style={styles.menuExpiryWarning}>
+          <ActivityIndicator
+            accessibilityLabel={APP_UPDATE_DOWNLOADING}
+            color="#1F6F55"
+            size="small"
+          />
         </View>
       ) : null}
 

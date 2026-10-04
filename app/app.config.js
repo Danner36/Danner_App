@@ -1,31 +1,21 @@
 const appJson = require('./app.json');
+const { parseReleaseVersion } = require('./hub/releaseVersion.js');
 
-function parseReleaseVersion(raw) {
-  if (typeof raw !== 'string') {
+function readRelease(tag) {
+  if (tag === undefined || tag === '') {
     return undefined;
   }
 
-  const version = raw.trim().replace(/^v/i, '');
-  const parts = version.split('.').map((part) => Number.parseInt(part, 10));
-  if (
-    parts.length < 2 ||
-    parts.length > 3 ||
-    parts.some((part) => !Number.isFinite(part) || part < 0)
-  ) {
-    return undefined;
+  const release = parseReleaseVersion(tag);
+  if (!release) {
+    throw new Error(
+      `RELEASE_TAG "${tag}" must be vMAJOR.MINOR.PATCH with digits only and minor and patch from 0 to 99.`,
+    );
   }
-
-  const [major = 0, minor = 0, patch = 0] = parts;
-  return {
-    version:
-      parts.length === 2 ? `${major}.${minor}` : `${major}.${minor}.${patch}`,
-    versionCode: major * 10000 + minor * 100 + patch,
-  };
+  return release;
 }
 
-const release =
-  parseReleaseVersion(process.env.RELEASE_TAG) ||
-  parseReleaseVersion(process.env.EXPO_PUBLIC_APP_VERSION);
+const release = readRelease(process.env.RELEASE_TAG);
 const expo = appJson.expo;
 
 module.exports = {

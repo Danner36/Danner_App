@@ -12,7 +12,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
@@ -25,8 +25,20 @@ jobs:
       run:
         working-directory: app
     steps:
+      - name: Validate release tag
+        working-directory: .
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$ ]]; then
+            echo "::error::The release tag must be vMAJOR.MINOR.PATCH with digits only and minor and patch from 0 to 99."
+            exit 1
+          fi
+
       - name: Check out source
         uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -77,8 +89,20 @@ jobs:
       run:
         working-directory: app
     steps:
+      - name: Validate release tag
+        working-directory: .
+        shell: bash
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$ ]]; then
+            echo "::error::The release tag must be vMAJOR.MINOR.PATCH with digits only and minor and patch from 0 to 99."
+            exit 1
+          fi
+
       - name: Check out source
         uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v6
@@ -159,9 +183,13 @@ jobs:
       - android
       - ios
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Check out source
         uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
 
       - name: Download Android APK
         uses: actions/download-artifact@v5
@@ -189,9 +217,28 @@ jobs:
           cd release-assets
           sha256sum Danner-Apps-Android.apk Danner-Apps-iOS.ipa > SHA256SUMS.txt
 
+      - name: Decide Latest
+        id: latest
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Tag names come from the remote, so the shallow checkout does not limit them.
+          highest="$(git ls-remote --tags --refs origin \
+            | sed 's#^.*refs/tags/##' \
+            | grep -E '^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$' \
+            | sort -V \
+            | tail -n 1)"
+          if [ "$highest" = "$RELEASE_TAG" ]; then
+            echo "flag=--latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::$RELEASE_TAG is older than $highest, so it is not marked Latest."
+            echo "flag=--latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
+          LATEST_FLAG: ${{ steps.latest.outputs.flag }}
         run: >-
           gh release create "${RELEASE_TAG}"
           release-assets/Danner-Apps-Android.apk
@@ -201,5 +248,6 @@ jobs:
           release-assets/version-manifest.json
           release-assets/sidestore-source.json
           --verify-tag
+          "${LATEST_FLAG}"
           --title "Danner Apps ${RELEASE_TAG}"
           --notes-file release/RELEASE_NOTES.md

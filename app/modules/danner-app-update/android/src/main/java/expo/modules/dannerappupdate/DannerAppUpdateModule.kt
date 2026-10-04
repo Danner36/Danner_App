@@ -15,18 +15,33 @@ import androidx.core.content.ContextCompat
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlinx.coroutines.launch
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 
 class DannerAppUpdateModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DannerAppUpdate")
 
+    OnActivityEntersForeground {
+      activityInForeground = true
+      val deferred = deferredConfirmation
+      if (deferred != null) {
+        deferredConfirmation = null
+        launchConfirmation(deferred)
+      }
+    }
+
+    OnActivityEntersBackground {
+      activityInForeground = false
+    }
+
     AsyncFunction("installApk") { url: String, sha256: String, promise: Promise ->
-      val context = appContext.reactContext ?: appContext.currentActivity
+      val context = (appContext.reactContext ?: appContext.currentActivity)?.applicationContext
       if (context == null) {
         promise.reject("ERR_NO_ACTIVITY", "The app is not in the foreground.", null)
         return@AsyncFunction
@@ -48,33 +63,63 @@ class DannerAppUpdateModule : Module() {
         )
         return@AsyncFunction
       }
+      if (!installInProgress.compareAndSet(false, true)) {
+        promise.reject("ERR_BUSY", "The update is already downloading.", null)
+        return@AsyncFunction
+      }
 
-      try {
-        val apk = downloadAndVerify(context, url, sha256)
-        // Deliberately not on the main thread: commitInstall streams the whole APK into the
-        // installer session, which is tens of megabytes. The receiver's onReceive is still
-        // delivered on the main looper, which is all that needed it.
-        try {
-          commitInstall(context, apk, promise)
-        } catch (error: Exception) {
-          promise.reject("ERR_INSTALL", error.message, error)
-        }
-      } catch (error: ChecksumException) {
-        promise.reject("ERR_CHECKSUM", error.message, error)
-      } catch (error: Exception) {
-        promise.reject("ERR_DOWNLOAD", error.message, error)
+      startInstall(InstallAttempt(context, promise), url, sha256)
+    }
+  }
+
+  private fun startInstall(attempt: InstallAttempt, url: String, sha256: String) {
+    // The download and the installer session write are tens of megabytes of blocking I/O, so
+    // they run on the background scope instead of the shared AsyncFunction queue that every
+    // other Expo module call waits on. A job cancelled before it runs still settles the promise.
+    val job = appContext.backgroundCoroutineScope.launch {
+      runInstall(attempt, url, sha256)
+    }
+    job.invokeOnCompletion { cause ->
+      if (cause != null) {
+        attempt.reject("ERR_DOWNLOAD", "The update could not be downloaded.", cause)
       }
     }
   }
 
-  private fun downloadAndVerify(context: Context, url: String, expectedSha256: String): File {
+  private fun runInstall(attempt: InstallAttempt, url: String, sha256: String) {
+    val apk = try {
+      clearCachedUpdates(attempt.context)
+      File.createTempFile(APK_PREFIX, APK_SUFFIX, attempt.context.cacheDir).also { file ->
+        attempt.apk = file
+        downloadAndVerify(file, url, sha256)
+      }
+    } catch (error: ChecksumException) {
+      attempt.reject("ERR_CHECKSUM", error.message, error)
+      return
+    } catch (error: Exception) {
+      attempt.reject("ERR_DOWNLOAD", error.message, error)
+      return
+    }
+
+    try {
+      commitInstall(attempt, apk)
+    } catch (error: Exception) {
+      attempt.reject("ERR_INSTALL", error.message, error)
+    }
+  }
+
+  private fun clearCachedUpdates(context: Context) {
+    // Only one install runs per process, so every earlier update file is a leftover.
+    context.cacheDir.listFiles()?.forEach { file ->
+      if (file.name.startsWith(APK_PREFIX) && file.name.endsWith(APK_SUFFIX)) {
+        file.delete()
+      }
+    }
+  }
+
+  private fun downloadAndVerify(apk: File, url: String, expectedSha256: String) {
     val connection = openDownload(url)
     try {
-      val apk = File(context.cacheDir, APK_NAME)
-      if (apk.exists()) {
-        apk.delete()
-      }
-
       val digest = MessageDigest.getInstance("SHA-256")
       connection.inputStream.use { input ->
         apk.outputStream().use { output ->
@@ -94,10 +139,8 @@ class DannerAppUpdateModule : Module() {
         String.format(Locale.US, "%02x", byte)
       }
       if (!actual.equals(expectedSha256, ignoreCase = true)) {
-        apk.delete()
         throw ChecksumException("The update file did not match the published checksum.")
       }
-      return apk
     } finally {
       connection.disconnect()
     }
@@ -130,14 +173,16 @@ class DannerAppUpdateModule : Module() {
     throw IllegalStateException("The update could not be downloaded.")
   }
 
-  private fun commitInstall(context: Context, apk: File, promise: Promise) {
+  private fun commitInstall(attempt: InstallAttempt, apk: File) {
+    val context = attempt.context
     val installer = context.packageManager.packageInstaller
     val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
     params.setAppPackageName(context.packageName)
     val sessionId = installer.createSession(params)
+    attempt.sessionId = sessionId
     val session = installer.openSession(sessionId)
     try {
-      session.openWrite(APK_NAME, 0, apk.length()).use { output ->
+      session.openWrite(SESSION_APK_NAME, 0, apk.length()).use { output ->
         apk.inputStream().use { input ->
           input.copyTo(output)
         }
@@ -145,28 +190,10 @@ class DannerAppUpdateModule : Module() {
       }
 
       val action = "${context.packageName}.DANNER_APP_UPDATE_INSTALL"
-      var completed = false
       val receiver = object : BroadcastReceiver() {
-        fun complete(status: String?, errorMessage: String?) {
-          if (completed) {
-            return
-          }
-          completed = true
-          try {
-            context.unregisterReceiver(this)
-          } catch (_: Exception) {
-          }
-          apk.delete()
-          if (errorMessage != null) {
-            promise.reject("ERR_INSTALL", errorMessage, null)
-          } else {
-            promise.resolve(status)
-          }
-        }
-
         override fun onReceive(receiverContext: Context, intent: Intent) {
-          // Only act on results for the session we opened. STATUS_PENDING_USER_ACTION hands
-          // us an Intent we then start, so a spoofed broadcast would be an activity
+          // Only act on results for the session opened here. STATUS_PENDING_USER_ACTION hands
+          // over an Intent that is then started, so a spoofed broadcast would be an activity
           // redirection; the session id is checked before that Intent is ever touched.
           val reportedSession = intent.getIntExtra(
             PackageInstaller.EXTRA_SESSION_ID,
@@ -181,23 +208,33 @@ class DannerAppUpdateModule : Module() {
           )
           when (status) {
             PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-              val confirm = pendingUserActionIntent(intent) ?: return
+              val confirm = pendingUserActionIntent(intent)
+              if (confirm == null) {
+                attempt.reject("ERR_INSTALL", INSTALL_FAILED_MESSAGE, null)
+                return
+              }
               confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-              val starter = appContext.currentActivity ?: receiverContext
-              starter.startActivity(confirm)
-              complete("prompted", null)
+              val confirmation = DeferredConfirmation(attempt, confirm)
+              // Android blocks activity starts from the background, so a download that finishes
+              // while the app is hidden opens the installer when the app next resumes.
+              if (activityInForeground) {
+                launchConfirmation(confirmation)
+              } else {
+                deferredConfirmation = confirmation
+              }
             }
             PackageInstaller.STATUS_SUCCESS -> {
-              complete("installed", null)
+              attempt.resolve("installed")
             }
             PackageInstaller.STATUS_FAILURE_ABORTED -> {
-              complete("cancelled", null)
+              attempt.resolve("cancelled")
             }
             else -> {
-              complete(
-                null,
+              attempt.reject(
+                "ERR_INSTALL",
                 intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
-                  ?: "The update could not be installed.",
+                  ?: INSTALL_FAILED_MESSAGE,
+                null,
               )
             }
           }
@@ -214,14 +251,29 @@ class DannerAppUpdateModule : Module() {
         IntentFilter(action),
         ContextCompat.RECEIVER_NOT_EXPORTED,
       )
+      attempt.receiver = receiver
 
-      val confirmIntent = Intent(action).setPackage(context.packageName)
+      val resultIntent = Intent(action).setPackage(context.packageName)
       val pendingFlags =
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-      val pending = PendingIntent.getBroadcast(context, sessionId, confirmIntent, pendingFlags)
+      val pending = PendingIntent.getBroadcast(context, sessionId, resultIntent, pendingFlags)
       session.commit(pending.intentSender)
     } finally {
       session.close()
+    }
+  }
+
+  private fun launchConfirmation(confirmation: DeferredConfirmation) {
+    val attempt = confirmation.attempt
+    if (attempt.isSettled) {
+      return
+    }
+    try {
+      val starter: Context = appContext.currentActivity ?: attempt.context
+      starter.startActivity(confirmation.intent)
+      attempt.resolve("prompted")
+    } catch (error: Exception) {
+      attempt.reject("ERR_INSTALL", INSTALL_FAILED_MESSAGE, error)
     }
   }
 
@@ -265,10 +317,76 @@ class DannerAppUpdateModule : Module() {
     }
   }
 
+  /**
+   * One download-and-install run. Settles its promise exactly once, and every settle path
+   * unregisters the result receiver, deletes the downloaded file, and releases the
+   * process-wide install slot. Failures also abandon the installer session.
+   */
+  private class InstallAttempt(val context: Context, private val promise: Promise) {
+    private val settled = AtomicBoolean(false)
+
+    @Volatile var apk: File? = null
+
+    @Volatile var sessionId: Int? = null
+
+    @Volatile var receiver: BroadcastReceiver? = null
+
+    val isSettled: Boolean
+      get() = settled.get()
+
+    fun resolve(status: String) {
+      if (settle(abandonSession = false)) {
+        promise.resolve(status)
+      }
+    }
+
+    fun reject(code: String, message: String?, cause: Throwable?) {
+      if (settle(abandonSession = true)) {
+        promise.reject(code, message ?: INSTALL_FAILED_MESSAGE, cause)
+      }
+    }
+
+    private fun settle(abandonSession: Boolean): Boolean {
+      if (!settled.compareAndSet(false, true)) {
+        return false
+      }
+      receiver?.let { registered ->
+        try {
+          context.unregisterReceiver(registered)
+        } catch (_: Exception) {
+        }
+      }
+      val openedSession = sessionId
+      if (abandonSession && openedSession != null) {
+        try {
+          context.packageManager.packageInstaller.abandonSession(openedSession)
+        } catch (_: Exception) {
+        }
+      }
+      apk?.delete()
+      installInProgress.set(false)
+      return true
+    }
+  }
+
+  private class DeferredConfirmation(val attempt: InstallAttempt, val intent: Intent)
+
   private class ChecksumException(message: String) : Exception(message)
 
   companion object {
-    private const val APK_NAME = "Danner-Apps-update.apk"
+    private const val APK_PREFIX = "Danner-Apps-update"
+    private const val APK_SUFFIX = ".apk"
+    private const val SESSION_APK_NAME = "Danner-Apps-update.apk"
+    private const val INSTALL_FAILED_MESSAGE = "The update could not be installed."
     private val SHA256_PATTERN = Regex("^[0-9a-fA-F]{64}$")
+
+    // Process-wide so a second call, or a module instance recreated by a JavaScript reload,
+    // cannot start a parallel download.
+    private val installInProgress = AtomicBoolean(false)
+
+    // Written on the main thread by activity lifecycle events and installer results.
+    @Volatile private var activityInForeground = false
+
+    @Volatile private var deferredConfirmation: DeferredConfirmation? = null
   }
 }
