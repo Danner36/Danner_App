@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
   BackHandler,
+  type LayoutChangeEvent,
   Modal,
   Platform,
   Pressable,
@@ -19,10 +20,12 @@ import {
   TRIPOLI_DESTINATION,
   destinationFromStored,
   isTripoli,
+  sameCoordinates,
   type Destination,
 } from './destination';
 import { createGeolocationInjection } from './geolocationInjection';
 import { OfflineUsMap } from './OfflineUsMap';
+import { allowVerifyNavigation, isVerifyPageUrl } from './verifyNavigation';
 
 const VERIFY_URL = 'https://tv.youtube.com/verify';
 
@@ -246,8 +249,10 @@ function GuidedHome({
   currentStep,
   complete,
   destination,
+  initialFocusStep,
   initialScrollOffset,
   message,
+  verifyRetry,
   onBackToMenu,
   onEditDestination,
   onConfirmDestination,
@@ -260,8 +265,10 @@ function GuidedHome({
   currentStep: StepNumber;
   complete: boolean;
   destination: Destination;
+  initialFocusStep?: StepNumber;
   initialScrollOffset: number;
   message?: string;
+  verifyRetry: boolean;
   onBackToMenu: () => void;
   onEditDestination: () => void;
   onConfirmDestination: () => void;
@@ -274,6 +281,14 @@ function GuidedHome({
   const scrollViewRef = useRef<ScrollView>(null);
   const stepOffsets = useRef<Partial<Record<StepNumber, number>>>({});
   const hasRendered = useRef(false);
+  const pendingFocusStep = useRef(initialFocusStep);
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const [initialContentOffset] = useState(() => ({
+    x: 0,
+    y: initialScrollOffset,
+  }));
 
   const statusFor = (step: StepNumber): StepStatus => {
     if (step < currentStep || (step === 4 && complete)) {
@@ -283,6 +298,33 @@ function GuidedHome({
   };
 
   const progress = complete ? 4 : currentStep;
+
+  const scrollToStep = useCallback((step: StepNumber) => {
+    const nextOffset = stepOffsets.current[step];
+    if (typeof nextOffset === 'number') {
+      scrollViewRef.current?.scrollTo({
+        animated: true,
+        y: Math.max(0, nextOffset - 12),
+      });
+    }
+  }, []);
+
+  const onStepLayout = (step: StepNumber) => (event: LayoutChangeEvent) => {
+    stepOffsets.current[step] = event.nativeEvent.layout.y;
+    if (pendingFocusStep.current === step) {
+      pendingFocusStep.current = undefined;
+      focusTimer.current = setTimeout(() => scrollToStep(step), 180);
+    }
+  };
+
+  useEffect(
+    () => () => {
+      if (focusTimer.current) {
+        clearTimeout(focusTimer.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!hasRendered.current) {
@@ -295,22 +337,14 @@ function GuidedHome({
       return;
     }
 
-    const timer = setTimeout(() => {
-      const nextOffset = stepOffsets.current[currentStep];
-      if (typeof nextOffset === 'number') {
-        scrollViewRef.current?.scrollTo({
-          animated: true,
-          y: Math.max(0, nextOffset - 12),
-        });
-      }
-    }, 180);
+    const timer = setTimeout(() => scrollToStep(currentStep), 180);
 
     return () => clearTimeout(timer);
-  }, [complete, currentStep]);
+  }, [complete, currentStep, scrollToStep]);
 
   return (
     <ScrollView
-      contentOffset={{ x: 0, y: initialScrollOffset }}
+      contentOffset={initialContentOffset}
       contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
       onScroll={(event) =>
@@ -368,11 +402,7 @@ function GuidedHome({
           </View>
         ) : null}
 
-        <View
-          onLayout={(event) => {
-            stepOffsets.current[1] = event.nativeEvent.layout.y;
-          }}
-        >
+        <View onLayout={onStepLayout(1)}>
           <StepCard
             description="Confirm the map location YouTube should receive. You can change it whenever you need to."
             number={1}
@@ -392,11 +422,7 @@ function GuidedHome({
           </StepCard>
         </View>
 
-        <View
-          onLayout={(event) => {
-            stepOffsets.current[2] = event.nativeEvent.layout.y;
-          }}
-        >
+        <View onLayout={onStepLayout(2)}>
           <StepCard
             description="On the TV, open YouTube TV. Select your profile picture, then Location. When the QR code appears, leave it on the screen."
             number={2}
@@ -409,12 +435,13 @@ function GuidedHome({
           </StepCard>
         </View>
 
-        <View
-          onLayout={(event) => {
-            stepOffsets.current[3] = event.nativeEvent.layout.y;
-          }}
-        >
+        <View onLayout={onStepLayout(3)}>
           <StepCard
+            description={
+              verifyRetry && currentStep === 3
+                ? 'The update did not finish. Keep the QR code on the TV and try again.'
+                : undefined
+            }
             number={3}
             status={statusFor(3)}
             title="Update on this phone"
@@ -428,11 +455,7 @@ function GuidedHome({
           </StepCard>
         </View>
 
-        <View
-          onLayout={(event) => {
-            stepOffsets.current[4] = event.nativeEvent.layout.y;
-          }}
-        >
+        <View onLayout={onStepLayout(4)}>
           <StepCard
             description="After the TV says “Welcome to…” for the new location, return to the YouTube TV main screen on the TV and select Live again to reload the channels."
             number={4}
@@ -468,14 +491,17 @@ function GuidedHome({
 
 function VerifyView({
   destination,
+  onAdvanced,
   onClose,
 }: {
   destination: Destination;
+  onAdvanced: () => void;
   onClose: () => void;
 }) {
   const returnTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const injectionScript = useMemo(
     () => createGeolocationInjection(destination),
     [destination],
@@ -499,8 +525,12 @@ function VerifyView({
       if (payload.source !== 'danner-geolocation') {
         return;
       }
-      if (payload.event === 'advanced' && !returnTimer.current) {
-        returnTimer.current = setTimeout(onClose, 800);
+      if (
+        payload.event === 'advanced' &&
+        isVerifyPageUrl(event.nativeEvent.url) &&
+        !returnTimer.current
+      ) {
+        returnTimer.current = setTimeout(onAdvanced, 800);
       }
     } catch {
       return;
@@ -528,6 +558,8 @@ function VerifyView({
         <View style={styles.headerSpacer} />
       </View>
 
+      {/* originWhitelist admits every URL so that allowVerifyNavigation drops
+          disallowed ones; the library opens whitelist misses with Linking. */}
       <WebView
         allowsBackForwardNavigationGestures
         geolocationEnabled={false}
@@ -536,8 +568,24 @@ function VerifyView({
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly={
           Platform.OS !== 'ios'
         }
+        key={loadAttempt}
         onMessage={onMessage}
-        originWhitelist={['https://*']}
+        onShouldStartLoadWithRequest={allowVerifyNavigation}
+        originWhitelist={['*']}
+        renderError={() => (
+          <View style={styles.webLoading}>
+            <Text style={styles.webErrorTitle}>YouTube did not open</Text>
+            <Text style={styles.webErrorText}>
+              Check that this phone is online, then tap Retry.
+            </Text>
+            <View style={styles.webErrorAction}>
+              <ActionButton
+                label="Retry"
+                onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+              />
+            </View>
+          </View>
+        )}
         renderLoading={() => (
           <View style={styles.webLoading}>
             <ActivityIndicator color="#1F6F55" size="large" />
@@ -566,7 +614,9 @@ export function TvLocationScreen({
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
   const [message, setMessage] = useState<string>();
+  const [verifyRetry, setVerifyRetry] = useState(false);
   const homeScrollOffset = useRef(0);
+  const homeFocusStep = useRef<StepNumber | undefined>(undefined);
 
   useEffect(() => {
     void AsyncStorage.getItem(DESTINATION_STORAGE_KEY)
@@ -585,9 +635,20 @@ export function TvLocationScreen({
       });
   }, []);
 
+  // Leaving verification without YouTube's Next taking effect keeps step 3 current.
   const closeVerify = useCallback(() => {
+    homeFocusStep.current = 3;
+    setShowVerify(false);
+    setCurrentStep(3);
+    setVerifyRetry(true);
+    setMessage(undefined);
+  }, []);
+
+  const finishVerify = useCallback(() => {
+    homeFocusStep.current = 4;
     setShowVerify(false);
     setCurrentStep(4);
+    setVerifyRetry(false);
     setMessage(undefined);
   }, []);
 
@@ -629,13 +690,15 @@ export function TvLocationScreen({
 
   const saveDestination = useCallback(
     async (nextDestination: Destination) => {
+      const moved = !sameCoordinates(nextDestination, destination);
       setDestination(nextDestination);
       setMapPickerVisible(false);
       setMessage(undefined);
 
-      if (currentStep === 4 || complete) {
+      if (moved && (currentStep === 4 || complete)) {
         setCurrentStep(3);
         setComplete(false);
+        setVerifyRetry(false);
         setMessage('Map location changed. Run the phone update again.');
       }
 
@@ -650,26 +713,33 @@ export function TvLocationScreen({
         );
       }
     },
-    [complete, currentStep],
+    [complete, currentStep, destination],
   );
 
   const startOver = useCallback(() => {
     setCurrentStep(1);
     setComplete(false);
+    setVerifyRetry(false);
     setMessage(undefined);
   }, []);
 
   return (
     <>
       {showVerify ? (
-        <VerifyView destination={destination} onClose={closeVerify} />
+        <VerifyView
+          destination={destination}
+          onAdvanced={finishVerify}
+          onClose={closeVerify}
+        />
       ) : (
         <GuidedHome
           complete={complete}
           currentStep={currentStep}
           destination={destination}
+          initialFocusStep={homeFocusStep.current}
           initialScrollOffset={homeScrollOffset.current}
           message={message}
+          verifyRetry={verifyRetry}
           onBackToMenu={onBackToMenu}
           onConfirmed={() => setComplete(true)}
           onConfirmDestination={() => setCurrentStep(2)}
@@ -1031,5 +1101,24 @@ const styles = StyleSheet.create({
     color: '#45545E',
     fontSize: 17,
     fontWeight: '600',
+  },
+  webErrorTitle: {
+    color: '#15354A',
+    fontSize: 22,
+    fontWeight: '800',
+    paddingHorizontal: 28,
+    textAlign: 'center',
+  },
+  webErrorText: {
+    color: '#3F4E57',
+    fontSize: 17,
+    lineHeight: 25,
+    paddingHorizontal: 28,
+    textAlign: 'center',
+  },
+  webErrorAction: {
+    alignSelf: 'stretch',
+    marginTop: 8,
+    paddingHorizontal: 28,
   },
 });

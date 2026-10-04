@@ -9,6 +9,10 @@ const ROADS_URL =
   'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/Transportation/MapServer/0/query?where=1%3D1&outFields=NAME&returnGeometry=true&outSR=4326&geometryPrecision=3&maxAllowableOffset=0.02&f=geojson';
 const STATES_URL =
   'https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/0/query?where=1%3D1&outFields=STUSAB&returnGeometry=true&outSR=4326&geometryPrecision=3&maxAllowableOffset=0.02&f=geojson';
+const TEMPLATE_PATH = fileURLToPath(
+  new URL('./offline-us-map.template.html', import.meta.url),
+);
+const TEMPLATE_DATA_PLACEHOLDER = '__OFFLINE_MAP_DATA__';
 const MAP_GRID_MAX = 65535;
 const MAX_MERCATOR_LATITUDE = 85.05112878;
 const MAJOR_PLACE_ORDER = [
@@ -64,6 +68,9 @@ const MAJOR_PLACE_ORDER = [
   'Cedar Rapids|IA',
   'Waterloo|IA',
 ];
+const MAJOR_PLACE_RANK = new Map(
+  MAJOR_PLACE_ORDER.map((place, index) => [place, index]),
+);
 const REPRESENTATIVE_POINTS = {
   'Anchorage|AK': [-149.9003, 61.2181],
   'San Francisco|CA': [-122.4194, 37.7749],
@@ -355,35 +362,42 @@ function applyRepresentativePoints(places, stateNames) {
   }
 }
 
+// Puerto Rico "zona urbana" names keep a trailing "zona" after cleanPlaceName.
+function cleanPuertoRicoNames(places, stateNames) {
+  const puertoRico = stateNames.findIndex(
+    ([abbreviation]) => abbreviation === 'PR',
+  );
+  for (const place of places) {
+    if (place[1] === puertoRico) {
+      place[0] = place[0].replace(/\s+zona$/i, '');
+    }
+  }
+}
+
 async function writeMapAssets(output) {
   applyRepresentativePoints(output.places, output.stateNames);
+  cleanPuertoRicoNames(output.places, output.stateNames);
   const projectDirectory = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '..',
   );
   const assetsDirectory = path.join(projectDirectory, 'assets');
   const jsonPath = path.join(assetsDirectory, 'offline-us-map.json');
+  const template = await readFile(TEMPLATE_PATH, 'utf8');
+  if (template.split(TEMPLATE_DATA_PLACEHOLDER).length !== 2) {
+    throw new Error(
+      `${TEMPLATE_PATH} must contain ${TEMPLATE_DATA_PLACEHOLDER} exactly once.`,
+    );
+  }
   const serialized = JSON.stringify(output);
   await mkdir(assetsDirectory, { recursive: true });
   await writeFile(jsonPath, serialized);
 
-  const mapComponentPath = path.join(
-    projectDirectory,
-    'tvLocation',
-    'OfflineUsMap.tsx',
+  const embeddedData = serialized.replace(/</g, '\\u003c');
+  const bundledHtml = template.replace(
+    TEMPLATE_DATA_PLACEHOLDER,
+    () => embeddedData,
   );
-  const mapComponent = await readFile(mapComponentPath, 'utf8');
-  const templateMatch = mapComponent.match(
-    /return `(<!doctype html>[\s\S]*?)`;\r?\n}/,
-  );
-  if (!templateMatch) {
-    throw new Error('The offline map HTML template was not found.');
-  }
-  const bundledHtml = templateMatch[1]
-    .replace('${OFFLINE_MAP_JSON}', serialized.replace(/</g, '\\u003c'))
-    .replace('${initialLatitude}', '42.808371')
-    .replace('${initialLongitude}', '-92.2578433')
-    .replace('${initialLabel}', JSON.stringify('Tripoli, Iowa'));
   const htmlOutputPath = path.join(assetsDirectory, 'offline-us-map.html');
   await writeFile(htmlOutputPath, bundledHtml);
   process.stdout.write(

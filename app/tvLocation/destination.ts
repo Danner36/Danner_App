@@ -34,11 +34,15 @@ function hasValidCoordinates(
   );
 }
 
-export function isTripoli(destination: Destination): boolean {
+export function sameCoordinates(first: Destination, second: Destination): boolean {
   return (
-    Math.abs(destination.latitude - TRIPOLI_DESTINATION.latitude) < 0.0000001 &&
-    Math.abs(destination.longitude - TRIPOLI_DESTINATION.longitude) < 0.0000001
+    Math.abs(first.latitude - second.latitude) < 0.0000001 &&
+    Math.abs(first.longitude - second.longitude) < 0.0000001
   );
+}
+
+export function isTripoli(destination: Destination): boolean {
+  return sameCoordinates(destination, TRIPOLI_DESTINATION);
 }
 
 export function destinationFromStored(value: unknown): Destination | undefined {

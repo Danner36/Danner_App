@@ -1,7 +1,10 @@
+// app/scripts/offline-us-map.template.html embeds the same selection rules for the
+// bundled map page; tests/offline-map/run.mjs checks that both agree.
 export const MAP_GRID_MAX = 65_535;
 const MAX_MERCATOR_LATITUDE = 85.05112878;
 const MAJOR_PLACE_SCORE = 1_000_000_000_000;
 const MAJOR_PLACE_RADIUS_KM = 18;
+const NEAR_LABEL_KM = 80;
 
 export type OfflineMapPlace = [
   name: string,
@@ -14,6 +17,11 @@ export type OfflineMapPlace = [
 export type OfflineMapPoint = {
   latitude: number;
   longitude: number;
+};
+
+export type OfflineMapMatch = {
+  place: OfflineMapPlace;
+  near: boolean;
 };
 
 export function locationToGrid(
@@ -56,8 +64,13 @@ export function placeLabel(
   return `${place[0]}, ${stateNames[place[1]][1]}`;
 }
 
+function isMajorPlace(place: OfflineMapPlace): boolean {
+  return place[4] > MAJOR_PLACE_SCORE;
+}
+
+// Major places carry a rank instead of a land area, so they use a fixed radius.
 export function placeRadiusKm(place: OfflineMapPlace): number {
-  if (place[4] > MAJOR_PLACE_SCORE) {
+  if (isMajorPlace(place)) {
     return MAJOR_PLACE_RADIUS_KM;
   }
   return Math.max(
@@ -88,14 +101,19 @@ export function equirectangularKm(
   return Math.sqrt(x * x + y * y) * 111.32;
 }
 
-export function selectedPlace(
+// A point takes the name of a place whose area-sized radius covers it, choosing the
+// place whose center is closest relative to its radius. Major places cover only
+// points that no other place covers. Without a covering place the nearest place is
+// used, marked `near` when it is farther than NEAR_LABEL_KM.
+export function selectedMatch(
   places: OfflineMapPlace[],
   point: OfflineMapPoint,
-): OfflineMapPlace | undefined {
+): OfflineMapMatch | undefined {
   let nearest: OfflineMapPlace | undefined;
   let nearestKm = Infinity;
   let covering: OfflineMapPlace | undefined;
-  let coveringScore = -1;
+  let coveringMajor = true;
+  let coveringRatio = Infinity;
 
   for (const place of places) {
     const location = gridToLocation(place[2], place[3]);
@@ -104,13 +122,27 @@ export function selectedPlace(
       nearest = place;
       nearestKm = kilometers;
     }
-    if (kilometers <= placeRadiusKm(place) && place[4] > coveringScore) {
+    const radius = placeRadiusKm(place);
+    if (kilometers > radius) {
+      continue;
+    }
+    const major = isMajorPlace(place);
+    const ratio = kilometers / radius;
+    if (
+      !covering ||
+      (coveringMajor && !major) ||
+      (major === coveringMajor && ratio < coveringRatio)
+    ) {
       covering = place;
-      coveringScore = place[4];
+      coveringMajor = major;
+      coveringRatio = ratio;
     }
   }
 
-  return covering ?? nearest;
+  if (covering) {
+    return { place: covering, near: false };
+  }
+  return nearest ? { place: nearest, near: nearestKm > NEAR_LABEL_KM } : undefined;
 }
 
 export function searchPlaces(
@@ -134,7 +166,31 @@ export function searchPlaces(
     }
   }
 
-  return nameStarts.concat(nameContains).slice(0, limit);
+  const seen = new Set<string>();
+  const matches: OfflineMapPlace[] = [];
+  for (const place of nameStarts.concat(nameContains)) {
+    const key = `${place[0]}|${place[1]}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    matches.push(place);
+    if (matches.length === limit) {
+      break;
+    }
+  }
+  return matches;
+}
+
+export function matchLabel(
+  match: OfflineMapMatch | undefined,
+  stateNames: Array<[string, string]>,
+): string {
+  if (!match) {
+    return 'Selected map location';
+  }
+  const label = placeLabel(match.place, stateNames);
+  return match.near ? `Near ${label}` : label;
 }
 
 export function selectedDestination(
@@ -142,10 +198,27 @@ export function selectedDestination(
   stateNames: Array<[string, string]>,
   point: OfflineMapPoint,
 ): { label: string; latitude: number; longitude: number } {
-  const place = selectedPlace(places, point);
   return {
-    label: place ? placeLabel(place, stateNames) : 'Selected map location',
+    label: matchLabel(selectedMatch(places, point), stateNames),
     latitude: point.latitude,
     longitude: point.longitude,
+  };
+}
+
+// Tripoli, Iowa from search selects the exact default point and label rather than the
+// quantized Census point.
+export function searchSelection(
+  place: OfflineMapPlace,
+  stateNames: Array<[string, string]>,
+  defaultStart: { label: string; latitude: number; longitude: number },
+): { label: string; latitude: number; longitude: number } {
+  if (placeLabel(place, stateNames) === defaultStart.label) {
+    return { ...defaultStart };
+  }
+  const location = gridToLocation(place[2], place[3]);
+  return {
+    label: placeLabel(place, stateNames),
+    latitude: location.latitude,
+    longitude: location.longitude,
   };
 }
