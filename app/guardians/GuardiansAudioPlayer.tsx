@@ -15,18 +15,24 @@ function contentTypeForUrl(playbackUrl: string): 'hls' | 'dash' | 'auto' {
 }
 
 export function GuardiansAudioPlayer({
+  artist,
   onFailed,
   stream,
+  title,
 }: {
+  /** Lock-screen and notification artist line, such as the team name. */
+  artist: string;
   onFailed: () => void;
   stream: PlayableGuardiansStream;
+  /** Lock-screen and notification title line. */
+  title: string;
 }) {
   const player = useVideoPlayer(
     {
       contentType: contentTypeForUrl(stream.playbackUrl),
       metadata: {
-        artist: 'Cleveland Guardians',
-        title: 'Guardians game',
+        artist,
+        title,
       },
       uri: stream.playbackUrl,
       useCaching: false,

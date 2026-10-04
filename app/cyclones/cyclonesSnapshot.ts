@@ -20,6 +20,7 @@ export type CyclonesGame = {
   gameNumber: number;
   gamePk: number;
   isHome: boolean;
+  neutralSite: boolean;
   notes: string;
   officialDate: string;
   opponentName: string;
@@ -52,6 +53,7 @@ export type CyclonesSnapshot = {
   featuredGame?: CyclonesGame;
   records: Record<CyclonesSport, SportRecord>;
   statuses: Partial<Record<CyclonesSport, SportStatus>>;
+  unavailableSports?: CyclonesSport[];
   upcomingGames: CyclonesGame[];
 };
 
@@ -59,6 +61,9 @@ export type GameInterruption = 'canceled' | 'delayed' | 'postponed' | 'suspended
 export type RecapResult = 'LOSS' | 'TIE' | 'WIN';
 
 const EMPTY_RECORD: SportRecord = { losses: 0, ties: 0, wins: 0 };
+const VIDEO_LEAD_TIME_MS = 15 * 60_000;
+const CONFERENCE_TOURNAMENT_WAIT_MS = 14 * 86_400_000;
+const NCAA_CHAMPIONSHIP_NOTE = /\b(?:men|women)['’]?s basketball championship\b/;
 
 export function localDateString(date: Date): string {
   const year = date.getFullYear();
@@ -67,17 +72,44 @@ export function localDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function chicagoDateString(date: Date): string {
+function zonedDateString(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
-    timeZone: 'America/Chicago',
+    timeZone,
     year: 'numeric',
   }).formatToParts(date);
   const values = Object.fromEntries(
     parts.map((part) => [part.type, part.value]),
   );
   return `${values.year}-${values.month}-${values.day}`;
+}
+
+export function chicagoDateString(date: Date): string {
+  return zonedDateString(date, 'America/Chicago');
+}
+
+// ESPN stores a game without a start time at midnight Eastern of its calendar day.
+export function easternDateString(date: Date): string {
+  return zonedDateString(date, 'America/New_York');
+}
+
+export function localDateFromOfficialDate(officialDate: string): Date {
+  const [year, month, day] = officialDate.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// A game without a start time is an all-day game on its official date.
+function gameDay(game: CyclonesGame): string {
+  return game.timeValid
+    ? localDateString(new Date(game.gameDate))
+    : game.officialDate;
+}
+
+function gameSortTime(game: CyclonesGame): number {
+  return game.timeValid
+    ? new Date(game.gameDate).getTime()
+    : localDateFromOfficialDate(game.officialDate).getTime();
 }
 
 export function footballSeasonYear(now = new Date()): number {
@@ -131,6 +163,27 @@ export function isCompletedGame(game: CyclonesGame): boolean {
   return game.abstractState === 'Final' && !gameInterruption(game.status);
 }
 
+export function playbackBlocked(game: CyclonesGame): boolean {
+  const interruption = gameInterruption(game.status);
+  return (
+    interruption === 'canceled' ||
+    interruption === 'postponed' ||
+    interruption === 'suspended' ||
+    isCompletedGame(game)
+  );
+}
+
+export function isVideoWindowOpen(game: CyclonesGame, nowMs: number): boolean {
+  if (playbackBlocked(game)) {
+    return false;
+  }
+  return (
+    game.abstractState === 'Live' ||
+    (game.timeValid &&
+      nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS)
+  );
+}
+
 export function recapResult(game: CyclonesGame): RecapResult {
   if (game.cyclonesScore > game.opponentScore) {
     return 'WIN';
@@ -176,17 +229,8 @@ export function recordsFromGames(
   };
 }
 
-function isSameLocalDay(date: Date, other: Date): boolean {
-  return (
-    date.getFullYear() === other.getFullYear() &&
-    date.getMonth() === other.getMonth() &&
-    date.getDate() === other.getDate()
-  );
-}
-
 function compareGames(first: CyclonesGame, second: CyclonesGame): number {
-  const byStart =
-    new Date(first.gameDate).getTime() - new Date(second.gameDate).getTime();
+  const byStart = gameSortTime(first) - gameSortTime(second);
   return byStart !== 0 ? byStart : first.gameNumber - second.gameNumber;
 }
 
@@ -194,15 +238,34 @@ function notesHaystack(game: CyclonesGame): string {
   return `${game.notes} ${game.status} ${game.opponentName}`.toLowerCase();
 }
 
+function isConferenceTournament(game: CyclonesGame): boolean {
+  if (game.sport === 'football') {
+    return false;
+  }
+  const hay = notesHaystack(game);
+  return (
+    hay.includes('conference tournament') ||
+    hay.includes('big 12 tournament') ||
+    /\bbig 12 (?:(?:men|women)['’]?s )?(?:basketball )?championship\b/.test(hay)
+  );
+}
+
+// Only the College Football Playoff is a football knockout; any other bowl ends the season.
 function knockoutTournament(game: CyclonesGame): string | undefined {
   const hay = notesHaystack(game);
-  if (hay.includes('selection sunday') || hay.includes('pairing')) {
+  if (game.sport === 'football') {
+    return hay.includes('college football playoff') || /\bcfp\b/.test(hay)
+      ? 'College Football Playoff'
+      : undefined;
+  }
+  if (isConferenceTournament(game)) {
     return undefined;
   }
-  if (hay.includes('college football playoff') || /\bcfp\b/.test(hay)) {
-    return 'College Football Playoff';
-  }
-  if (hay.includes('ncaa tournament') || hay.includes('march madness')) {
+  if (
+    /\bncaa\b[^-]*\btournament\b/.test(hay) ||
+    hay.includes('march madness') ||
+    NCAA_CHAMPIONSHIP_NOTE.test(hay)
+  ) {
     return 'NCAA Tournament';
   }
   if (/\bwnit\b/.test(hay)) {
@@ -211,28 +274,28 @@ function knockoutTournament(game: CyclonesGame): string | undefined {
   if (/\bwbit\b/.test(hay)) {
     return 'WBIT';
   }
-  if (/\bnit\b/.test(hay)) {
+  if (game.seasonType === 3 && /\bnit\b/.test(hay)) {
     return 'NIT';
-  }
-  if (hay.includes('conference tournament') || hay.includes('big 12 tournament')) {
-    return 'conference tournament';
   }
   if (game.seasonType === 3 && hay.includes('tournament')) {
     return 'tournament';
   }
-  if (game.seasonType === 3 && hay.includes('bowl')) {
-    return 'bowl';
-  }
   return undefined;
 }
 
-function championshipTitle(game: CyclonesGame, tournament: string): boolean {
+// Only the final round counts as winning a tournament; ESPN writes "Championship" in every
+// NCAA round note.
+function isTitleGame(game: CyclonesGame, tournament: string): boolean {
   const hay = notesHaystack(game);
+  if (
+    hay.includes('national championship') ||
+    hay.includes('championship game')
+  ) {
+    return true;
+  }
   return (
-    hay.includes('championship') ||
-    hay.includes('national title') ||
-    hay.includes('title game') ||
-    tournament === 'College Football Playoff' && hay.includes('championship')
+    (tournament === 'NIT' || tournament === 'WNIT' || tournament === 'WBIT') &&
+    /\b(?:nit|wnit|wbit)\s*[-–—:]\s*(?:championship|final)\b/.test(hay)
   );
 }
 
@@ -244,15 +307,12 @@ export function sportStatus(
   const sportGames = games
     .filter((game) => game.sport === sport)
     .sort(compareGames);
-  const hasLiveOrFuture = sportGames.some((game) => {
-    if (game.abstractState === 'Live') {
-      return true;
-    }
-    return (
-      !isCompletedGame(game) &&
-      new Date(game.gameDate).getTime() >= now.getTime()
-    );
-  });
+  const today = localDateString(now);
+  const hasLiveOrFuture = sportGames.some(
+    (game) =>
+      game.abstractState === 'Live' ||
+      (!isCompletedGame(game) && gameDay(game) >= today),
+  );
   if (hasLiveOrFuture) {
     return undefined;
   }
@@ -275,11 +335,26 @@ export function sportStatus(
     };
   }
 
+  // A conference tournament result waits on the NCAA, NIT, and WBIT fields, which post the
+  // next game within days of Selection Sunday.
+  if (isConferenceTournament(last)) {
+    if (now.getTime() - gameSortTime(last) < CONFERENCE_TOURNAMENT_WAIT_MS) {
+      return {
+        kind: 'awaiting-next',
+        label: 'Awaiting next tournament game',
+      };
+    }
+    return {
+      kind: 'season-complete',
+      label: 'Season complete',
+    };
+  }
+
   const tournament = knockoutTournament(last);
   const result = recapResult(last);
   if (tournament) {
     if (result === 'WIN') {
-      if (championshipTitle(last, tournament)) {
+      if (isTitleGame(last, tournament)) {
         return {
           kind: 'won-tournament',
           label: `Won the ${tournament}`,
@@ -331,8 +406,9 @@ export function snapshotFromGames(
   const todayOfficial = localDateString(now);
   const remainingGames = games
     .filter((game) => {
-      const startsTodayOrLater =
-        new Date(game.gameDate).getTime() >= todayStart;
+      const startsTodayOrLater = game.timeValid
+        ? new Date(game.gameDate).getTime() >= todayStart
+        : game.officialDate >= todayOfficial;
       return (
         !isCompletedGame(game) &&
         (game.abstractState === 'Live' || startsTodayOrLater)
@@ -347,9 +423,7 @@ export function snapshotFromGames(
     .at(-1);
   const featuredGame =
     remainingGames.find((game) => game.abstractState === 'Live') ??
-    remainingGames.find((game) =>
-      isSameLocalDay(new Date(game.gameDate), now),
-    ) ??
+    remainingGames.find((game) => gameDay(game) === todayOfficial) ??
     todayRecap;
 
   return {
@@ -483,6 +557,7 @@ export function cyclonesGameFromEspnEvent(
   }
   const contest = competition as {
     competitors?: unknown[];
+    neutralSite?: unknown;
     notes?: unknown;
     status?: {
       type?: {
@@ -559,8 +634,11 @@ export function cyclonesGameFromEspnEvent(
     gameNumber: 1,
     gamePk,
     isHome: cyclones.homeAway === 'home',
+    neutralSite: contest.neutralSite === true,
     notes,
-    officialDate: chicagoDateString(new Date(raw.date)),
+    officialDate: timeValid
+      ? chicagoDateString(new Date(raw.date))
+      : easternDateString(new Date(raw.date)),
     opponentName: opponent.name,
     opponentScore: opponent.score,
     seasonType,
@@ -605,6 +683,7 @@ export function cyclonesGameFromHarness(
     gameNumber: game.gameNumber,
     gamePk: game.gamePk,
     isHome: game.isHome,
+    neutralSite: game.neutralSite === true,
     notes: typeof game.notes === 'string' ? game.notes : '',
     officialDate: game.officialDate,
     opponentName: game.opponentName,

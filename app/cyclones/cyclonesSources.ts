@@ -35,7 +35,7 @@ export type CyclonesGameIdentity = {
 };
 
 const MAX_GAME_DATES = 200;
-const MAX_REMOTE_STREAMS = 50;
+const MAX_REMOTE_STREAMS = 200;
 const MAX_TRUSTED_HOSTS = 10;
 const MAX_URL_LENGTH = 2048;
 const STREAM_FIELDS = new Set([
@@ -241,12 +241,22 @@ export function cyclonesStreamsFromDocument(
   }
 
   const streams = value.streams;
-  if (!Array.isArray(streams) || streams.length > MAX_REMOTE_STREAMS) {
+  if (!Array.isArray(streams)) {
     return undefined;
   }
 
+  // Guide strings are skipped. The pipeline appends new games, so an oversized list keeps
+  // its newest entries.
+  const candidates = streams
+    .filter(
+      (candidate) =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        !Array.isArray(candidate),
+    )
+    .slice(-MAX_REMOTE_STREAMS);
   const uniqueStreams = new Map<string, PlayableCyclonesStream>();
-  for (const candidate of streams) {
+  for (const candidate of candidates) {
     const playable = streamFromUnknown(candidate);
     if (playable) {
       const gameKey = `${playable.sport}:${playable.gameDates.join(',')}:${playable.gameNumbers.join(',')}`;

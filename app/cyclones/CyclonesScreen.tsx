@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
@@ -30,10 +30,11 @@ import {
 } from '../guardians/GuardiansTvRouteButton';
 import { WEB_AIRPLAY_INJECTION } from '../guardians/webAirPlayInjection';
 import {
-  WEB_MEDIA_DISCOVERY_INJECTION,
-  castableDiscoveredContentType,
+  newDiscoveryNonce,
   pagePlaybackHoldScript,
+  parseDiscoveredMediaMessage,
   preferDiscoveredMedia,
+  webMediaDiscoveryInjection,
 } from '../guardians/webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
@@ -56,6 +57,10 @@ import {
   cyclonesGameFromHarness,
   emptyRecords,
   gameInterruption,
+  isCompletedGame,
+  isVideoWindowOpen,
+  localDateFromOfficialDate,
+  playbackBlocked,
   recapResult,
   recordLabel,
   recordsFromGames,
@@ -69,19 +74,24 @@ import {
 } from './cyclonesSnapshot';
 import { fetchEspnCyclonesEvents } from './espnCyclones';
 import {
-  fetchLiveCyclonesScoreboard,
+  fetchLiveCyclonesSummary,
   liveBasketballScoreboardFromEspn,
   liveBasketballScoreboardFromHarness,
   liveFootballScoreboardFromEspn,
   liveFootballScoreboardFromHarness,
+  type LiveCyclonesSummary,
 } from './espnCyclonesScoreboard';
 
+const YOUTUBE_WRAPPER_URL = 'https://danner.app/';
 const REFRESH_INTERVAL_MS = 60_000;
 const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
-const VIDEO_LEAD_TIME_MS = 15 * 60_000;
+const DELAYED_TICK_INTERVAL_MS = 30_000;
+const LIVE_BOARD_FRESH_MS = 30_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
+const SNAPSHOT_ERROR_MESSAGE =
+  'Cyclones information is temporarily unavailable.';
 const REMOTE_CYCLONES_SOURCES_URL =
   'https://raw.githubusercontent.com/Danner36/Danner_App/main/cyclones_streams.json';
 const SOURCES_STORAGE_KEY = 'danner.cyclones.sources.v1';
@@ -94,6 +104,11 @@ const CYCLONES_SOURCES_URL =
 const ACCENT = '#AE192D';
 
 type PlayableStream = PlayableCyclonesStream;
+
+type LiveBoardStamp = {
+  appliedAt: number;
+  gamePk: number;
+};
 
 function recordFromUnknown(value: unknown): SportRecord | undefined {
   if (typeof value !== 'object' || value === null) {
@@ -132,14 +147,43 @@ function withHarnessScoreboard(
 function snapshotWithPreservedScoreboard(
   previous: CyclonesSnapshot | undefined,
   next: CyclonesSnapshot,
+  liveBoard: LiveBoardStamp | undefined,
 ): CyclonesSnapshot {
   const previousGame = previous?.featuredGame;
   const nextGame = next.featuredGame;
-  if (
-    !previousGame?.scoreboard ||
-    !nextGame ||
-    previousGame.gamePk !== nextGame.gamePk
-  ) {
+  if (!previousGame || !nextGame || previousGame.gamePk !== nextGame.gamePk) {
+    return next;
+  }
+
+  // The five-second summary reports Live and Final before the schedule does; a schedule
+  // that still lags never moves the card backwards.
+  const scheduleLags =
+    (isCompletedGame(previousGame) && nextGame.abstractState !== 'Final') ||
+    (previousGame.abstractState === 'Live' &&
+      nextGame.abstractState !== 'Live' &&
+      nextGame.abstractState !== 'Final');
+  // A fresh summary board carries down, distance, and possession that the schedule board
+  // lacks, and is never older than the schedule.
+  const keepLiveBoard =
+    previousGame.abstractState === 'Live' &&
+    nextGame.abstractState === 'Live' &&
+    previousGame.scoreboard !== undefined &&
+    liveBoard?.gamePk === nextGame.gamePk &&
+    Date.now() - liveBoard.appliedAt < LIVE_BOARD_FRESH_MS;
+  if (scheduleLags || keepLiveBoard) {
+    return {
+      ...next,
+      featuredGame: {
+        ...nextGame,
+        abstractState: previousGame.abstractState,
+        cyclonesScore: previousGame.cyclonesScore,
+        opponentScore: previousGame.opponentScore,
+        scoreboard: previousGame.scoreboard,
+        status: previousGame.status,
+      },
+    };
+  }
+  if (!previousGame.scoreboard) {
     return next;
   }
 
@@ -205,13 +249,20 @@ async function fetchCyclonesHarnessSnapshot(
   return snapshotFromGames(games, records);
 }
 
-async function fetchCyclonesSnapshot(): Promise<CyclonesSnapshot> {
+// A sport whose ESPN requests failed keeps its previous games, record, and status; `complete`
+// is false so the next minute tick retries the schedule.
+async function fetchCyclonesSnapshot(
+  previous: CyclonesSnapshot | undefined,
+): Promise<{ complete: boolean; snapshot: CyclonesSnapshot }> {
   if (__DEV__ && CYCLONES_TEST_URL) {
-    return fetchCyclonesHarnessSnapshot(CYCLONES_TEST_URL);
+    return {
+      complete: true,
+      snapshot: await fetchCyclonesHarnessSnapshot(CYCLONES_TEST_URL),
+    };
   }
 
   const now = new Date();
-  const events = await fetchEspnCyclonesEvents(now);
+  const { events, failedSports } = await fetchEspnCyclonesEvents(now);
   const games = events
     .map(({ event, sport }) => {
       const game = cyclonesGameFromEspnEvent(event, sport);
@@ -225,7 +276,34 @@ async function fetchCyclonesSnapshot(): Promise<CyclonesSnapshot> {
       return scoreboard ? { ...game, scoreboard } : game;
     })
     .filter((game): game is CyclonesGame => Boolean(game));
-  return snapshotFromGames(games, recordsFromGames(games), now);
+  const records = recordsFromGames(games);
+  const carriedGames: CyclonesGame[] = [];
+  const unavailableSports: CyclonesSport[] = [];
+  for (const sport of failedSports) {
+    if (!previous || previous.unavailableSports?.includes(sport)) {
+      unavailableSports.push(sport);
+      continue;
+    }
+    records[sport] = previous.records[sport];
+    for (const game of [previous.featuredGame, ...previous.upcomingGames]) {
+      if (game?.sport === sport) {
+        carriedGames.push(game);
+      }
+    }
+  }
+  const snapshot = snapshotFromGames([...games, ...carriedGames], records, now);
+  for (const sport of failedSports) {
+    const status = previous?.statuses[sport];
+    if (status) {
+      snapshot.statuses[sport] = status;
+    } else {
+      delete snapshot.statuses[sport];
+    }
+  }
+  if (unavailableSports.length > 0) {
+    snapshot.unavailableSports = unavailableSports;
+  }
+  return { complete: failedSports.length === 0, snapshot };
 }
 
 function sourcesUrlWithCacheBust(url: string): string {
@@ -274,62 +352,93 @@ async function readStreamsResponse(
 
 async function withSourcesTimeout<T>(
   run: (signal: AbortSignal) => Promise<T>,
+  outerSignal?: AbortSignal,
 ): Promise<T> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SOURCES_FETCH_TIMEOUT_MS);
+  const abort = () => controller.abort();
+  const timeout = setTimeout(abort, SOURCES_FETCH_TIMEOUT_MS);
+  outerSignal?.addEventListener('abort', abort);
+  if (outerSignal?.aborted) {
+    controller.abort();
+  }
   try {
     return await run(controller.signal);
   } finally {
     clearTimeout(timeout);
+    outerSignal?.removeEventListener('abort', abort);
   }
 }
 
-async function fetchCyclonesSources(options?: {
+type SourcesSession = {
+  commitSha?: Promise<string | undefined>;
+};
+
+type SourcesOptions = {
   allowStaleCache?: boolean;
   preferLive?: boolean;
-}): Promise<PlayableCyclonesStream[]> {
+  session?: SourcesSession;
+  signal?: AbortSignal;
+};
+
+async function fetchCyclonesSources(
+  options?: SourcesOptions,
+): Promise<PlayableCyclonesStream[]> {
   const persistRemote = CYCLONES_SOURCES_URL === REMOTE_CYCLONES_SOURCES_URL;
   const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
   const preferLive =
     options?.preferLive === true || options?.allowStaleCache === false;
+  const signal = options?.signal;
 
-  try {
-    const urls: string[] = [];
-    const workerStreams = liveStreamsUrl();
-    if (workerStreams && (preferLive || persistRemote)) {
-      urls.push(workerStreams);
+  const readStreams = async (url: string) => {
+    const documentText = await withSourcesTimeout(
+      (requestSignal) => readStreamsResponse(url, requestSignal),
+      signal,
+    );
+    const streams = cyclonesStreamsFromDocument(JSON.parse(documentText));
+    if (!streams) {
+      throw new Error('The approved video list is invalid.');
     }
-    if (preferLive && persistRemote) {
+    if (persistRemote) {
       try {
-        const sha = await withSourcesTimeout(fetchLatestCommitSha);
-        if (sha) {
-          urls.push(
-            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/cyclones_streams.json`,
-          );
-        }
+        await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
       } catch {}
     }
-    urls.push(CYCLONES_SOURCES_URL);
+    return streams;
+  };
 
+  try {
     let lastError: unknown;
-    for (const url of urls) {
+    const workerStreams = liveStreamsUrl();
+    if (workerStreams && (preferLive || persistRemote)) {
       try {
-        const documentText = await withSourcesTimeout((signal) =>
-          readStreamsResponse(url, signal),
-        );
-        const streams = cyclonesStreamsFromDocument(JSON.parse(documentText));
-        if (!streams) {
-          throw new Error('The approved video list is invalid.');
-        }
-        if (persistRemote) {
-          try {
-            await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
-          } catch {}
-        }
-        return streams;
-      } catch (urlError) {
-        lastError = urlError;
+        return await readStreams(workerStreams);
+      } catch (workerError) {
+        lastError = workerError;
       }
+    }
+    // The commit lookup costs one unauthenticated GitHub API call, so it runs only after the
+    // Worker fails and is shared by every fetch in the same Get video session.
+    if (preferLive && persistRemote) {
+      const session = options?.session ?? {};
+      session.commitSha ??= withSourcesTimeout(
+        fetchLatestCommitSha,
+        signal,
+      ).catch(() => undefined);
+      const sha = await session.commitSha;
+      if (sha) {
+        try {
+          return await readStreams(
+            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/cyclones_streams.json`,
+          );
+        } catch (shaError) {
+          lastError = shaError;
+        }
+      }
+    }
+    try {
+      return await readStreams(CYCLONES_SOURCES_URL);
+    } catch (mainError) {
+      lastError = mainError;
     }
     throw lastError ?? new Error('The approved video list is unavailable.');
   } catch {
@@ -346,14 +455,16 @@ async function fetchCyclonesSources(options?: {
 }
 
 function gameDateLabel(game: CyclonesGame): string {
-  const datePart = new Intl.DateTimeFormat(undefined, {
+  const dateFormat = new Intl.DateTimeFormat(undefined, {
     day: 'numeric',
     month: 'short',
     weekday: 'short',
-  }).format(new Date(game.gameDate));
+  });
   if (!game.timeValid) {
-    return `${datePart} · Time TBA`;
+    const officialDay = localDateFromOfficialDate(game.officialDate);
+    return `${dateFormat.format(officialDay)} · Time TBA`;
   }
+  const datePart = dateFormat.format(new Date(game.gameDate));
   const timePart = new Intl.DateTimeFormat(undefined, {
     hour: 'numeric',
     minute: '2-digit',
@@ -442,20 +553,40 @@ function IsolatedWebStreamPlayer({
   const holdPlaybackRef = useRef(holdPlayback === true);
   holdPlaybackRef.current = holdPlayback === true;
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
+  const [webViewKey, setWebViewKey] = useState(0);
   const isYoutube = stream.kind === 'youtube';
   const isWeb = stream.kind === 'web';
-  const allowedNavigationHosts = isYoutube
-    ? [...stream.allowedNavigationHosts, 'danner.app']
-    : stream.allowedNavigationHosts;
-  const allowNavigation = (url: string) =>
+  const allowPopup = (url: string) =>
+    url !== 'about:blank' &&
     isAllowedPlayerNavigation(
       url,
-      allowedNavigationHosts,
+      stream.allowedNavigationHosts,
       stream.allowInsecureHttp === true,
     );
+  const allowNavigation = (url: string) =>
+    (isYoutube && !promotedPopupUrl && url === YOUTUBE_WRAPPER_URL) ||
+    isAllowedPlayerNavigation(
+      url,
+      stream.allowedNavigationHosts,
+      stream.allowInsecureHttp === true,
+    );
+  const discoveryNonce = useMemo(
+    () => newDiscoveryNonce(),
+    [stream.playbackUrl, promotedPopupUrl],
+  );
   const webInjection = isWeb
-    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_MEDIA_DISCOVERY_INJECTION}`
+    ? `${WEB_AIRPLAY_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
     : undefined;
+  // Android lets a navigation through when the JS check does not answer within 250 ms and
+  // never asks about POST navigations, so a loaded page is checked again after the fact.
+  const returnToApprovedSource = (url: string) => {
+    if (!/^https?:/i.test(url) || allowNavigation(url)) {
+      return;
+    }
+    webViewRef.current?.stopLoading();
+    setPromotedPopupUrl(undefined);
+    setWebViewKey((key) => key + 1);
+  };
 
   useEffect(() => {
     setPromotedPopupUrl(undefined);
@@ -468,10 +599,11 @@ function IsolatedWebStreamPlayer({
     webViewRef.current?.injectJavaScript(
       pagePlaybackHoldScript(holdPlayback === true),
     );
-  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl]);
+  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl, webViewKey]);
 
   return (
     <WebView
+      key={webViewKey}
       ref={webViewRef}
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}
@@ -481,34 +613,18 @@ function IsolatedWebStreamPlayer({
       allowUniversalAccessFromFileURLs={false}
       cacheEnabled={false}
       geolocationEnabled={false}
-      incognito
+      incognito={Platform.OS === 'ios'}
       injectedJavaScript={webInjection}
       injectedJavaScriptBeforeContentLoaded={webInjection}
       onMessage={(event) => {
-        try {
-          const payload = JSON.parse(event.nativeEvent.data) as {
-            contentType?: unknown;
-            source?: unknown;
-            type?: unknown;
-            url?: unknown;
-          };
-          if (payload.type !== 'media-url' || typeof payload.url !== 'string') {
-            return;
-          }
-          const contentType = castableDiscoveredContentType(
-            payload.url,
-            payload.contentType,
-            stream.allowInsecureHttp === true,
-          );
-          if (!contentType) {
-            return;
-          }
-          const source =
-            payload.source === 'player' || payload.source === 'network'
-              ? payload.source
-              : undefined;
-          onMedia?.({ contentType, source, url: payload.url });
-        } catch {}
+        const media = parseDiscoveredMediaMessage(
+          event.nativeEvent.data,
+          discoveryNonce,
+          stream.allowInsecureHttp === true,
+        );
+        if (media) {
+          onMedia?.(media);
+        }
       }}
       javaScriptEnabled
       javaScriptCanOpenWindowsAutomatically={false}
@@ -519,11 +635,15 @@ function IsolatedWebStreamPlayer({
       onFileDownload={() => {}}
       onOpenWindow={(event) => {
         const targetUrl = event.nativeEvent.targetUrl;
-        if (targetUrl !== 'about:blank' && allowNavigation(targetUrl)) {
+        if (allowPopup(targetUrl)) {
           setPromotedPopupUrl(targetUrl);
         }
       }}
       onShouldStartLoadWithRequest={(request) => allowNavigation(request.url)}
+      onLoadStart={(event) => returnToApprovedSource(event.nativeEvent.url)}
+      onNavigationStateChange={(navigation) =>
+        returnToApprovedSource(navigation.url)
+      }
       onLoadEnd={() => {
         if (!isWeb) {
           return;
@@ -546,7 +666,7 @@ function IsolatedWebStreamPlayer({
           ? { uri: promotedPopupUrl }
           : isYoutube
             ? {
-                baseUrl: 'https://danner.app/',
+                baseUrl: YOUTUBE_WRAPPER_URL,
                 html: youtubePlayerHtml(stream.playbackUrl),
               }
             : { uri: stream.playbackUrl }
@@ -559,7 +679,12 @@ function IsolatedWebStreamPlayer({
   );
 }
 
-function StreamPlayer({
+function PlayerKeepAwake() {
+  useKeepAwake();
+  return null;
+}
+
+const StreamPlayer = memo(function StreamPlayer({
   stream,
   onClose,
 }: {
@@ -568,10 +693,10 @@ function StreamPlayer({
 }) {
   const [tvError, setTvError] = useState<string>();
   const insets = useSafeAreaInsets();
-  useKeepAwake();
   const [media, setMedia] = useState<DiscoveredMedia>();
   const [phoneHeld, setPhoneHeld] = useState(false);
   const closePlayer = () => {
+    setTvError(undefined);
     void stopHlsProxy();
     onClose();
   };
@@ -579,6 +704,7 @@ function StreamPlayer({
   useEffect(() => {
     setMedia(undefined);
     setPhoneHeld(false);
+    setTvError(undefined);
   }, [stream?.playbackUrl]);
 
   return (
@@ -588,6 +714,7 @@ function StreamPlayer({
       presentationStyle="fullScreen"
       visible={Boolean(stream)}
     >
+      {stream ? <PlayerKeepAwake /> : null}
       <View
         style={[
           styles.playerScreen,
@@ -653,7 +780,7 @@ function StreamPlayer({
       </View>
     </Modal>
   );
-}
+});
 
 function gameTimeLabel(gameDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -755,17 +882,17 @@ function FeaturedGameCard({
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
   const recap = isFinal ? recapResult(game) : undefined;
-  const blocksVideo =
-    interruption === 'canceled' ||
-    interruption === 'postponed' ||
-    interruption === 'suspended' ||
-    isFinal;
-  const videoWindowOpen =
-    !blocksVideo &&
-    game.timeValid &&
-    (isLive ||
-      nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
+  const blocksVideo = playbackBlocked(game);
+  const videoWindowOpen = isVideoWindowOpen(game, nowMs);
   const visibleStreams = videoWindowOpen ? streams : [];
+  const isListeningTo = (stream: PlayableStream) =>
+    listeningStream?.playbackUrl === stream.playbackUrl &&
+    listeningStream.kind === stream.kind;
+  const showStandaloneStop =
+    listeningStream !== undefined &&
+    !visibleStreams.some(
+      (stream) => stream.kind === 'direct' && isListeningTo(stream),
+    );
   const isTodayScheduled = !isLive && !interruption && !isFinal;
   const usesTodayCard = isTodayScheduled || isFinal;
   const badgeText = interruption
@@ -779,10 +906,12 @@ function FeaturedGameCard({
           : 'TODAY TIME TBA';
   const matchupText =
     isTodayScheduled || isFinal
-      ? game.isHome
-        ? `Home vs ${game.opponentName}`
-        : `Away v ${game.opponentName}`
-      : `Cyclones ${game.isHome ? 'vs' : 'at'} ${game.opponentName}`;
+      ? game.neutralSite
+        ? `vs ${game.opponentName}`
+        : game.isHome
+          ? `Home vs ${game.opponentName}`
+          : `Away v ${game.opponentName}`
+      : `Cyclones ${game.isHome || game.neutralSite ? 'vs' : 'at'} ${game.opponentName}`;
 
   return (
     <View
@@ -868,9 +997,7 @@ function FeaturedGameCard({
         <View style={styles.watchButtons}>
           {visibleStreams.map((stream, index) => {
             const streamKey = `${stream.sport}-${stream.gameDates.join(',')}-${stream.gameNumbers.join(',')}-${stream.url}`;
-            const isListening =
-              listeningStream?.playbackUrl === stream.playbackUrl &&
-              listeningStream.kind === stream.kind;
+            const isListening = isListeningTo(stream);
             return (
               <View key={streamKey} style={styles.watchPair}>
                 <Pressable
@@ -923,6 +1050,24 @@ function FeaturedGameCard({
               </View>
             );
           })}
+        </View>
+      ) : null}
+
+      {showStandaloneStop ? (
+        <View style={styles.watchButtons}>
+          <Pressable
+            accessibilityHint="Stops the game audio"
+            accessibilityLabel="Stop audio"
+            accessibilityRole="button"
+            onPress={onStopListen}
+            style={({ pressed }) => [
+              styles.watchButton,
+              styles.listeningButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.watchIcon}>■</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -993,6 +1138,9 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
 
   const snapshotRef = useRef<CyclonesSnapshot | undefined>(undefined);
   const lastSnapshotAtRef = useRef(0);
+  const liveBoardRef = useRef<LiveBoardStamp | undefined>(undefined);
+  const pendingStartGamePkRef = useRef<number | undefined>(undefined);
+  const getVideoAbortRef = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -1001,7 +1149,8 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
   const load = useCallback(
     async (
       showRefresh = false,
-      sourceOptions?: { allowStaleCache?: boolean; preferLive?: boolean },
+      sourceOptions?: SourcesOptions,
+      forceSnapshot = false,
     ) => {
       if (showRefresh) {
         setRefreshing(true);
@@ -1011,37 +1160,51 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
         const startedAt = Date.now();
         const refreshSnapshot =
           showRefresh ||
+          forceSnapshot ||
           snapshotRef.current === undefined ||
           startedAt - lastSnapshotAtRef.current >= SNAPSHOT_REFRESH_INTERVAL_MS;
-        const [fetchedSnapshot, nextStreams] = await Promise.all([
-          refreshSnapshot ? fetchCyclonesSnapshot() : undefined,
+        const [snapshotResult, streamsResult] = await Promise.allSettled([
+          refreshSnapshot
+            ? fetchCyclonesSnapshot(snapshotRef.current)
+            : Promise.resolve(undefined),
           fetchCyclonesSources(sourceOptions),
         ]);
-        if (fetchedSnapshot) {
-          lastSnapshotAtRef.current = startedAt;
+        const fetched =
+          snapshotResult.status === 'fulfilled'
+            ? snapshotResult.value
+            : undefined;
+        if (fetched) {
+          if (fetched.complete) {
+            lastSnapshotAtRef.current = startedAt;
+          }
           setSnapshot((current) =>
-            snapshotWithPreservedScoreboard(current, fetchedSnapshot),
+            snapshotWithPreservedScoreboard(
+              current,
+              fetched.snapshot,
+              liveBoardRef.current,
+            ),
           );
         }
-        setAuthorizedStreams((current) => {
-          const featured =
-            fetchedSnapshot?.featuredGame ??
-            snapshotRef.current?.featuredGame;
-          if (!featured) {
-            return nextStreams;
-          }
-          const incoming = authorizedStreamsForGame(nextStreams, featured);
-          const existing = authorizedStreamsForGame(current, featured);
-          return incoming.length === 0 && existing.length > 0
-            ? current
-            : nextStreams;
-        });
-        setError(undefined);
-      } catch (loadError) {
+        if (streamsResult.status === 'fulfilled') {
+          const nextStreams = streamsResult.value;
+          setAuthorizedStreams((current) => {
+            const featured =
+              fetched?.snapshot.featuredGame ??
+              snapshotRef.current?.featuredGame;
+            if (!featured) {
+              return nextStreams;
+            }
+            const incoming = authorizedStreamsForGame(nextStreams, featured);
+            const existing = authorizedStreamsForGame(current, featured);
+            return incoming.length === 0 && existing.length > 0
+              ? current
+              : nextStreams;
+          });
+        }
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Cyclones information is temporarily unavailable.',
+          snapshotResult.status === 'rejected'
+            ? SNAPSHOT_ERROR_MESSAGE
+            : undefined,
         );
       } finally {
         setRefreshing(false);
@@ -1052,34 +1215,97 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     void load();
-    const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        void load();
+      }
+    }, REFRESH_INTERVAL_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void load();
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
   }, [load]);
 
-  const featuredState = snapshot?.featuredGame?.abstractState;
-  const featuredStatus = snapshot?.featuredGame?.status;
-  const needsCountdownTick = useMemo(() => {
+  const featuredGame = snapshot?.featuredGame;
+  const featuredState = featuredGame?.abstractState;
+  const featuredStatus = featuredGame?.status;
+  const featuredGamePk = featuredGame?.gamePk;
+  const featuredSport = featuredGame?.sport;
+  // nowMs drives the countdown and the video window. A delayed game that has not started
+  // keeps a slow tick so the video window still opens on time.
+  const countdownTickMs = useMemo(() => {
     if (!featuredState || featuredState === 'Live' || featuredState === 'Final') {
-      return false;
+      return undefined;
     }
-    return !gameInterruption(featuredStatus ?? '');
+    const interruption = gameInterruption(featuredStatus ?? '');
+    if (!interruption) {
+      return COUNTDOWN_INTERVAL_MS;
+    }
+    return interruption === 'delayed' ? DELAYED_TICK_INTERVAL_MS : undefined;
   }, [featuredState, featuredStatus]);
 
   useEffect(() => {
     setNowMs(Date.now());
-    if (!needsCountdownTick) {
+    if (countdownTickMs === undefined) {
       return;
     }
-    const interval = setInterval(
-      () => setNowMs(Date.now()),
-      COUNTDOWN_INTERVAL_MS,
-    );
-    return () => clearInterval(interval);
-  }, [needsCountdownTick]);
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        setNowMs(Date.now());
+      }
+    }, countdownTickMs);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setNowMs(Date.now());
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
+  }, [countdownTickMs]);
+
+  const awaitingStart =
+    featuredGame !== undefined &&
+    featuredState !== 'Live' &&
+    featuredState !== 'Final';
+  const startReached =
+    featuredGame !== undefined &&
+    featuredGame.timeValid &&
+    nowMs >= new Date(featuredGame.gameDate).getTime();
+  // The summary poll also runs once the start time passes, so Live does not wait for the
+  // ten-minute schedule refresh.
+  const pollsLiveSummary =
+    featuredGame !== undefined &&
+    (featuredState === 'Live' ||
+      (awaitingStart && startReached && !playbackBlocked(featuredGame)));
 
   useEffect(() => {
-    const featured = snapshot?.featuredGame;
-    if (featured?.abstractState !== 'Live') {
+    if (!awaitingStart || featuredGamePk === undefined) {
+      pendingStartGamePkRef.current = undefined;
+      return;
+    }
+    if (!startReached) {
+      pendingStartGamePkRef.current = featuredGamePk;
+      return;
+    }
+    if (pendingStartGamePkRef.current === featuredGamePk) {
+      pendingStartGamePkRef.current = undefined;
+      void load(false, undefined, true);
+    }
+  }, [awaitingStart, featuredGamePk, load, startReached]);
+
+  useEffect(() => {
+    if (
+      !pollsLiveSummary ||
+      featuredGamePk === undefined ||
+      featuredSport === undefined
+    ) {
       return;
     }
     if (__DEV__ && CYCLONES_TEST_URL) {
@@ -1087,22 +1313,48 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
     }
 
     let cancelled = false;
-    const gamePk = featured.gamePk;
-    const sport = featured.sport;
+    let inFlight = false;
+    let latestRequest = 0;
+    let latestApplied = 0;
+    const gamePk = featuredGamePk;
+    const sport = featuredSport;
 
     const refreshScoreboard = async () => {
-      if (AppState.currentState !== 'active') {
+      if (AppState.currentState !== 'active' || inFlight) {
         return;
       }
 
-      const scoreboard = await fetchLiveCyclonesScoreboard(gamePk, sport);
-      if (cancelled || !scoreboard) {
+      inFlight = true;
+      const request = ++latestRequest;
+      let summary: LiveCyclonesSummary | undefined;
+      try {
+        summary = await fetchLiveCyclonesSummary(gamePk, sport);
+      } finally {
+        inFlight = false;
+      }
+      if (cancelled || !summary || request <= latestApplied) {
         return;
+      }
+      latestApplied = request;
+
+      const { completed, scoreboard, state } = summary;
+      const isFinal = completed || state === 'post';
+      if (state === 'in' && scoreboard) {
+        liveBoardRef.current = { appliedAt: Date.now(), gamePk };
       }
 
       setSnapshot((current) => {
         const currentFeatured = current?.featuredGame;
-        if (!currentFeatured || currentFeatured.gamePk !== gamePk) {
+        if (!current || !currentFeatured || currentFeatured.gamePk !== gamePk) {
+          return current;
+        }
+        const abstractState = isFinal
+          ? 'Final'
+          : state === 'in' ||
+              (state === undefined && currentFeatured.abstractState === 'Live')
+            ? 'Live'
+            : undefined;
+        if (!abstractState) {
           return current;
         }
 
@@ -1111,17 +1363,27 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
           ...current,
           featuredGame: {
             ...currentFeatured,
-            cyclonesScore: isHome
-              ? scoreboard.home.points
-              : scoreboard.away.points,
-            opponentScore: isHome
-              ? scoreboard.away.points
-              : scoreboard.home.points,
-            scoreboard,
-            status: scoreboard.status || currentFeatured.status,
+            abstractState,
+            cyclonesScore: scoreboard
+              ? isHome
+                ? scoreboard.home.points
+                : scoreboard.away.points
+              : currentFeatured.cyclonesScore,
+            opponentScore: scoreboard
+              ? isHome
+                ? scoreboard.away.points
+                : scoreboard.home.points
+              : currentFeatured.opponentScore,
+            scoreboard: scoreboard ?? currentFeatured.scoreboard,
+            status:
+              scoreboard?.status ||
+              (completed ? 'Final' : currentFeatured.status),
           },
         };
       });
+      if (isFinal) {
+        void load(false, undefined, true);
+      }
     };
 
     void refreshScoreboard();
@@ -1139,11 +1401,30 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
       clearInterval(interval);
       appState.remove();
     };
-  }, [
-    snapshot?.featuredGame?.abstractState,
-    snapshot?.featuredGame?.gamePk,
-    snapshot?.featuredGame?.sport,
-  ]);
+  }, [featuredGamePk, featuredSport, load, pollsLiveSummary]);
+
+  const featuredIdentity =
+    featuredGame !== undefined
+      ? `${featuredGame.sport}:${featuredGame.gamePk}`
+      : undefined;
+  const featuredPlaybackBlocked =
+    featuredGame !== undefined && playbackBlocked(featuredGame);
+
+  // Get video and Listen belong to one featured game.
+  useEffect(() => {
+    setGetVideoStatus('idle');
+    setListeningStream(undefined);
+    return () => {
+      getVideoAbortRef.current?.abort();
+      getVideoAbortRef.current = undefined;
+    };
+  }, [featuredIdentity]);
+
+  useEffect(() => {
+    if (featuredPlaybackBlocked) {
+      setListeningStream(undefined);
+    }
+  }, [featuredPlaybackBlocked]);
 
   const featuredStreams = useMemo(
     () =>
@@ -1185,12 +1466,27 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    getVideoAbortRef.current?.abort();
+    const controller = new AbortController();
+    getVideoAbortRef.current = controller;
+    const { signal } = controller;
+    const sourceOptions: SourcesOptions = {
+      allowStaleCache: false,
+      preferLive: true,
+      session: {},
+      signal,
+    };
     setGetVideoStatus('finding');
     try {
-      const fetchLiveSources = () =>
-        fetchCyclonesSources({ allowStaleCache: false, preferLive: true });
-      await requestGetVideo(game.sport);
-      const found = await pollForStream(game, fetchLiveSources);
+      await requestGetVideo(game.sport, signal);
+      const found = await pollForStream(
+        game,
+        () => fetchCyclonesSources(sourceOptions),
+        { signal },
+      );
+      if (signal.aborted) {
+        return;
+      }
       if (found) {
         setAuthorizedStreams((current) =>
           authorizedStreamsForGame(current, game).length > 0
@@ -1199,16 +1495,27 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
         );
         setGetVideoStatus('idle');
       }
-      await load(true, { allowStaleCache: false, preferLive: true });
+      await load(true, sourceOptions);
+      if (signal.aborted) {
+        return;
+      }
       if (found) {
         setGetVideoStatus('idle');
       } else {
         setGetVideoStatus('failed');
       }
     } catch {
-      setGetVideoStatus('failed');
+      if (!signal.aborted) {
+        setGetVideoStatus('failed');
+      }
+    } finally {
+      if (getVideoAbortRef.current === controller) {
+        getVideoAbortRef.current = undefined;
+      }
     }
   }, [getVideoStatus, load, snapshot?.featuredGame]);
+
+  const closeStream = useCallback(() => setSelectedStream(undefined), []);
 
   return (
     <View style={styles.screen}>
@@ -1253,7 +1560,9 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
               Cyclones
             </Text>
             {snapshot
-              ? CYCLONES_SPORTS.map((sport: CyclonesSport) => {
+              ? CYCLONES_SPORTS.filter(
+                  (sport) => !snapshot.unavailableSports?.includes(sport),
+                ).map((sport: CyclonesSport) => {
                   const record = snapshot.records[sport];
                   const status = snapshot.statuses[sport];
                   return (
@@ -1310,11 +1619,19 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
               nowMs={nowMs}
               onGetVideo={() => void handleGetVideo()}
               onListen={(stream) => {
+                setSelectedStream(undefined);
                 setAudioError(undefined);
                 setListeningStream(stream);
               }}
-              onSelectStream={setSelectedStream}
-              onStopListen={() => setListeningStream(undefined)}
+              onSelectStream={(stream) => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+                setSelectedStream(stream);
+              }}
+              onStopListen={() => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+              }}
               showGetVideo={isGetVideoAvailable()}
               sportStatusLabel={
                 snapshot.statuses[snapshot.featuredGame.sport]?.label
@@ -1347,7 +1664,8 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
                           ) : null}
                         </View>
                         <Text style={styles.gameOpponent}>
-                          {game.isHome ? 'vs' : 'at'} {game.opponentName}
+                          {game.isHome || game.neutralSite ? 'vs' : 'at'}{' '}
+                          {game.opponentName}
                         </Text>
                       </View>
                     </View>
@@ -1365,17 +1683,16 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
         </View>
       </ScrollView>
 
-      <StreamPlayer
-        onClose={() => setSelectedStream(undefined)}
-        stream={selectedStream}
-      />
+      <StreamPlayer onClose={closeStream} stream={selectedStream} />
       {listeningStream ? (
         <GuardiansAudioPlayer
+          artist="Iowa State Cyclones"
           onFailed={() => {
             setListeningStream(undefined);
             setAudioError('Audio could not start.');
           }}
           stream={listeningStream}
+          title="Cyclones game"
         />
       ) : null}
     </View>

@@ -15,6 +15,14 @@ export type LiveFootballScoreboard = {
   status: string;
 };
 
+export type EspnGameState = 'in' | 'post' | 'pre';
+
+export type LiveFootballSummary = {
+  completed: boolean;
+  scoreboard?: LiveFootballScoreboard;
+  state?: EspnGameState;
+};
+
 const SUMMARY_TIMEOUT_MS = 6_000;
 
 function finiteCount(value: unknown): number | undefined {
@@ -105,6 +113,7 @@ export function liveScoreboardFromEspn(
 
   const contest = competition as {
     competitors?: unknown[];
+    situation?: unknown;
     status?: {
       displayClock?: unknown;
       period?: unknown;
@@ -143,7 +152,9 @@ export function liveScoreboardFromEspn(
     typeof value === 'object' && value !== null
       ? (value as { situation?: unknown })
       : undefined;
-  const situation = document?.situation;
+  // The summary document carries situation at the top level; header and schedule
+  // competitions may carry it on the competition instead.
+  const situation = document?.situation ?? contest.situation;
   const situationRecord =
     typeof situation === 'object' && situation !== null
       ? (situation as {
@@ -227,9 +238,31 @@ export function liveScoreboardFromHarness(
   };
 }
 
-export async function fetchLiveFootballScoreboard(
+export function liveSummaryFromEspn(
+  value: unknown,
+): LiveFootballSummary | undefined {
+  const competition = competitionFromDocument(value);
+  if (typeof competition !== 'object' || competition === null) {
+    return undefined;
+  }
+
+  const statusType = (
+    competition as {
+      status?: { type?: { completed?: unknown; state?: unknown } };
+    }
+  ).status?.type;
+  const state = statusType?.state;
+  return {
+    completed: statusType?.completed === true,
+    scoreboard: liveScoreboardFromEspn(value),
+    state:
+      state === 'pre' || state === 'in' || state === 'post' ? state : undefined,
+  };
+}
+
+export async function fetchLiveFootballSummary(
   gamePk: number,
-): Promise<LiveFootballScoreboard | undefined> {
+): Promise<LiveFootballSummary | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
 
@@ -244,7 +277,7 @@ export async function fetchLiveFootballScoreboard(
     if (!response.ok) {
       return undefined;
     }
-    return liveScoreboardFromEspn(await response.json());
+    return liveSummaryFromEspn(await response.json());
   } catch {
     return undefined;
   } finally {

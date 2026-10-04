@@ -22,9 +22,35 @@ export type LiveScoreboard = {
   strikes: number;
 };
 
+export type MlbGameStatus = {
+  abstractGameState?: string;
+  codedGameState?: string;
+  detailedState?: string;
+  startTimeTBD?: boolean;
+  statusCode?: string;
+};
+
+/** One five-second poll of the featured game: MLB's status, score, and scoreboard. */
+export type LiveGameReport = {
+  awayScore?: number;
+  homeScore?: number;
+  scoreboard?: LiveScoreboard;
+  status: MlbGameStatus;
+};
+
+export type LiveGameIdentity = {
+  gameDate: string;
+  gamePk: number;
+  officialDate: string;
+};
+
 type ParsedLinescore = LiveScoreboard & {
   batterId?: number;
   pitcherId?: number;
+};
+
+type ParsedLiveGame = Omit<LiveGameReport, 'scoreboard'> & {
+  linescore?: ParsedLinescore;
 };
 
 const JERSEY_CACHE = new Map<number, string>();
@@ -247,9 +273,117 @@ export function liveScoreboardFromHarness(
   };
 }
 
-export async function fetchLiveScoreboard(
-  gamePk: number,
-): Promise<LiveScoreboard | undefined> {
+function statusFromMlb(value: unknown): MlbGameStatus {
+  if (typeof value !== 'object' || value === null) {
+    return {};
+  }
+  const status = value as Record<string, unknown>;
+  const text = (field: unknown) =>
+    typeof field === 'string' && field ? field : undefined;
+  return {
+    abstractGameState: text(status.abstractGameState),
+    codedGameState: text(status.codedGameState),
+    detailedState: text(status.detailedState),
+    startTimeTBD:
+      typeof status.startTimeTBD === 'boolean' ? status.startTimeTBD : undefined,
+    statusCode: text(status.statusCode),
+  };
+}
+
+function sideScore(value: unknown): number | undefined {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+  return finiteCount((value as { score?: unknown }).score);
+}
+
+/**
+ * Picks the featured game's entry from `schedule?gamePk=`. A postponed or suspended game
+ * appears under each date it was scheduled with the same gamePk, so the entry that shares
+ * the official date wins, then the one starting closest to the featured start time. MLB
+ * moves a postponed entry's official date to the makeup date, so an entry with another
+ * official date still answers when it is the only one.
+ */
+export function liveGameFromSchedule(
+  value: unknown,
+  game: LiveGameIdentity,
+): ParsedLiveGame | undefined {
+  if (typeof value !== 'object' || value === null) {
+    return undefined;
+  }
+  const dates = (value as { dates?: unknown }).dates;
+  if (!Array.isArray(dates)) {
+    return undefined;
+  }
+
+  const targetMs = new Date(game.gameDate).getTime();
+  let best: Record<string, unknown> | undefined;
+  let bestRank: [number, number] = [
+    Number.POSITIVE_INFINITY,
+    Number.POSITIVE_INFINITY,
+  ];
+  for (const date of dates) {
+    const games =
+      typeof date === 'object' && date !== null
+        ? (date as { games?: unknown }).games
+        : undefined;
+    if (!Array.isArray(games)) {
+      continue;
+    }
+    for (const entry of games) {
+      if (typeof entry !== 'object' || entry === null) {
+        continue;
+      }
+      const candidate = entry as Record<string, unknown>;
+      if (candidate.gamePk !== game.gamePk) {
+        continue;
+      }
+      const otherDate =
+        candidate.officialDate !== undefined &&
+        candidate.officialDate !== game.officialDate
+          ? 1
+          : 0;
+      const startMs =
+        typeof candidate.gameDate === 'string'
+          ? new Date(candidate.gameDate).getTime()
+          : Number.NaN;
+      const distance = Number.isNaN(startMs)
+        ? Number.MAX_VALUE
+        : Math.abs(startMs - targetMs);
+      if (
+        otherDate < bestRank[0] ||
+        (otherDate === bestRank[0] && distance <= bestRank[1])
+      ) {
+        best = candidate;
+        bestRank = [otherDate, distance];
+      }
+    }
+  }
+  if (!best) {
+    return undefined;
+  }
+  // Without MLB's game state the report cannot move the card between pre-game, Live, and
+  // Final, so it is dropped.
+  const status = statusFromMlb(best.status);
+  if (!status.abstractGameState) {
+    return undefined;
+  }
+
+  const teams =
+    typeof best.teams === 'object' && best.teams !== null
+      ? (best.teams as { away?: unknown; home?: unknown })
+      : {};
+  return {
+    awayScore: sideScore(teams.away),
+    homeScore: sideScore(teams.home),
+    linescore: liveScoreboardFromMlb(best.linescore),
+    status,
+  };
+}
+
+export async function fetchLiveGameReport(
+  game: LiveGameIdentity,
+): Promise<LiveGameReport | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -257,8 +391,12 @@ export async function fetchLiveScoreboard(
   );
 
   try {
+    const query = new URLSearchParams({
+      gamePk: String(game.gamePk),
+      hydrate: 'linescore',
+    });
     const response = await fetch(
-      `https://statsapi.mlb.com/api/v1/game/${gamePk}/linescore`,
+      `https://statsapi.mlb.com/api/v1/schedule?${query}`,
       {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
@@ -268,11 +406,18 @@ export async function fetchLiveScoreboard(
       return undefined;
     }
 
-    const parsed = liveScoreboardFromMlb(await response.json());
+    const parsed = liveGameFromSchedule(await response.json(), game);
     if (!parsed) {
       return undefined;
     }
-    return withJerseyNumbers(parsed);
+    return {
+      awayScore: parsed.awayScore,
+      homeScore: parsed.homeScore,
+      scoreboard: parsed.linescore
+        ? await withJerseyNumbers(parsed.linescore)
+        : undefined,
+      status: parsed.status,
+    };
   } catch {
     return undefined;
   } finally {

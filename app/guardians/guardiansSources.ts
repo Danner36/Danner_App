@@ -20,7 +20,7 @@ export type GuardiansGameIdentity = {
 };
 
 const MAX_GAME_DATES = 200;
-const MAX_REMOTE_STREAMS = 50;
+const MAX_REMOTE_STREAMS = 200;
 const MAX_TRUSTED_HOSTS = 10;
 const MAX_URL_LENGTH = 2048;
 const STREAM_FIELDS = new Set([
@@ -227,12 +227,22 @@ export function guardiansStreamsFromDocument(
   }
 
   const streams = value.streams;
-  if (!Array.isArray(streams) || streams.length > MAX_REMOTE_STREAMS) {
+  if (!Array.isArray(streams)) {
     return undefined;
   }
 
+  // Guide strings inside `streams` are not entries. The pipeline appends each new game, so
+  // past the cap the newest entries are the ones kept.
+  const entries = streams
+    .filter(
+      (candidate) =>
+        typeof candidate === 'object' &&
+        candidate !== null &&
+        !Array.isArray(candidate),
+    )
+    .slice(-MAX_REMOTE_STREAMS);
   const uniqueStreams = new Map<string, PlayableGuardiansStream>();
-  for (const candidate of streams) {
+  for (const candidate of entries) {
     const playable = streamFromUnknown(candidate);
     if (playable) {
       const gameKey = `${playable.gameDates.join(',')}:${playable.gameNumbers.join(',')}`;

@@ -19,46 +19,63 @@ export type EspnCyclonesEvent = {
   sport: CyclonesSport;
 };
 
+export type EspnCyclonesSchedule = {
+  events: EspnCyclonesEvent[];
+  failedSports: CyclonesSport[];
+};
+
 function seasonYearForSport(sport: CyclonesSport, now: Date): number {
   return sport === 'football'
     ? footballSeasonYear(now)
     : basketballSeasonYear(now);
 }
 
+// A sport with any failed season request is left out whole so its record and postseason
+// status are never computed from part of its schedule. Only a failure of every sport throws.
 export async function fetchEspnCyclonesEvents(
   now = new Date(),
-): Promise<EspnCyclonesEvent[]> {
+): Promise<EspnCyclonesSchedule> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SCHEDULE_TIMEOUT_MS);
+  const sports = Object.keys(SPORT_PATHS) as CyclonesSport[];
   const requests: Array<{ sport: CyclonesSport; seasonType: number }> = [];
-  for (const sport of Object.keys(SPORT_PATHS) as CyclonesSport[]) {
+  for (const sport of sports) {
     for (const seasonType of SCHEDULE_TYPES) {
       requests.push({ seasonType, sport });
     }
   }
 
   try {
-    const responses = await Promise.all(
-      requests.map(({ sport, seasonType }) =>
-        fetch(
+    const results = await Promise.allSettled(
+      requests.map(async ({ sport, seasonType }) => {
+        const response = await fetch(
           `https://site.api.espn.com/apis/site/v2/sports/${SPORT_PATHS[sport]}/teams/${CYCLONES_TEAM_ID}/schedule?season=${seasonYearForSport(sport, now)}&seasontype=${seasonType}`,
           { headers: { Accept: 'application/json' }, signal: controller.signal },
-        ),
-      ),
+        );
+        if (!response.ok) {
+          throw new Error('Cyclones information is temporarily unavailable.');
+        }
+        const document = (await response.json()) as { events?: unknown } | null;
+        return Array.isArray(document?.events) ? document.events : [];
+      }),
     );
-    if (responses.some((response) => !response.ok)) {
+    const failedSports = new Set<CyclonesSport>();
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        failedSports.add(requests[index].sport);
+      }
+    });
+    if (failedSports.size === sports.length) {
       throw new Error('Cyclones information is temporarily unavailable.');
     }
 
-    const documents = await Promise.all(
-      responses.map(
-        (response) => response.json() as Promise<{ events?: unknown[] }>,
-      ),
-    );
     const unique = new Map<string, EspnCyclonesEvent>();
-    documents.forEach((document, index) => {
+    results.forEach((result, index) => {
       const sport = requests[index].sport;
-      for (const event of document.events ?? []) {
+      if (result.status !== 'fulfilled' || failedSports.has(sport)) {
+        return;
+      }
+      for (const event of result.value) {
         if (typeof event !== 'object' || event === null) {
           continue;
         }
@@ -68,7 +85,7 @@ export async function fetchEspnCyclonesEvents(
         }
       }
     });
-    return [...unique.values()];
+    return { events: [...unique.values()], failedSports: [...failedSports] };
   } finally {
     clearTimeout(timeout);
   }

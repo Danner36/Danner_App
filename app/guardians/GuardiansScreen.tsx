@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
@@ -31,10 +31,11 @@ import {
 } from './guardiansGetVideo';
 import { WEB_AIRPLAY_INJECTION } from './webAirPlayInjection';
 import {
-  WEB_MEDIA_DISCOVERY_INJECTION,
-  castableDiscoveredContentType,
+  newDiscoveryNonce,
   pagePlaybackHoldScript,
+  parseDiscoveredMediaMessage,
   preferDiscoveredMedia,
+  webMediaDiscoveryInjection,
 } from './webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from './webPlayerUserAgent';
 import { GuardiansAudioPlayer } from './GuardiansAudioPlayer';
@@ -50,13 +51,17 @@ import {
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
 import { GuardiansScoreboard } from './GuardiansScoreboard';
 import {
-  fetchLiveScoreboard,
+  fetchLiveGameReport,
   liveScoreboardFromHarness,
   liveScoreboardFromMlb,
 } from './mlbLinescore';
 import {
   GUARDIANS_TEAM_ID,
+  abstractStateFromMlb,
+  blocksPlayback,
   gameInterruption,
+  gameKey,
+  gameWithLiveReport,
   guardiansGameFromHarness,
   guardiansGameFromMlb,
   localDateString,
@@ -69,14 +74,21 @@ import {
 
 const REFRESH_INTERVAL_MS = 60_000;
 // The schedule query spans the rest of the season with linescore/team hydrated, so
-// it is by far the heaviest call here. Live scores come from fetchLiveScoreboard instead, and
+// it is by far the heaviest call here. Live scores come from fetchLiveGameReport instead, and
 // the game list and season record barely move, so this does not need the 60s source cadence.
 const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
+// A delayed game shows no countdown, but the video window still opens on the clock.
+const DELAYED_TICK_INTERVAL_MS = 30_000;
 const VIDEO_LEAD_TIME_MS = 15 * 60_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
 const SNAPSHOT_FETCH_TIMEOUT_MS = 10_000;
+const SNAPSHOT_UNAVAILABLE_MESSAGE =
+  'Guardians information is temporarily unavailable.';
+// The YouTube wrapper HTML loads at this base URL. Only that exact document is allowed;
+// the host is not a navigation or popup target.
+const YOUTUBE_WRAPPER_URL = 'https://danner.app/';
 const REMOTE_GUARDIANS_SOURCES_URL =
   'https://raw.githubusercontent.com/Danner36/Danner_App/main/guardians_streams.json';
 const SOURCES_STORAGE_KEY = 'danner.guardians.sources.v2';
@@ -106,20 +118,44 @@ function withHarnessScoreboard(
   return { ...game, scoreboard };
 }
 
+/**
+ * The schedule snapshot carries no jersey numbers, and it can be older than the live poll
+ * already on screen. When a live poll for the same game was requested after this snapshot,
+ * the poll's state, score, and board stay; otherwise the snapshot wins and keeps the board's
+ * jersey numbers.
+ */
 function snapshotWithPreservedScoreboard(
   previous: GuardiansSnapshot | undefined,
   next: GuardiansSnapshot,
+  liveIsNewer: boolean,
 ): GuardiansSnapshot {
   const previousGame = previous?.featuredGame;
   const nextGame = next.featuredGame;
   if (
-    !previousGame?.scoreboard ||
+    !previousGame ||
     !nextGame ||
-    previousGame.gamePk !== nextGame.gamePk
+    gameKey(previousGame) !== gameKey(nextGame)
   ) {
     return next;
   }
 
+  if (liveIsNewer) {
+    return {
+      ...next,
+      featuredGame: {
+        ...nextGame,
+        abstractState: previousGame.abstractState,
+        guardiansScore: previousGame.guardiansScore,
+        opponentScore: previousGame.opponentScore,
+        scoreboard: previousGame.scoreboard ?? nextGame.scoreboard,
+        status: previousGame.status,
+      },
+    };
+  }
+
+  if (!previousGame.scoreboard) {
+    return next;
+  }
   const incoming = nextGame.scoreboard;
   const kept = previousGame.scoreboard;
   return {
@@ -323,53 +359,87 @@ async function withSourcesTimeout<T>(
   }
 }
 
-async function fetchGuardiansSources(options?: {
+/**
+ * One Get video session shares a single commit lookup, so its polls cost the unauthenticated
+ * GitHub API at most one request.
+ */
+type CommitShaLookup = { done: boolean; sha?: string };
+
+type SourceOptions = {
   allowStaleCache?: boolean;
+  commitSha?: CommitShaLookup;
   preferLive?: boolean;
-}): Promise<PlayableGuardiansStream[]> {
+};
+
+async function commitShaForSession(
+  lookup: CommitShaLookup | undefined,
+): Promise<string | undefined> {
+  if (lookup?.done) {
+    return lookup.sha;
+  }
+  let sha: string | undefined;
+  try {
+    sha = await withSourcesTimeout(fetchLatestCommitSha);
+  } catch {}
+  if (lookup) {
+    lookup.done = true;
+    lookup.sha = sha;
+  }
+  return sha;
+}
+
+async function fetchGuardiansSources(
+  options?: SourceOptions,
+): Promise<PlayableGuardiansStream[]> {
   const persistRemote =
     GUARDIANS_SOURCES_URL === REMOTE_GUARDIANS_SOURCES_URL;
   const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
   const preferLive = options?.preferLive === true || options?.allowStaleCache === false;
 
-  try {
-    const urls: string[] = [];
-    const workerStreams = liveStreamsUrl();
-    if (workerStreams && (preferLive || persistRemote)) {
-      urls.push(workerStreams);
+  const readStreams = async (url: string) => {
+    const documentText = await withSourcesTimeout((signal) =>
+      readStreamsResponse(url, signal),
+    );
+    const streams = guardiansStreamsFromDocument(JSON.parse(documentText));
+    if (!streams) {
+      throw new Error('The approved video list is invalid.');
     }
-    if (preferLive && persistRemote) {
+
+    if (persistRemote) {
       try {
-        const sha = await withSourcesTimeout(fetchLatestCommitSha);
-        if (sha) {
-          urls.push(
-            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/guardians_streams.json`,
-          );
-        }
+        await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
       } catch {}
     }
-    urls.push(GUARDIANS_SOURCES_URL);
+    return streams;
+  };
 
+  try {
     let lastError: unknown;
-    for (const url of urls) {
+    const workerStreams = liveStreamsUrl();
+    if (workerStreams && (preferLive || persistRemote)) {
       try {
-        const documentText = await withSourcesTimeout((signal) =>
-          readStreamsResponse(url, signal),
-        );
-        const streams = guardiansStreamsFromDocument(JSON.parse(documentText));
-        if (!streams) {
-          throw new Error('The approved video list is invalid.');
-        }
-
-        if (persistRemote) {
-          try {
-            await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
-          } catch {}
-        }
-        return streams;
+        return await readStreams(workerStreams);
       } catch (urlError) {
         lastError = urlError;
       }
+    }
+    // The commit lookup covers a Worker outage only, so it waits for the Worker to fail.
+    if (preferLive && persistRemote) {
+      const sha = await commitShaForSession(options?.commitSha);
+      if (sha) {
+        try {
+          return await readStreams(
+            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/guardians_streams.json`,
+          );
+        } catch (urlError) {
+          lastError = urlError;
+        }
+      }
+    }
+    try {
+      return await readStreams(GUARDIANS_SOURCES_URL);
+    } catch (urlError) {
+      lastError = urlError;
     }
     throw lastError ?? new Error('The approved video list is unavailable.');
   } catch (fetchError) {
@@ -389,11 +459,14 @@ async function fetchGuardiansSources(options?: {
 
 function gameDateLabel(game: GuardiansGame): string {
   if (!game.timeValid) {
+    // MLB's placeholder timestamp can fall on the previous day west of Eastern time, so an
+    // unset start shows its official date.
     const datePart = new Intl.DateTimeFormat(undefined, {
       day: 'numeric',
       month: 'short',
+      timeZone: 'UTC',
       weekday: 'short',
-    }).format(new Date(game.gameDate));
+    }).format(new Date(`${game.officialDate}T12:00:00Z`));
     return `${datePart} · Time TBA`;
   }
 
@@ -487,19 +560,43 @@ function IsolatedWebStreamPlayer({
   const holdPlaybackRef = useRef(holdPlayback === true);
   holdPlaybackRef.current = holdPlayback === true;
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
+  const [playerKey, setPlayerKey] = useState(0);
   const isYoutube = stream.kind === 'youtube';
   const isWeb = stream.kind === 'web';
-  const allowedNavigationHosts = isYoutube
-    ? [...stream.allowedNavigationHosts, 'danner.app']
-    : stream.allowedNavigationHosts;
-  const allowNavigation = (url: string) =>
+  const allowInsecureHttp = stream.allowInsecureHttp === true;
+  const allowPopup = (url: string) =>
+    url !== 'about:blank' &&
     isAllowedPlayerNavigation(
       url,
-      allowedNavigationHosts,
-      stream.allowInsecureHttp === true,
+      stream.allowedNavigationHosts,
+      allowInsecureHttp,
     );
+  const allowNavigation = (url: string) =>
+    (isYoutube && !promotedPopupUrl && url === YOUTUBE_WRAPPER_URL) ||
+    isAllowedPlayerNavigation(
+      url,
+      stream.allowedNavigationHosts,
+      allowInsecureHttp,
+    );
+  // Android answers onShouldStartLoadWithRequest on its own after 250 ms and never asks for
+  // POST navigations, so a page that loads anyway is stopped and the approved source is
+  // mounted again.
+  const returnToApprovedSource = (url: string) => {
+    if (!/^https?:/i.test(url) || allowNavigation(url)) {
+      return;
+    }
+    webViewRef.current?.stopLoading();
+    setPromotedPopupUrl(undefined);
+    setPlayerKey((current) => current + 1);
+  };
+  // Each document gets its own nonce, so only the injection this player installed can
+  // report media.
+  const discoveryNonce = useMemo(
+    () => newDiscoveryNonce(),
+    [stream.playbackUrl, promotedPopupUrl],
+  );
   const webInjection = isWeb
-    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_MEDIA_DISCOVERY_INJECTION}`
+    ? `${WEB_AIRPLAY_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
     : undefined;
 
   useEffect(() => {
@@ -513,10 +610,11 @@ function IsolatedWebStreamPlayer({
     webViewRef.current?.injectJavaScript(
       pagePlaybackHoldScript(holdPlayback === true),
     );
-  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl]);
+  }, [holdPlayback, isWeb, playerKey, promotedPopupUrl, stream.playbackUrl]);
 
   return (
     <WebView
+      key={playerKey}
       ref={webViewRef}
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}
@@ -526,45 +624,31 @@ function IsolatedWebStreamPlayer({
       allowUniversalAccessFromFileURLs={false}
       cacheEnabled={false}
       geolocationEnabled={false}
-      incognito
+      // Android implements incognito by clearing every WebView cookie in the app, which
+      // signs TV Location out of Google.
+      incognito={Platform.OS === 'ios'}
       injectedJavaScript={webInjection}
       injectedJavaScriptBeforeContentLoaded={webInjection}
       onMessage={(event) => {
-        try {
-          const payload = JSON.parse(event.nativeEvent.data) as {
-            contentType?: unknown;
-            source?: unknown;
-            type?: unknown;
-            url?: unknown;
-          };
-          if (payload.type !== 'media-url' || typeof payload.url !== 'string') {
-            return;
-          }
-          const contentType = castableDiscoveredContentType(
-            payload.url,
-            payload.contentType,
-            stream.allowInsecureHttp === true,
-          );
-          if (!contentType) {
-            return;
-          }
-          const source =
-            payload.source === 'player' || payload.source === 'network'
-              ? payload.source
-              : undefined;
-          onMedia?.({ contentType, source, url: payload.url });
-        } catch {}
+        const media = parseDiscoveredMediaMessage(
+          event.nativeEvent.data,
+          discoveryNonce,
+          allowInsecureHttp,
+        );
+        if (media) {
+          onMedia?.(media);
+        }
       }}
       javaScriptEnabled
       javaScriptCanOpenWindowsAutomatically={false}
       mediaPlaybackRequiresUserAction={false}
-      mixedContentMode={
-        stream.allowInsecureHttp === true ? 'always' : 'never'
-      }
+      mixedContentMode={allowInsecureHttp ? 'always' : 'never'}
       onFileDownload={() => {}}
+      onLoadStart={(event) => returnToApprovedSource(event.nativeEvent.url)}
+      onNavigationStateChange={(state) => returnToApprovedSource(state.url)}
       onOpenWindow={(event) => {
         const targetUrl = event.nativeEvent.targetUrl;
-        if (targetUrl !== 'about:blank' && allowNavigation(targetUrl)) {
+        if (allowPopup(targetUrl)) {
           setPromotedPopupUrl(targetUrl);
         }
       }}
@@ -593,7 +677,7 @@ function IsolatedWebStreamPlayer({
           ? { uri: promotedPopupUrl }
           : isYoutube
           ? {
-              baseUrl: 'https://danner.app/',
+              baseUrl: YOUTUBE_WRAPPER_URL,
               html: youtubePlayerHtml(stream.playbackUrl),
             }
           : { uri: stream.playbackUrl }
@@ -606,7 +690,15 @@ function IsolatedWebStreamPlayer({
   );
 }
 
-function StreamPlayer({
+// An embedded WebView leaves display power to the host app, so the phone would sleep
+// mid-game while the page is playing. Mounted only while a stream is open.
+function PlayerKeepAwake() {
+  useKeepAwake();
+  return null;
+}
+
+// Memoized so the pre-game countdown does not re-render an open player every second.
+const StreamPlayer = memo(function StreamPlayer({
   stream,
   onClose,
 }: {
@@ -615,12 +707,10 @@ function StreamPlayer({
 }) {
   const [tvError, setTvError] = useState<string>();
   const insets = useSafeAreaInsets();
-  // An embedded WebView leaves display power to the host app, so the phone would sleep
-  // mid-game while the page is playing.
-  useKeepAwake();
   const [media, setMedia] = useState<DiscoveredMedia>();
   const [phoneHeld, setPhoneHeld] = useState(false);
   const closePlayer = () => {
+    setTvError(undefined);
     void stopHlsProxy();
     onClose();
   };
@@ -628,6 +718,7 @@ function StreamPlayer({
   useEffect(() => {
     setMedia(undefined);
     setPhoneHeld(false);
+    setTvError(undefined);
   }, [stream?.playbackUrl]);
 
   return (
@@ -686,6 +777,7 @@ function StreamPlayer({
           </Text>
         ) : null}
 
+        {stream ? <PlayerKeepAwake /> : null}
         {stream ? (
           stream.kind === 'direct' ? (
             <DirectStreamPlayer stream={stream} />
@@ -702,7 +794,7 @@ function StreamPlayer({
       </View>
     </Modal>
   );
-}
+});
 
 function gameTimeLabel(gameDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -776,17 +868,30 @@ function FeaturedGameCard({
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
   const recap = isFinal ? recapResult(game) : undefined;
-  const blocksVideo =
-    interruption === 'canceled' ||
-    interruption === 'postponed' ||
-    interruption === 'suspended' ||
-    isFinal;
+  const blocksVideo = blocksPlayback(game);
+  // MLB keeps startTimeTBD on doubleheader game 2 after it starts, so Live opens video
+  // whether or not the start time is known.
   const videoWindowOpen =
     !blocksVideo &&
-    game.timeValid &&
     (isLive ||
-      nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
+      (game.timeValid &&
+        nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS));
   const visibleStreams = videoWindowOpen ? streams : [];
+  // Listen toggles exist only for direct streams on screen; any other playing audio gets a
+  // standalone Stop control.
+  const listeningShown =
+    listeningStream !== undefined &&
+    visibleStreams.some(
+      (stream) =>
+        stream.kind === 'direct' &&
+        stream.kind === listeningStream.kind &&
+        stream.playbackUrl === listeningStream.playbackUrl,
+    );
+  // The inning belongs to the scoreboard; a delay or suspension in the game status wins.
+  const statusText =
+    isLive && !interruption && game.scoreboard?.status
+      ? game.scoreboard.status
+      : game.status;
   const isTodayScheduled = !isLive && !interruption && !isFinal;
   const usesTodayCard = isTodayScheduled || isFinal;
   const badgeText = interruption
@@ -835,7 +940,7 @@ function FeaturedGameCard({
 
       <Text style={styles.liveMatchup}>{matchupText}</Text>
       {isLive || interruption || isFinal ? (
-        <Text style={styles.liveStatus}>{game.status}</Text>
+        <Text style={styles.liveStatus}>{statusText}</Text>
       ) : null}
 
       {interruption ? (
@@ -947,6 +1052,24 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
+      {listeningStream && !listeningShown ? (
+        <View style={styles.watchButtons}>
+          <Pressable
+            accessibilityHint="Stops the game audio"
+            accessibilityLabel="Stop audio"
+            accessibilityRole="button"
+            onPress={onStopListen}
+            style={({ pressed }) => [
+              styles.watchButton,
+              styles.listeningButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.watchIcon}>■</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {audioError ? (
         <Text accessibilityRole="alert" style={styles.noStreamText}>
           {audioError}
@@ -1013,7 +1136,13 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
   >('idle');
 
   const snapshotRef = useRef<GuardiansSnapshot | undefined>(undefined);
+  // Request start times of the newest applied snapshot and live poll, so a slower, older
+  // response never replaces a newer one.
   const lastSnapshotAtRef = useRef(0);
+  const liveReportAtRef = useRef(0);
+  const getVideoAbortRef = useRef<AbortController | undefined>(undefined);
+  const countdownGameRef = useRef<string | undefined>(undefined);
+  const finalRefreshGameRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -1022,7 +1151,8 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
   const load = useCallback(
     async (
       showRefresh = false,
-      sourceOptions?: { allowStaleCache?: boolean; preferLive?: boolean },
+      sourceOptions?: SourceOptions,
+      forceSnapshot = false,
     ) => {
       if (showRefresh) {
         setRefreshing(true);
@@ -1035,37 +1165,52 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         const startedAt = Date.now();
         const refreshSnapshot =
           showRefresh ||
+          forceSnapshot ||
           snapshotRef.current === undefined ||
           startedAt - lastSnapshotAtRef.current >= SNAPSHOT_REFRESH_INTERVAL_MS;
-        const [fetchedSnapshot, nextStreams] = await Promise.all([
-          refreshSnapshot ? fetchGuardiansSnapshot() : undefined,
+        // Settled separately, so a failed MLB call still applies a newly published stream and
+        // a failed stream list still refreshes the games.
+        const [snapshotResult, sourcesResult] = await Promise.allSettled([
+          refreshSnapshot
+            ? fetchGuardiansSnapshot()
+            : Promise.resolve(undefined),
           fetchGuardiansSources(sourceOptions),
         ]);
-        if (fetchedSnapshot) {
+        const fetchedSnapshot =
+          snapshotResult.status === 'fulfilled'
+            ? snapshotResult.value
+            : undefined;
+        if (fetchedSnapshot && startedAt >= lastSnapshotAtRef.current) {
           lastSnapshotAtRef.current = startedAt;
+          const liveIsNewer = liveReportAtRef.current > startedAt;
           setSnapshot((current) =>
-            snapshotWithPreservedScoreboard(current, fetchedSnapshot),
+            snapshotWithPreservedScoreboard(
+              current,
+              fetchedSnapshot,
+              liveIsNewer,
+            ),
           );
         }
-        setAuthorizedStreams((current) => {
-          const featured =
-            fetchedSnapshot?.featuredGame ??
-            snapshotRef.current?.featuredGame;
-          if (!featured) {
-            return nextStreams;
-          }
-          const incoming = authorizedStreamsForGame(nextStreams, featured);
-          const existing = authorizedStreamsForGame(current, featured);
-          return incoming.length === 0 && existing.length > 0
-            ? current
-            : nextStreams;
-        });
-        setError(undefined);
-      } catch (loadError) {
+        if (sourcesResult.status === 'fulfilled') {
+          const nextStreams = sourcesResult.value;
+          setAuthorizedStreams((current) => {
+            const featured =
+              fetchedSnapshot?.featuredGame ??
+              snapshotRef.current?.featuredGame;
+            if (!featured) {
+              return nextStreams;
+            }
+            const incoming = authorizedStreamsForGame(nextStreams, featured);
+            const existing = authorizedStreamsForGame(current, featured);
+            return incoming.length === 0 && existing.length > 0
+              ? current
+              : nextStreams;
+          });
+        }
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Guardians information is temporarily unavailable.',
+          snapshotResult.status === 'rejected'
+            ? SNAPSHOT_UNAVAILABLE_MESSAGE
+            : undefined,
         );
       } finally {
         setRefreshing(false);
@@ -1076,37 +1221,115 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     void load();
-    const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
+    // Listen and AirPlay keep iOS timers running in the background; the refresh waits until
+    // the app is active again and then runs at once.
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        void load();
+      }
+    }, REFRESH_INTERVAL_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void load();
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
   }, [load]);
 
+  const featured = snapshot?.featuredGame;
+  const featuredKey = featured ? gameKey(featured) : undefined;
+  const featuredState = featured?.abstractState;
+  const featuredStatus = featured?.status;
+  const featuredTimeValid = featured?.timeValid === true;
+  const featuredStartMs = featured
+    ? new Date(featured.gameDate).getTime()
+    : Number.NaN;
+  const featuredBlocksPlayback = featured ? blocksPlayback(featured) : false;
+
   // nowMs only drives the pre-game countdown and the video window opening. Once the game is
-  // live, final, or interrupted nothing on screen reads it, so ticking every second would
-  // re-render the whole screen for nothing across the longest stretch it is open.
-  const featuredState = snapshot?.featuredGame?.abstractState;
-  const featuredStatus = snapshot?.featuredGame?.status;
-  const needsCountdownTick = useMemo(() => {
-    if (!featuredState || featuredState === 'Live' || featuredState === 'Final') {
-      return false;
+  // live, final, or blocked nothing on screen reads it, so ticking every second would
+  // re-render the whole screen for nothing across the longest stretch it is open. A delayed
+  // start has no countdown but keeps a slow tick so its video window still opens.
+  const tickIntervalMs = useMemo(() => {
+    if (
+      !featuredState ||
+      featuredState === 'Live' ||
+      featuredState === 'Final' ||
+      !featuredTimeValid
+    ) {
+      return undefined;
     }
-    return !gameInterruption(featuredStatus ?? '');
-  }, [featuredState, featuredStatus]);
+    const interruption = gameInterruption(featuredStatus ?? '');
+    if (!interruption) {
+      return COUNTDOWN_INTERVAL_MS;
+    }
+    return interruption === 'delayed' ? DELAYED_TICK_INTERVAL_MS : undefined;
+  }, [featuredState, featuredStatus, featuredTimeValid]);
 
   useEffect(() => {
     setNowMs(Date.now());
-    if (!needsCountdownTick) {
+    if (!tickIntervalMs) {
       return;
     }
-    const interval = setInterval(
-      () => setNowMs(Date.now()),
-      COUNTDOWN_INTERVAL_MS,
-    );
-    return () => clearInterval(interval);
-  }, [needsCountdownTick]);
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        setNowMs(Date.now());
+      }
+    }, tickIntervalMs);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setNowMs(Date.now());
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
+  }, [tickIntervalMs]);
 
+  // Past the scheduled start while MLB still reports pre-game, including Warmup.
+  const awaitingFirstPitch =
+    featuredState === 'Preview' &&
+    featuredTimeValid &&
+    !featuredBlocksPlayback &&
+    nowMs >= featuredStartMs;
+
+  // The countdown reaching zero refreshes the games once instead of waiting for the
+  // ten-minute refresh. Opening the screen after the start time does not count.
   useEffect(() => {
-    const featured = snapshot?.featuredGame;
-    if (featured?.abstractState !== 'Live') {
+    if (!featuredKey || featuredState !== 'Preview' || !featuredTimeValid) {
+      return;
+    }
+    if (!awaitingFirstPitch) {
+      countdownGameRef.current = featuredKey;
+      return;
+    }
+    if (countdownGameRef.current === featuredKey) {
+      countdownGameRef.current = undefined;
+      void load(false, undefined, true);
+    }
+  }, [awaitingFirstPitch, featuredKey, featuredState, featuredTimeValid, load]);
+
+  const liveIdentity = useMemo(
+    () =>
+      featured
+        ? {
+            gameDate: featured.gameDate,
+            gamePk: featured.gamePk,
+            officialDate: featured.officialDate,
+          }
+        : undefined,
+    [featured?.gameDate, featured?.gamePk, featured?.officialDate],
+  );
+  const pollLiveState = featuredState === 'Live' || awaitingFirstPitch;
+
+  // Game state, score, and board every five seconds while the game is live or its first
+  // pitch is due. Final from this poll refreshes the games at once.
+  useEffect(() => {
+    if (!pollLiveState || !liveIdentity) {
       return;
     }
     if (__DEV__ && GUARDIANS_TEST_URL) {
@@ -1114,50 +1337,57 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
     }
 
     let cancelled = false;
-    const gamePk = featured.gamePk;
+    let inFlight = false;
+    const key = gameKey(liveIdentity);
 
-    const refreshScoreboard = async () => {
-      if (AppState.currentState !== 'active') {
+    const refreshLiveState = async () => {
+      // The board plus jersey lookups can outlast one interval; a request still running
+      // skips the tick.
+      if (inFlight || AppState.currentState !== 'active') {
         return;
       }
-
-      const scoreboard = await fetchLiveScoreboard(gamePk);
-      if (cancelled || !scoreboard) {
-        return;
-      }
-
-      setSnapshot((current) => {
-        const currentFeatured = current?.featuredGame;
-        if (!currentFeatured || currentFeatured.gamePk !== gamePk) {
-          return current;
+      inFlight = true;
+      const requestedAt = Date.now();
+      try {
+        const report = await fetchLiveGameReport(liveIdentity);
+        if (
+          cancelled ||
+          !report ||
+          requestedAt < liveReportAtRef.current
+        ) {
+          return;
         }
-
-        const isHome = currentFeatured.isHome;
-        return {
-          ...current,
-          featuredGame: {
-            ...currentFeatured,
-            guardiansScore: isHome
-              ? scoreboard.home.runs
-              : scoreboard.away.runs,
-            opponentScore: isHome
-              ? scoreboard.away.runs
-              : scoreboard.home.runs,
-            scoreboard,
-            status: scoreboard.status || currentFeatured.status,
-          },
-        };
-      });
+        liveReportAtRef.current = requestedAt;
+        setSnapshot((current) => {
+          const currentFeatured = current?.featuredGame;
+          if (!current || !currentFeatured || gameKey(currentFeatured) !== key) {
+            return current;
+          }
+          return {
+            ...current,
+            featuredGame: gameWithLiveReport(currentFeatured, report),
+          };
+        });
+        if (
+          abstractStateFromMlb(report.status) === 'Final' &&
+          finalRefreshGameRef.current !== key
+        ) {
+          finalRefreshGameRef.current = key;
+          void load(false, undefined, true);
+        }
+      } finally {
+        inFlight = false;
+      }
     };
 
-    void refreshScoreboard();
+    void refreshLiveState();
     const interval = setInterval(
-      () => void refreshScoreboard(),
+      () => void refreshLiveState(),
       LIVE_SCOREBOARD_INTERVAL_MS,
     );
     const appState = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        void refreshScoreboard();
+        void refreshLiveState();
       }
     });
     return () => {
@@ -1165,7 +1395,7 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
       clearInterval(interval);
       appState.remove();
     };
-  }, [snapshot?.featuredGame?.abstractState, snapshot?.featuredGame?.gamePk]);
+  }, [liveIdentity, load, pollLiveState]);
 
   const featuredStreams = useMemo(
     () =>
@@ -1183,6 +1413,24 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
       setGetVideoStatus('idle');
     }
   }, [featuredStreams.length, getVideoStatus]);
+
+  // A different featured game starts without the last game's Get video session or audio.
+  useEffect(() => {
+    getVideoAbortRef.current?.abort();
+    getVideoAbortRef.current = undefined;
+    setGetVideoStatus('idle');
+    setListeningStream(undefined);
+    setAudioError(undefined);
+  }, [featuredKey]);
+
+  // Final, canceled, postponed, and suspended games have no Listen control, so audio stops.
+  useEffect(() => {
+    if (featuredBlocksPlayback) {
+      setListeningStream(undefined);
+    }
+  }, [featuredBlocksPlayback]);
+
+  useEffect(() => () => getVideoAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') {
@@ -1210,12 +1458,26 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    getVideoAbortRef.current?.abort();
+    const controller = new AbortController();
+    getVideoAbortRef.current = controller;
+    // One commit lookup, made only if the Worker fails, serves the whole session.
+    const sourceOptions: SourceOptions = {
+      allowStaleCache: false,
+      commitSha: { done: false },
+      preferLive: true,
+    };
     setGetVideoStatus('finding');
     try {
-      const fetchLiveSources = () =>
-        fetchGuardiansSources({ allowStaleCache: false, preferLive: true });
       await requestGetVideo();
-      const found = await pollForStream(game, fetchLiveSources);
+      const found = await pollForStream(
+        game,
+        () => fetchGuardiansSources(sourceOptions),
+        { signal: controller.signal },
+      );
+      if (controller.signal.aborted) {
+        return;
+      }
       if (found) {
         setAuthorizedStreams((current) =>
           authorizedStreamsForGame(current, game).length > 0
@@ -1224,16 +1486,27 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         );
         setGetVideoStatus('idle');
       }
-      await load(true, { allowStaleCache: false, preferLive: true });
-      if (found) {
-        setGetVideoStatus('idle');
-      } else {
+      await load(true, sourceOptions);
+      if (controller.signal.aborted) {
+        return;
+      }
+      setGetVideoStatus(found ? 'idle' : 'failed');
+    } catch {
+      if (!controller.signal.aborted) {
         setGetVideoStatus('failed');
       }
-    } catch {
-      setGetVideoStatus('failed');
+    } finally {
+      if (getVideoAbortRef.current === controller) {
+        getVideoAbortRef.current = undefined;
+      }
     }
   }, [getVideoStatus, load, snapshot?.featuredGame]);
+
+  const closePlayer = useCallback(() => setSelectedStream(undefined), []);
+  const handleAudioFailed = useCallback(() => {
+    setListeningStream(undefined);
+    setAudioError('Audio could not start.');
+  }, []);
 
   return (
     <View style={styles.screen}>
@@ -1350,7 +1623,8 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
               {snapshot.upcomingGames.length ? (
                 <View style={styles.scheduleCard}>
                   {snapshot.upcomingGames.map((game, index) => (
-                    <View key={game.gamePk}>
+                    // A postponed game and its makeup share a gamePk.
+                    <View key={`${gameKey(game)}:${game.gameDate}`}>
                       {index > 0 ? <View style={styles.gameDivider} /> : null}
                       <View style={styles.gameRow}>
                         <View style={styles.gameDateColumn}>
@@ -1380,17 +1654,13 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
         </View>
       </ScrollView>
 
-      <StreamPlayer
-        onClose={() => setSelectedStream(undefined)}
-        stream={selectedStream}
-      />
+      <StreamPlayer onClose={closePlayer} stream={selectedStream} />
       {listeningStream ? (
         <GuardiansAudioPlayer
-          onFailed={() => {
-            setListeningStream(undefined);
-            setAudioError('Audio could not start.');
-          }}
+          artist="Cleveland Guardians"
+          onFailed={handleAudioFailed}
           stream={listeningStream}
+          title="Guardians game"
         />
       ) : null}
     </View>

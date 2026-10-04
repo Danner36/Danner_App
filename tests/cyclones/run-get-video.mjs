@@ -469,38 +469,16 @@ try {
     throw new Error(`${error.message}. ${await dumpLabels()}`);
   });
 
-  await sleep(4_000);
-  await waitFor('stream published', 20_000, () => sourcesReady());
-  await sleep(8_000);
-  const afterPublish = await dumpLabels();
-  const playAfterPublish =
-    afterPublish.includes('Play video') &&
-    !afterPublish.includes('Getting video');
-
-  if (playAfterPublish) {
-    passed = true;
-    process.stdout.write('Play appeared after publish without restart.\n');
-  } else {
-    await adb(['shell', 'am', 'force-stop', packageName]);
-    await adb(['shell', 'am', 'start', '-n', `${packageName}/.MainActivity`]);
-    await waitFor('Cyclones after restart', 90_000, async () => {
-      await tapIfPresent('Continue', hasText('Continue'));
-      await tapIfPresent('Reload', hasText('RELOAD\n(R, R)'));
-      return tapIfPresent('Cyclones', hasDesc('Iowa State Cyclones'));
-    });
-    await sleep(4_000);
-    const afterRestart = await dumpLabels();
-    const playAfterRestart = afterRestart.includes('Play video');
-    if (playAfterRestart && !playAfterPublish) {
-      process.stdout.write(
-        'Play appeared only after restart. In-session poll did not update the card.\n',
-      );
-    }
-    passed = playAfterRestart;
-    if (!passed) {
-      throw new Error(`Play never appeared. ${afterRestart}`);
-    }
-  }
+  await waitFor('stream published', 30_000, () => sourcesReady());
+  // The Get video poll must update the open card; an app restart does not count.
+  await waitFor('Play during the Get video session', 30_000, async () => {
+    const labels = await dumpLabels();
+    return labels.includes('Play video') && !labels.includes('Getting video');
+  }).catch(async (error) => {
+    throw new Error(`${error.message}. ${await dumpLabels()}`);
+  });
+  passed = true;
+  process.stdout.write('Play appeared after publish without restart.\n');
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
   process.exitCode = 1;

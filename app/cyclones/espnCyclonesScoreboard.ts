@@ -348,10 +348,41 @@ export function liveBasketballScoreboardFromHarness(
   };
 }
 
-export async function fetchLiveCyclonesScoreboard(
+export type LiveCyclonesSummary = {
+  completed: boolean;
+  scoreboard?: LiveBasketballScoreboard | LiveFootballScoreboard;
+  state?: 'in' | 'post' | 'pre';
+};
+
+export function liveCyclonesSummaryFromEspn(
+  value: unknown,
+  sport: CyclonesSport,
+): LiveCyclonesSummary {
+  const competition = competitionFromDocument(value);
+  const statusType =
+    typeof competition === 'object' && competition !== null
+      ? (
+          competition as {
+            status?: { type?: { completed?: unknown; state?: unknown } };
+          }
+        ).status?.type
+      : undefined;
+  const state = statusType?.state;
+  return {
+    completed: statusType?.completed === true,
+    scoreboard:
+      sport === 'football'
+        ? liveFootballScoreboardFromEspn(value)
+        : liveBasketballScoreboardFromEspn(value),
+    state:
+      state === 'in' || state === 'post' || state === 'pre' ? state : undefined,
+  };
+}
+
+export async function fetchLiveCyclonesSummary(
   gamePk: number,
   sport: CyclonesSport,
-): Promise<LiveBasketballScoreboard | LiveFootballScoreboard | undefined> {
+): Promise<LiveCyclonesSummary | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
 
@@ -366,10 +397,7 @@ export async function fetchLiveCyclonesScoreboard(
     if (!response.ok) {
       return undefined;
     }
-    const document = await response.json();
-    return sport === 'football'
-      ? liveFootballScoreboardFromEspn(document)
-      : liveBasketballScoreboardFromEspn(document);
+    return liveCyclonesSummaryFromEspn(await response.json(), sport);
   } catch {
     return undefined;
   } finally {

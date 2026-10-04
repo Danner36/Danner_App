@@ -445,45 +445,32 @@ try {
   });
 
   await waitFor('stream published', 20_000, () => sourcesReady());
-  await sleep(8_000);
-  const afterPublish = await dumpLabels();
-  const playAfterPublish =
-    afterPublish.includes('Play video') &&
-    !afterPublish.includes('Getting video');
+  // The Get video poll checks every five seconds, so Play must replace Getting video in the
+  // same session. An app restart is not a pass: the in-session update is what this checks.
+  let afterPublish = '';
+  const playAfterPublish = await waitFor(
+    'Play video after publish',
+    30_000,
+    async () => {
+      afterPublish = await dumpLabels();
+      return (
+        afterPublish.includes('Play video') &&
+        !afterPublish.includes('Getting video')
+      );
+    },
+  ).catch(() => false);
   await agentLog('E', 'run-get-video.mjs:after-publish', 'UI after stream published', {
     afterPublish,
     playAfterPublish,
     sourcesReady: true,
   });
-
-  if (playAfterPublish) {
-    passed = true;
-    process.stdout.write('Play appeared after publish without restart.\n');
-  } else {
-    await adb(['shell', 'am', 'force-stop', packageName]);
-    await adb(['shell', 'am', 'start', '-n', `${packageName}/.MainActivity`]);
-    await waitFor('Guardians after restart', 90_000, async () => {
-      await tapIfPresent('Continue', hasText('Continue'));
-      await tapIfPresent('Reload', hasText('RELOAD\n(R, R)'));
-      return tapIfPresent('Guardians', hasDesc('Cleveland Guardians'));
-    });
-    await sleep(4_000);
-    const afterRestart = await dumpLabels();
-    const playAfterRestart = afterRestart.includes('Play video');
-    await agentLog('E', 'run-get-video.mjs:after-restart', 'UI after force-stop', {
-      afterRestart,
-      playAfterRestart,
-    });
-    if (playAfterRestart && !playAfterPublish) {
-      process.stdout.write(
-        'Play appeared only after restart. In-session poll did not update the card.\n',
-      );
-    }
-    passed = playAfterRestart;
-    if (!passed) {
-      throw new Error(`Play never appeared. ${afterRestart}`);
-    }
+  if (!playAfterPublish) {
+    throw new Error(
+      `Play did not appear in the same session after publish. ${afterPublish}`,
+    );
   }
+  passed = true;
+  process.stdout.write('Play appeared after publish without restart.\n');
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : error}\n`);
   process.exitCode = 1;

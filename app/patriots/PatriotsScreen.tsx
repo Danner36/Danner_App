@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
@@ -30,16 +30,17 @@ import {
 } from '../guardians/GuardiansTvRouteButton';
 import { WEB_AIRPLAY_INJECTION } from '../guardians/webAirPlayInjection';
 import {
-  WEB_MEDIA_DISCOVERY_INJECTION,
-  castableDiscoveredContentType,
+  newDiscoveryNonce,
   pagePlaybackHoldScript,
+  parseDiscoveredMediaMessage,
   preferDiscoveredMedia,
+  webMediaDiscoveryInjection,
 } from '../guardians/webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
 import { fetchEspnPatriotsEvents } from './espnNfl';
 import {
-  fetchLiveFootballScoreboard,
+  fetchLiveFootballSummary,
   liveScoreboardFromEspn,
   liveScoreboardFromHarness,
 } from './espnScoreboard';
@@ -56,7 +57,11 @@ import {
   type PlayablePatriotsStream,
 } from './patriotsSources';
 import {
+  abstractStateFromEspn,
+  abstractStateRank,
+  gameDayLabel,
   gameInterruption,
+  gameWithLiveSummary,
   patriotsGameFromEspnEvent,
   patriotsGameFromHarness,
   recapResult,
@@ -68,13 +73,18 @@ import {
   type PatriotsSnapshot,
 } from './patriotsSnapshot';
 
+const YOUTUBE_WRAPPER_URL = 'https://danner.app/';
 const REFRESH_INTERVAL_MS = 60_000;
 // The schedule query spans the rest of the season, so it is by far the heaviest call here.
 // Live scores come from the summary endpoint instead, and the game list and season record
 // barely move, so this does not need the 60s source cadence.
 const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
+// A schedule refresh keeps the polled board only while the poll is this recent.
+const LIVE_BOARD_FRESH_MS = 30_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
+// A delayed game that has not started ticks this slowly so the video window still opens.
+const DELAYED_TICK_INTERVAL_MS = 30_000;
 const VIDEO_LEAD_TIME_MS = 15 * 60_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
 const REMOTE_PATRIOTS_SOURCES_URL =
@@ -88,6 +98,16 @@ const PATRIOTS_SOURCES_URL =
     : REMOTE_PATRIOTS_SOURCES_URL;
 
 type PlayableStream = PlayablePatriotsStream;
+
+type SourcesSession = {
+  latestCommitSha?: Promise<string | undefined>;
+};
+
+type SourcesOptions = {
+  allowStaleCache?: boolean;
+  preferLive?: boolean;
+  session?: SourcesSession;
+};
 
 function withHarnessScoreboard(
   game: PatriotsGame | undefined,
@@ -105,18 +125,41 @@ function withHarnessScoreboard(
   return { ...game, scoreboard };
 }
 
+// The five-second summary poll is fresher than the schedule document, and its board carries
+// down, distance, and possession. A schedule refresh never moves the same game backwards and
+// does not swap a recently polled board for the schedule's thinner one.
 function snapshotWithPreservedScoreboard(
   previous: PatriotsSnapshot | undefined,
   next: PatriotsSnapshot,
+  keepPolledBoard: boolean,
 ): PatriotsSnapshot {
   const previousGame = previous?.featuredGame;
   const nextGame = next.featuredGame;
-  if (
-    !previousGame?.scoreboard ||
-    !nextGame ||
-    previousGame.gamePk !== nextGame.gamePk
-  ) {
+  if (!previousGame || !nextGame || previousGame.gamePk !== nextGame.gamePk) {
     return next;
+  }
+
+  const previousRank = abstractStateRank(previousGame.abstractState);
+  const nextRank = abstractStateRank(nextGame.abstractState);
+  if (
+    previousRank > nextRank ||
+    (keepPolledBoard &&
+      previousRank === nextRank &&
+      nextGame.abstractState === 'Live' &&
+      previousGame.scoreboard)
+  ) {
+    return {
+      ...next,
+      featuredGame: {
+        ...nextGame,
+        abstractState: previousGame.abstractState,
+        opponentScore: previousGame.opponentScore,
+        patriotsScore: previousGame.patriotsScore,
+        scoreboard: previousGame.scoreboard,
+        scoresKnown: previousGame.scoresKnown,
+        status: previousGame.status,
+      },
+    };
   }
 
   return {
@@ -176,8 +219,8 @@ async function fetchPatriotsSnapshot(): Promise<PatriotsSnapshot> {
   const now = new Date();
   const events = await fetchEspnPatriotsEvents(now);
   const games = events
-    .map((event) => {
-      const game = patriotsGameFromEspnEvent(event);
+    .map(({ event, seasonType }) => {
+      const game = patriotsGameFromEspnEvent(event, seasonType);
       if (!game) {
         return undefined;
       }
@@ -247,54 +290,62 @@ async function withSourcesTimeout<T>(
   }
 }
 
-async function fetchPatriotsSources(options?: {
-  allowStaleCache?: boolean;
-  preferLive?: boolean;
-}): Promise<PlayablePatriotsStream[]> {
+// The unauthenticated commits API allows 60 calls an hour per address, so a Get video poll
+// looks the SHA up once, and only after the Worker list fails.
+function latestCommitSha(
+  session: SourcesSession | undefined,
+): Promise<string | undefined> {
+  const lookup =
+    session?.latestCommitSha ??
+    withSourcesTimeout(fetchLatestCommitSha).catch(() => undefined);
+  if (session) {
+    session.latestCommitSha = lookup;
+  }
+  return lookup;
+}
+
+async function fetchPatriotsSources(
+  options?: SourcesOptions,
+): Promise<PlayablePatriotsStream[]> {
   const persistRemote = PATRIOTS_SOURCES_URL === REMOTE_PATRIOTS_SOURCES_URL;
   const allowStaleCache = options?.allowStaleCache !== false && persistRemote;
   const preferLive =
     options?.preferLive === true || options?.allowStaleCache === false;
 
-  try {
-    const urls: string[] = [];
-    const workerStreams = liveStreamsUrl();
-    if (workerStreams && (preferLive || persistRemote)) {
-      urls.push(workerStreams);
+  const readSources = async (url: string) => {
+    const documentText = await withSourcesTimeout((signal) =>
+      readStreamsResponse(url, signal),
+    );
+    const streams = patriotsStreamsFromDocument(JSON.parse(documentText));
+    if (!streams) {
+      throw new Error('The approved video list is invalid.');
     }
-    if (preferLive && persistRemote) {
+    if (persistRemote) {
       try {
-        const sha = await withSourcesTimeout(fetchLatestCommitSha);
-        if (sha) {
-          urls.push(
-            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/patriots_streams.json`,
-          );
-        }
+        await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
       } catch {}
     }
-    urls.push(PATRIOTS_SOURCES_URL);
+    return streams;
+  };
 
-    let lastError: unknown;
-    for (const url of urls) {
+  try {
+    const workerStreams = liveStreamsUrl();
+    if (workerStreams && (preferLive || persistRemote)) {
       try {
-        const documentText = await withSourcesTimeout((signal) =>
-          readStreamsResponse(url, signal),
-        );
-        const streams = patriotsStreamsFromDocument(JSON.parse(documentText));
-        if (!streams) {
-          throw new Error('The approved video list is invalid.');
-        }
-        if (persistRemote) {
-          try {
-            await AsyncStorage.setItem(SOURCES_STORAGE_KEY, documentText);
-          } catch {}
-        }
-        return streams;
-      } catch (urlError) {
-        lastError = urlError;
+        return await readSources(workerStreams);
+      } catch {}
+    }
+    if (preferLive && persistRemote) {
+      const sha = await latestCommitSha(options?.session);
+      if (sha) {
+        try {
+          return await readSources(
+            `https://raw.githubusercontent.com/Danner36/Danner_App/${sha}/patriots_streams.json`,
+          );
+        } catch {}
       }
     }
-    throw lastError ?? new Error('The approved video list is unavailable.');
+    return await readSources(PATRIOTS_SOURCES_URL);
   } catch {
     if (allowStaleCache) {
       try {
@@ -309,11 +360,7 @@ async function fetchPatriotsSources(options?: {
 }
 
 function gameDateLabel(game: PatriotsGame): string {
-  const datePart = new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'short',
-    weekday: 'short',
-  }).format(new Date(game.gameDate));
+  const datePart = gameDayLabel(game);
   if (!game.timeValid) {
     return `${datePart} · Time TBA`;
   }
@@ -405,20 +452,42 @@ function IsolatedWebStreamPlayer({
   const holdPlaybackRef = useRef(holdPlayback === true);
   holdPlaybackRef.current = holdPlayback === true;
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
+  const [webViewKey, setWebViewKey] = useState(0);
   const isYoutube = stream.kind === 'youtube';
   const isWeb = stream.kind === 'web';
-  const allowedNavigationHosts = isYoutube
-    ? [...stream.allowedNavigationHosts, 'danner.app']
-    : stream.allowedNavigationHosts;
-  const allowNavigation = (url: string) =>
+  const allowPopup = (url: string) =>
+    url !== 'about:blank' &&
     isAllowedPlayerNavigation(
       url,
-      allowedNavigationHosts,
+      stream.allowedNavigationHosts,
       stream.allowInsecureHttp === true,
     );
+  const allowNavigation = (url: string) =>
+    (isYoutube && !promotedPopupUrl && url === YOUTUBE_WRAPPER_URL) ||
+    isAllowedPlayerNavigation(
+      url,
+      stream.allowedNavigationHosts,
+      stream.allowInsecureHttp === true,
+    );
+  // Each page load gets a fresh nonce, so only this page's injection can report media.
+  const discoveryNonce = useMemo(
+    () => newDiscoveryNonce(),
+    [stream.playbackUrl, promotedPopupUrl],
+  );
   const webInjection = isWeb
-    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_MEDIA_DISCOVERY_INJECTION}`
+    ? `${WEB_AIRPLAY_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
     : undefined;
+  // Android lets a navigation through when JS misses the 250 ms answer window and never asks
+  // about POST navigations, so the loaded URL is checked again after the fact and an
+  // unapproved page is replaced by a fresh WebView on the approved source.
+  const returnToApprovedSource = (url: string) => {
+    if (!/^https?:/i.test(url) || allowNavigation(url)) {
+      return;
+    }
+    webViewRef.current?.stopLoading();
+    setPromotedPopupUrl(undefined);
+    setWebViewKey((current) => current + 1);
+  };
 
   useEffect(() => {
     setPromotedPopupUrl(undefined);
@@ -431,10 +500,11 @@ function IsolatedWebStreamPlayer({
     webViewRef.current?.injectJavaScript(
       pagePlaybackHoldScript(holdPlayback === true),
     );
-  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl]);
+  }, [holdPlayback, isWeb, promotedPopupUrl, stream.playbackUrl, webViewKey]);
 
   return (
     <WebView
+      key={webViewKey}
       ref={webViewRef}
       allowFileAccess={false}
       allowFileAccessFromFileURLs={false}
@@ -444,35 +514,25 @@ function IsolatedWebStreamPlayer({
       allowUniversalAccessFromFileURLs={false}
       cacheEnabled={false}
       geolocationEnabled={false}
-      incognito
+      // Android incognito clears every WebView's cookies app-wide, which signs TV Location
+      // out of Google. The Android player relies on the cache and cookie props instead.
+      incognito={Platform.OS === 'ios'}
       injectedJavaScript={webInjection}
       injectedJavaScriptBeforeContentLoaded={webInjection}
+      onLoadStart={(event) => returnToApprovedSource(event.nativeEvent.url)}
       onMessage={(event) => {
-        try {
-          const payload = JSON.parse(event.nativeEvent.data) as {
-            contentType?: unknown;
-            source?: unknown;
-            type?: unknown;
-            url?: unknown;
-          };
-          if (payload.type !== 'media-url' || typeof payload.url !== 'string') {
-            return;
-          }
-          const contentType = castableDiscoveredContentType(
-            payload.url,
-            payload.contentType,
-            stream.allowInsecureHttp === true,
-          );
-          if (!contentType) {
-            return;
-          }
-          const source =
-            payload.source === 'player' || payload.source === 'network'
-              ? payload.source
-              : undefined;
-          onMedia?.({ contentType, source, url: payload.url });
-        } catch {}
+        const media = parseDiscoveredMediaMessage(
+          event.nativeEvent.data,
+          discoveryNonce,
+          stream.allowInsecureHttp === true,
+        );
+        if (media) {
+          onMedia?.(media);
+        }
       }}
+      onNavigationStateChange={(navigation) =>
+        returnToApprovedSource(navigation.url)
+      }
       javaScriptEnabled
       javaScriptCanOpenWindowsAutomatically={false}
       mediaPlaybackRequiresUserAction={false}
@@ -482,7 +542,7 @@ function IsolatedWebStreamPlayer({
       onFileDownload={() => {}}
       onOpenWindow={(event) => {
         const targetUrl = event.nativeEvent.targetUrl;
-        if (targetUrl !== 'about:blank' && allowNavigation(targetUrl)) {
+        if (allowPopup(targetUrl)) {
           setPromotedPopupUrl(targetUrl);
         }
       }}
@@ -509,7 +569,7 @@ function IsolatedWebStreamPlayer({
           ? { uri: promotedPopupUrl }
           : isYoutube
             ? {
-                baseUrl: 'https://danner.app/',
+                baseUrl: YOUTUBE_WRAPPER_URL,
                 html: youtubePlayerHtml(stream.playbackUrl),
               }
             : { uri: stream.playbackUrl }
@@ -522,7 +582,14 @@ function IsolatedWebStreamPlayer({
   );
 }
 
-function StreamPlayer({
+// An embedded WebView leaves display power to the host app, so the phone would sleep
+// mid-game while the page is playing. Mounted only while a player is open.
+function PlayerKeepAwake() {
+  useKeepAwake();
+  return null;
+}
+
+const StreamPlayer = memo(function StreamPlayer({
   stream,
   onClose,
 }: {
@@ -531,19 +598,18 @@ function StreamPlayer({
 }) {
   const [tvError, setTvError] = useState<string>();
   const insets = useSafeAreaInsets();
-  // An embedded WebView leaves display power to the host app, so the phone would sleep
-  // mid-game while the page is playing.
-  useKeepAwake();
   const [media, setMedia] = useState<DiscoveredMedia>();
   const [phoneHeld, setPhoneHeld] = useState(false);
   const closePlayer = () => {
     void stopHlsProxy();
+    setTvError(undefined);
     onClose();
   };
 
   useEffect(() => {
     setMedia(undefined);
     setPhoneHeld(false);
+    setTvError(undefined);
   }, [stream?.playbackUrl]);
 
   return (
@@ -602,6 +668,7 @@ function StreamPlayer({
           </Text>
         ) : null}
 
+        {stream ? <PlayerKeepAwake /> : null}
         {stream ? (
           stream.kind === 'direct' ? (
             <DirectStreamPlayer stream={stream} />
@@ -618,7 +685,7 @@ function StreamPlayer({
       </View>
     </Modal>
   );
-}
+});
 
 function gameTimeLabel(gameDate: string): string {
   return new Intl.DateTimeFormat(undefined, {
@@ -646,6 +713,16 @@ function countdownLabel(gameDate: string, nowMs: number): string {
     return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
   }
   return `${seconds}s`;
+}
+
+function gameBlocksVideo(game: PatriotsGame): boolean {
+  const interruption = gameInterruption(game.status);
+  return (
+    interruption === 'canceled' ||
+    interruption === 'postponed' ||
+    interruption === 'suspended' ||
+    (game.abstractState === 'Final' && !interruption)
+  );
 }
 
 function interruptionMessage(interruption: GameInterruption): string {
@@ -692,17 +769,19 @@ function FeaturedGameCard({
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
   const recap = isFinal ? recapResult(game) : undefined;
-  const blocksVideo =
-    interruption === 'canceled' ||
-    interruption === 'postponed' ||
-    interruption === 'suspended' ||
-    isFinal;
+  const blocksVideo = gameBlocksVideo(game);
   const videoWindowOpen =
     !blocksVideo &&
     game.timeValid &&
     (isLive ||
       nowMs >= new Date(game.gameDate).getTime() - VIDEO_LEAD_TIME_MS);
   const visibleStreams = videoWindowOpen ? streams : [];
+  const listeningControlShown = visibleStreams.some(
+    (stream) =>
+      stream.kind === 'direct' &&
+      listeningStream?.kind === stream.kind &&
+      listeningStream.playbackUrl === stream.playbackUrl,
+  );
   const isTodayScheduled = !isLive && !interruption && !isFinal;
   const usesTodayCard = isTodayScheduled || isFinal;
   const badgeText = interruption
@@ -863,6 +942,24 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
+      {listeningStream && !listeningControlShown ? (
+        <View style={styles.watchButtons}>
+          <Pressable
+            accessibilityHint="Stops the game audio"
+            accessibilityLabel="Stop audio"
+            accessibilityRole="button"
+            onPress={onStopListen}
+            style={({ pressed }) => [
+              styles.watchButton,
+              styles.listeningButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.watchIcon}>■</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {audioError ? (
         <Text accessibilityRole="alert" style={styles.noStreamText}>
           {audioError}
@@ -930,16 +1027,17 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
 
   const snapshotRef = useRef<PatriotsSnapshot | undefined>(undefined);
   const lastSnapshotAtRef = useRef(0);
+  const livePollAppliedAtRef = useRef(0);
+  const kickoffRefreshGamePkRef = useRef<number | undefined>(undefined);
+  const finalRefreshGamePkRef = useRef<number | undefined>(undefined);
+  const getVideoAbortRef = useRef<AbortController | undefined>(undefined);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
 
   const load = useCallback(
-    async (
-      showRefresh = false,
-      sourceOptions?: { allowStaleCache?: boolean; preferLive?: boolean },
-    ) => {
+    async (showRefresh = false, sourceOptions?: SourcesOptions) => {
       if (showRefresh) {
         setRefreshing(true);
       }
@@ -953,76 +1051,168 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
           showRefresh ||
           snapshotRef.current === undefined ||
           startedAt - lastSnapshotAtRef.current >= SNAPSHOT_REFRESH_INTERVAL_MS;
-        const [fetchedSnapshot, nextStreams] = await Promise.all([
-          refreshSnapshot ? fetchPatriotsSnapshot() : undefined,
+        // Each result applies on its own, so an ESPN failure does not discard a newly
+        // published stream and a sources failure does not discard the schedule.
+        const [snapshotResult, streamsResult] = await Promise.allSettled([
+          refreshSnapshot
+            ? fetchPatriotsSnapshot()
+            : Promise.resolve(undefined),
           fetchPatriotsSources(sourceOptions),
         ]);
+        const fetchedSnapshot =
+          snapshotResult.status === 'fulfilled'
+            ? snapshotResult.value
+            : undefined;
         if (fetchedSnapshot) {
           lastSnapshotAtRef.current = startedAt;
+          const keepPolledBoard =
+            Date.now() - livePollAppliedAtRef.current < LIVE_BOARD_FRESH_MS;
           setSnapshot((current) =>
-            snapshotWithPreservedScoreboard(current, fetchedSnapshot),
+            snapshotWithPreservedScoreboard(
+              current,
+              fetchedSnapshot,
+              keepPolledBoard,
+            ),
           );
         }
-        setAuthorizedStreams((current) => {
-          const featured =
-            fetchedSnapshot?.featuredGame ??
-            snapshotRef.current?.featuredGame;
-          if (!featured) {
-            return nextStreams;
-          }
-          const incoming = authorizedStreamsForGame(nextStreams, featured);
-          const existing = authorizedStreamsForGame(current, featured);
-          return incoming.length === 0 && existing.length > 0
-            ? current
-            : nextStreams;
-        });
-        setError(undefined);
-      } catch (loadError) {
+        if (streamsResult.status === 'fulfilled') {
+          const nextStreams = streamsResult.value;
+          setAuthorizedStreams((current) => {
+            const featured =
+              fetchedSnapshot?.featuredGame ??
+              snapshotRef.current?.featuredGame;
+            if (!featured) {
+              return nextStreams;
+            }
+            const incoming = authorizedStreamsForGame(nextStreams, featured);
+            const existing = authorizedStreamsForGame(current, featured);
+            return incoming.length === 0 && existing.length > 0
+              ? current
+              : nextStreams;
+          });
+        }
         setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Patriots information is temporarily unavailable.',
+          snapshotResult.status === 'rejected'
+            ? 'Patriots information is temporarily unavailable.'
+            : undefined,
         );
       } finally {
-        setRefreshing(false);
+        // Background loads leave a pull-to-refresh spinner to the load that started it.
+        if (showRefresh) {
+          setRefreshing(false);
+        }
       }
     },
     [],
   );
 
+  // Refetches the schedule now instead of waiting for the ten-minute refresh.
+  const refreshSnapshotNow = useCallback(() => {
+    lastSnapshotAtRef.current = 0;
+    void load();
+  }, [load]);
+
+  // Timers keep firing on iPhone while Listen or AirPlay holds the app in the background, so
+  // ticks wait for the foreground and catch up once when the app returns.
   useEffect(() => {
     void load();
-    const interval = setInterval(() => void load(), REFRESH_INTERVAL_MS);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        void load();
+      }
+    }, REFRESH_INTERVAL_MS);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void load();
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
   }, [load]);
 
   // nowMs only drives the pre-game countdown and the video window opening. Once the game is
-  // live, final, or interrupted nothing on screen reads it, so ticking every second would
+  // live, final, or stopped nothing on screen reads it, so ticking every second would
   // re-render the whole screen for nothing across the longest stretch it is open.
-  const featuredState = snapshot?.featuredGame?.abstractState;
-  const featuredStatus = snapshot?.featuredGame?.status;
-  const needsCountdownTick = useMemo(() => {
+  const featuredGame = snapshot?.featuredGame;
+  const featuredState = featuredGame?.abstractState;
+  const featuredStatus = featuredGame?.status;
+  const featuredGamePk = featuredGame?.gamePk;
+  const countdownTickMs = useMemo(() => {
     if (!featuredState || featuredState === 'Live' || featuredState === 'Final') {
-      return false;
+      return undefined;
     }
-    return !gameInterruption(featuredStatus ?? '');
+    const interruption = gameInterruption(featuredStatus ?? '');
+    if (!interruption) {
+      return COUNTDOWN_INTERVAL_MS;
+    }
+    return interruption === 'delayed' ? DELAYED_TICK_INTERVAL_MS : undefined;
   }, [featuredState, featuredStatus]);
 
   useEffect(() => {
     setNowMs(Date.now());
-    if (!needsCountdownTick) {
+    if (countdownTickMs === undefined) {
       return;
     }
-    const interval = setInterval(
-      () => setNowMs(Date.now()),
-      COUNTDOWN_INTERVAL_MS,
-    );
-    return () => clearInterval(interval);
-  }, [needsCountdownTick]);
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        setNowMs(Date.now());
+      }
+    }, countdownTickMs);
+    const appState = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setNowMs(Date.now());
+      }
+    });
+    return () => {
+      clearInterval(interval);
+      appState.remove();
+    };
+  }, [countdownTickMs]);
+
+  const featuredStartMs = featuredGame?.timeValid
+    ? new Date(featuredGame.gameDate).getTime()
+    : undefined;
+  const featuredReachedStart =
+    featuredStartMs !== undefined && nowMs >= featuredStartMs;
+  const featuredBlocksVideo = featuredGame
+    ? gameBlocksVideo(featuredGame)
+    : false;
+  // The summary poll runs through the live game and from the scheduled kickoff until ESPN
+  // reports it started, so Live and Final do not wait for the ten-minute schedule refresh.
+  const pollsLiveSummary =
+    featuredState === 'Live' ||
+    (featuredState !== undefined &&
+      abstractStateRank(featuredState) === 0 &&
+      featuredReachedStart &&
+      !featuredBlocksVideo);
 
   useEffect(() => {
-    const featured = snapshot?.featuredGame;
-    if (featured?.abstractState !== 'Live') {
+    if (
+      featuredGamePk === undefined ||
+      featuredStartMs === undefined ||
+      !featuredReachedStart ||
+      featuredState === undefined ||
+      abstractStateRank(featuredState) > 0 ||
+      kickoffRefreshGamePkRef.current === featuredGamePk
+    ) {
+      return;
+    }
+    kickoffRefreshGamePkRef.current = featuredGamePk;
+    if (lastSnapshotAtRef.current < featuredStartMs) {
+      refreshSnapshotNow();
+    }
+  }, [
+    featuredGamePk,
+    featuredReachedStart,
+    featuredStartMs,
+    featuredState,
+    refreshSnapshotNow,
+  ]);
+
+  useEffect(() => {
+    if (!pollsLiveSummary || featuredGamePk === undefined) {
       return;
     }
     if (__DEV__ && PATRIOTS_TEST_URL) {
@@ -1030,40 +1220,52 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
     }
 
     let cancelled = false;
-    const gamePk = featured.gamePk;
+    let inFlight = false;
+    let latestRequest = 0;
+    let appliedRequest = 0;
+    const gamePk = featuredGamePk;
 
     const refreshScoreboard = async () => {
-      if (AppState.currentState !== 'active') {
+      if (AppState.currentState !== 'active' || inFlight) {
         return;
       }
 
-      const scoreboard = await fetchLiveFootballScoreboard(gamePk);
-      if (cancelled || !scoreboard) {
-        return;
-      }
-
-      setSnapshot((current) => {
-        const currentFeatured = current?.featuredGame;
-        if (!currentFeatured || currentFeatured.gamePk !== gamePk) {
-          return current;
+      inFlight = true;
+      latestRequest += 1;
+      const request = latestRequest;
+      try {
+        const summary = await fetchLiveFootballSummary(gamePk);
+        if (cancelled || !summary || request < appliedRequest) {
+          return;
         }
+        appliedRequest = request;
+        livePollAppliedAtRef.current = Date.now();
 
-        const isHome = currentFeatured.isHome;
-        return {
-          ...current,
-          featuredGame: {
-            ...currentFeatured,
-            opponentScore: isHome
-              ? scoreboard.away.points
-              : scoreboard.home.points,
-            patriotsScore: isHome
-              ? scoreboard.home.points
-              : scoreboard.away.points,
-            scoreboard,
-            status: scoreboard.status || currentFeatured.status,
-          },
-        };
-      });
+        setSnapshot((current) => {
+          const currentFeatured = current?.featuredGame;
+          if (
+            !current ||
+            !currentFeatured ||
+            currentFeatured.gamePk !== gamePk
+          ) {
+            return current;
+          }
+          const nextFeatured = gameWithLiveSummary(currentFeatured, summary);
+          return nextFeatured === currentFeatured
+            ? current
+            : { ...current, featuredGame: nextFeatured };
+        });
+
+        if (
+          abstractStateFromEspn(summary.state, summary.completed) === 'Final' &&
+          finalRefreshGamePkRef.current !== gamePk
+        ) {
+          finalRefreshGamePkRef.current = gamePk;
+          refreshSnapshotNow();
+        }
+      } finally {
+        inFlight = false;
+      }
     };
 
     void refreshScoreboard();
@@ -1081,7 +1283,7 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
       clearInterval(interval);
       appState.remove();
     };
-  }, [snapshot?.featuredGame?.abstractState, snapshot?.featuredGame?.gamePk]);
+  }, [featuredGamePk, pollsLiveSummary, refreshSnapshotNow]);
 
   const featuredStreams = useMemo(
     () =>
@@ -1096,6 +1298,25 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
       setGetVideoStatus('idle');
     }
   }, [featuredStreams.length, getVideoStatus]);
+
+  // A different featured game ends the previous game's Get video poll and background audio.
+  const featuredGameKey = featuredGame
+    ? `${featuredGame.gamePk}:${featuredGame.officialDate}:${featuredGame.gameNumber}`
+    : undefined;
+  useEffect(() => {
+    getVideoAbortRef.current?.abort();
+    getVideoAbortRef.current = undefined;
+    setGetVideoStatus('idle');
+    setListeningStream(undefined);
+  }, [featuredGameKey]);
+
+  useEffect(() => {
+    if (featuredBlocksVideo) {
+      setListeningStream(undefined);
+    }
+  }, [featuredBlocksVideo]);
+
+  useEffect(() => () => getVideoAbortRef.current?.abort(), []);
 
   useEffect(() => {
     if (Platform.OS !== 'android') {
@@ -1123,12 +1344,23 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    getVideoAbortRef.current?.abort();
+    const controller = new AbortController();
+    getVideoAbortRef.current = controller;
+    const { signal } = controller;
     setGetVideoStatus('finding');
     try {
-      const fetchLiveSources = () =>
-        fetchPatriotsSources({ allowStaleCache: false, preferLive: true });
-      await requestGetVideo();
-      const found = await pollForStream(game, fetchLiveSources);
+      const sourceOptions: SourcesOptions = {
+        allowStaleCache: false,
+        preferLive: true,
+        session: {},
+      };
+      const fetchLiveSources = () => fetchPatriotsSources(sourceOptions);
+      await requestGetVideo(signal);
+      const found = await pollForStream(game, fetchLiveSources, { signal });
+      if (signal.aborted) {
+        return;
+      }
       if (found) {
         setAuthorizedStreams((current) =>
           authorizedStreamsForGame(current, game).length > 0
@@ -1137,16 +1369,27 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
         );
         setGetVideoStatus('idle');
       }
-      await load(true, { allowStaleCache: false, preferLive: true });
+      await load(true, sourceOptions);
+      if (signal.aborted) {
+        return;
+      }
       if (found) {
         setGetVideoStatus('idle');
       } else {
         setGetVideoStatus('failed');
       }
     } catch {
-      setGetVideoStatus('failed');
+      if (!signal.aborted) {
+        setGetVideoStatus('failed');
+      }
+    } finally {
+      if (getVideoAbortRef.current === controller) {
+        getVideoAbortRef.current = undefined;
+      }
     }
   }, [getVideoStatus, load, snapshot?.featuredGame]);
+
+  const closeStreamPlayer = useCallback(() => setSelectedStream(undefined), []);
 
   return (
     <View style={styles.screen}>
@@ -1236,11 +1479,19 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
               nowMs={nowMs}
               onGetVideo={() => void handleGetVideo()}
               onListen={(stream) => {
+                setSelectedStream(undefined);
                 setAudioError(undefined);
                 setListeningStream(stream);
               }}
-              onSelectStream={setSelectedStream}
-              onStopListen={() => setListeningStream(undefined)}
+              onSelectStream={(stream) => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+                setSelectedStream(stream);
+              }}
+              onStopListen={() => {
+                setListeningStream(undefined);
+                setAudioError(undefined);
+              }}
               showGetVideo={isGetVideoAvailable()}
               streams={featuredStreams}
             />
@@ -1285,17 +1536,16 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
         </View>
       </ScrollView>
 
-      <StreamPlayer
-        onClose={() => setSelectedStream(undefined)}
-        stream={selectedStream}
-      />
+      <StreamPlayer onClose={closeStreamPlayer} stream={selectedStream} />
       {listeningStream ? (
         <GuardiansAudioPlayer
+          artist="New England Patriots"
           onFailed={() => {
             setListeningStream(undefined);
             setAudioError('Audio could not start.');
           }}
           stream={listeningStream}
+          title="Patriots game"
         />
       ) : null}
     </View>

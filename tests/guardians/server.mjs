@@ -23,6 +23,29 @@ function easternDateString(date) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
+// The app shows a Final recap only on the phone's local official date. The harness host's
+// zone stands in for the phone's; run this server with TZ set to match a phone elsewhere.
+function localDateString(date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+// Every official date a scenario can assign at this moment. Near Eastern midnight a live
+// game that started 90 minutes ago, a game starting in 45 minutes, and the recap can each
+// fall on a different date, and the stream entry must match whichever one is featured.
+function scenarioOfficialDates(now) {
+  return [
+    ...new Set([
+      easternDateString(new Date(now - 90 * 60_000)),
+      easternDateString(new Date(now)),
+      easternDateString(new Date(now + 10 * 60_000)),
+      easternDateString(new Date(now + 45 * 60_000)),
+      localDateString(new Date(now)),
+    ]),
+  ];
+}
+
 function snapshotForScenario(fixture, scenario) {
   const now = Date.now();
   const futureGames = fixture.upcomingGames.map((game, index) => {
@@ -42,7 +65,7 @@ function snapshotForScenario(fixture, scenario) {
         abstractState: 'Final',
         gameDate: gameDate.toISOString(),
         guardiansScore: 7,
-        officialDate: easternDateString(new Date()),
+        officialDate: localDateString(new Date(now)),
         opponentScore: 3,
         scoreboard: undefined,
         status: 'Final',
@@ -124,11 +147,11 @@ const server = createServer(async (request, response) => {
   ) {
     try {
       const fixture = await readFixtureDocument();
-      const gameDate = easternDateString(new Date());
+      const gameDates = scenarioOfficialDates(Date.now());
       const advertisedHost = request.headers.host ?? `10.0.2.2:${port}`;
       const streams = fixture.streams.map((stream) => ({
         allowInsecureHttp: stream.allowInsecureHttp ?? false,
-        gameDates: [gameDate],
+        gameDates,
         gameNumbers: [1],
         kind: stream.kind,
         trustedHosts: stream.trustedHosts ?? [],

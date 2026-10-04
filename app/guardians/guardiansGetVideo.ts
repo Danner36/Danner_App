@@ -53,34 +53,52 @@ export async function requestGetVideo(): Promise<void> {
   if (response.status === 401) {
     throw new Error('Get video is not authorized.');
   }
+  // 429 means a run for this module is already in progress; its result is what the poll
+  // waits for.
   if (response.status === 429) {
-    throw new Error('Get video is already running. Try again in a few minutes.');
+    return;
   }
   if (!response.ok) {
     throw new Error('Get video could not start.');
   }
 }
 
-function wait(ms: number): Promise<void> {
+function wait(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, ms);
+    if (signal?.aborted) {
+      resolve();
+      return;
+    }
+    const finish = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    signal?.addEventListener('abort', finish);
   });
 }
 
+/** Resolves undefined when the deadline passes or `signal` aborts first. */
 export async function pollForStream(
   game: GuardiansGameIdentity,
   fetchSources: () => Promise<PlayableGuardiansStream[]>,
   options?: {
     intervalMs?: number;
+    signal?: AbortSignal;
     timeoutMs?: number;
   },
 ): Promise<PlayableGuardiansStream | undefined> {
   const intervalMs = options?.intervalMs ?? POLL_INTERVAL_MS;
   const timeoutMs = options?.timeoutMs ?? POLL_TIMEOUT_MS;
+  const signal = options?.signal;
   const deadline = Date.now() + timeoutMs;
 
-  while (true) {
+  while (!signal?.aborted) {
     const streams = await fetchSources();
+    if (signal?.aborted) {
+      return undefined;
+    }
     const match = authorizedStreamsForGame(streams, game)[0];
     if (match) {
       return match;
@@ -89,6 +107,7 @@ export async function pollForStream(
     if (remaining <= 0) {
       return undefined;
     }
-    await wait(Math.min(intervalMs, remaining));
+    await wait(Math.min(intervalMs, remaining), signal);
   }
+  return undefined;
 }

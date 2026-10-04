@@ -41,7 +41,7 @@ function snapshotForScenario(fixture, scenario) {
         ...fixture.liveGame,
         abstractState: 'Final',
         gameDate: gameDate.toISOString(),
-        officialDate: easternDateString(new Date()),
+        officialDate: easternDateString(gameDate),
         opponentScore: 17,
         patriotsScore: 24,
         scoreboard: undefined,
