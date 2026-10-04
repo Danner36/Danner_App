@@ -1,7 +1,7 @@
 Pod::Spec.new do |s|
   s.name           = 'DannerLiveHls'
   s.version        = '1.0.0'
-  s.summary        = 'Relays an approved page HLS stream from a local origin.'
+  s.summary        = 'Relays an approved page HLS, DASH, or MP4 stream from a local origin.'
   s.description    = 'Local Expo module used by Danner Apps to relay approved web playback to Cast and AirPlay targets.'
   s.license        = { :type => 'MIT' }
   s.author         = 'Danner Apps'
@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.static_framework = true
 
   s.dependency 'ExpoModulesCore'
-  s.frameworks = 'Network'
+  s.frameworks = 'Network', 'CryptoKit'
 
   s.source_files = '**/*.{h,m,mm,swift}'
   s.pod_target_xcconfig = {

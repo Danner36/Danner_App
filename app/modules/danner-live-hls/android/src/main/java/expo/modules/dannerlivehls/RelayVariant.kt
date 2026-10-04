@@ -1,15 +1,16 @@
 package expo.modules.dannerlivehls
 
-import java.net.URL
-
 /**
  * Which master-playlist variant the phone forwards. Selection matches
- * `src/relayVariant.ts`.
+ * `src/relayVariant.ts`. [url] is absolute; [streamInf] is the original
+ * `#EXT-X-STREAM-INF` line and [audioGroup] its `AUDIO` group, when present.
  */
 internal data class RelayVariant(
   val audioOnly: Boolean,
   val bandwidth: Long,
-  val url: URL,
+  val url: String,
+  val streamInf: String = "",
+  val audioGroup: String? = null,
 )
 
 internal const val RELAY_MAX_BANDWIDTH = 3_500_000L

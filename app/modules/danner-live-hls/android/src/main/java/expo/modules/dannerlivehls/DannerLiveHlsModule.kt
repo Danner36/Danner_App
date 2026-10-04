@@ -3,27 +3,27 @@ package expo.modules.dannerlivehls
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import kotlin.concurrent.thread
 
 class DannerLiveHlsModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DannerLiveHls")
 
-    AsyncFunction("startProxy") { sourceUrl: String, referer: String, promise: Promise ->
+    AsyncFunction("startProxy") { sourceUrl: String, referer: String, kind: String, promise: Promise ->
       val context = appContext.reactContext ?: appContext.currentActivity
       if (context == null) {
-        promise.reject("ERR_NO_CONTEXT", "The app is not running.", null)
+        promise.reject(ERR_RELAY, "The app is not running.", null)
         return@AsyncFunction
       }
-      try {
-        val (origin, port) = HlsProxyRuntime.start(context, sourceUrl, referer)
-        promise.resolve(
-          mapOf(
-            "origin" to origin,
-            "port" to port,
-          ),
-        )
-      } catch (error: Exception) {
-        promise.reject("ERR_PROXY", error.message, error)
+      // The source probe is network I/O, so it runs off the shared module queue.
+      thread(name = "danner-relay-start", isDaemon = true) {
+        try {
+          promise.resolve(HlsProxyRuntime.start(context, sourceUrl, referer, kind).toMap())
+        } catch (error: RelayStartException) {
+          promise.reject(error.code, error.message, error)
+        } catch (error: Throwable) {
+          promise.reject(ERR_RELAY, error.message ?: "The relay did not start.", error)
+        }
       }
     }
 
@@ -32,18 +32,7 @@ class DannerLiveHlsModule : Module() {
     }
 
     AsyncFunction("getProxyStatus") {
-      val origin = HlsProxyRuntime.origin
-      val port = HlsProxyRuntime.port
-      val status = mutableMapOf<String, Any>(
-        "running" to HlsProxyRuntime.running,
-      )
-      if (origin != null) {
-        status["origin"] = origin
-      }
-      if (port != 0) {
-        status["port"] = port
-      }
-      status
+      HlsProxyRuntime.status()
     }
 
     OnDestroy {

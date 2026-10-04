@@ -1,20 +1,31 @@
 import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
+import {
+  liveRelayFromNative,
+  relayStartFailureForCode,
+  relayStatusFromNative,
+  type RelayMediaKind,
+  type RelayStartResult,
+  type RelayStatus,
+} from './liveRelay';
 
-export type LiveHlsOrigin = {
-  origin: string;
-  port: number;
-};
-
-type LiveHlsStatus = {
-  origin?: string;
-  port?: number;
-  running: boolean;
-};
+export {
+  relayKindForContentType,
+  relayStillServing,
+  type LiveRelay,
+  type RelayMediaKind,
+  type RelayStartFailure,
+  type RelayStartResult,
+  type RelayStatus,
+} from './liveRelay';
 
 type DannerLiveHlsModule = {
-  getProxyStatus: () => Promise<LiveHlsStatus>;
-  startProxy: (sourceUrl: string, referer: string) => Promise<LiveHlsOrigin>;
+  getProxyStatus: () => Promise<unknown>;
+  startProxy: (
+    sourceUrl: string,
+    referer: string,
+    kind: RelayMediaKind,
+  ) => Promise<unknown>;
   stopProxy: () => Promise<void>;
 };
 
@@ -26,40 +37,42 @@ export function isLiveHlsAvailable(): boolean {
   return nativeModule != null && Platform.OS !== 'web';
 }
 
-export function liveHlsPlaylistUrl(origin: string): string {
-  return `${origin.replace(/\/$/, '')}/live.m3u8`;
-}
-
 /**
- * Publishes an approved page's own HLS stream from a phone origin. The provider serves its
- * playlists only to the player page, and a Cast receiver cannot be told to send that
- * `Referer`, so the phone relays the playlists and passes the media through unchanged.
+ * Publishes an approved page's own HLS, DASH, or MP4 stream from a phone origin. The
+ * provider serves its media only to the player page, and a Cast receiver cannot be told
+ * to send that `Referer`, so the phone relays the manifests and passes the media through
+ * unchanged. Every start is a new relay session with its own token; the previous
+ * session's URLs stop answering.
  *
  * On Android this also starts a foreground service holding a wake lock and a Wi-Fi lock, so
  * the receiver keeps reaching the phone after the screen goes off.
  */
-export async function startHlsProxy(
+export async function startLiveRelay(
   sourceUrl: string,
   referer: string,
-): Promise<LiveHlsOrigin | undefined> {
+  kind: RelayMediaKind,
+): Promise<RelayStartResult> {
   if (!nativeModule?.startProxy) {
-    return undefined;
+    return { ok: false, reason: 'unsupported' };
   }
 
+  let raw: unknown;
   try {
-    const result = await nativeModule.startProxy(sourceUrl, referer);
-    if (
-      typeof result?.origin !== 'string' ||
-      result.origin.length === 0 ||
-      typeof result.port !== 'number' ||
-      !Number.isFinite(result.port)
-    ) {
-      return undefined;
-    }
-    return { origin: result.origin, port: result.port };
-  } catch {
-    return undefined;
+    raw = await nativeModule.startProxy(sourceUrl, referer, kind);
+  } catch (error) {
+    const code =
+      error && typeof error === 'object'
+        ? (error as { code?: unknown }).code
+        : undefined;
+    return { ok: false, reason: relayStartFailureForCode(code) };
   }
+
+  const result = liveRelayFromNative(raw, kind);
+  if (!result.ok) {
+    // The native relay started, but on an origin or route the receiver cannot use.
+    await stopHlsProxy();
+  }
+  return result;
 }
 
 export async function stopHlsProxy(): Promise<void> {
@@ -74,13 +87,13 @@ export async function stopHlsProxy(): Promise<void> {
   }
 }
 
-export async function getHlsProxyStatus(): Promise<LiveHlsStatus> {
+export async function getHlsProxyStatus(): Promise<RelayStatus> {
   if (!nativeModule?.getProxyStatus) {
     return { running: false };
   }
 
   try {
-    return await nativeModule.getProxyStatus();
+    return relayStatusFromNative(await nativeModule.getProxyStatus());
   } catch {
     return { running: false };
   }
