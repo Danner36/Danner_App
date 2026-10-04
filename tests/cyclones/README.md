@@ -22,6 +22,6 @@ npm run test:cyclones:android:get-video
 | `test:cyclones:android:delayed` | Delayed game with direct delay text |
 | `test:cyclones:android:final` | Today's completed game with WIN badge and score |
 | `test:cyclones:android:live` | Live football game with scoreboard and Watch actions |
-| `test:cyclones:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
+| `test:cyclones:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play in the same session |
 
 The fixture runner starts on port 8108. `test:cyclones:android:get-video` uses port 8113 so it does not collide with Expo. Production builds ignore the development overrides and fetch ESPN plus root `cyclones_streams.json` from GitHub. Get video POSTs `{ pin, module: "cyclones", sport }` and polls `/streams?module=cyclones`.

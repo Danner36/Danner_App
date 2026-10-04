@@ -33,8 +33,7 @@ npm run test:guardians:android:live
 npm run test:guardians:snapshot
 npm run test:guardians:cast-discovery
 npm run test:guardians:android:cast-web
-npm run test:guardians:android:cast-convert
-npm run test:guardians:android:live-hls
+npm run test:guardians:android:shell-fix
 npm run test:guardians:android:get-video
 npm run test:guardians:server
 npm run test:patriots:android
@@ -64,14 +63,14 @@ Metro answers Android packager requests with a single JavaScript body. The emula
 
 Use `npm run ios` on macOS to create a native iPhone build. `npx expo export --platform ios` validates the production iOS JavaScript bundle on Windows. The local Android release APK is generated at `android/app/build/outputs/apk/release/app-release.apk`.
 
-The checked-in offline map already runs without a network connection. `npm run build:offline-map` refreshes the generated U.S. place, state, and interstate data from the official 2025 U.S. Census sources.
+The checked-in offline map already runs without a network connection. `npm run build:offline-map` refreshes the generated U.S. place, state, and interstate data from the official 2025 U.S. Census sources. `npm run build:offline-map -- --reuse-json` rebuilds `assets/offline-us-map.html` from the committed JSON and the page template `scripts/offline-us-map.template.html` without downloading.
 
 ## Build configuration
 
-- `app.json` contains shared Android and iOS native settings, including native video and cleartext-media transport support. `app.config.js` overlays the GitHub release tag onto version, versionCode, and buildNumber when `RELEASE_TAG` is set.
+- `app.json` contains shared Android and iOS native settings, including native video and cleartext-media transport support. `app.config.js` overlays the GitHub release tag onto version, versionCode, and buildNumber when `RELEASE_TAG` is set. The tag must be `vMAJOR.MINOR.PATCH` with digits only and minor and patch from 0 to 99 (`hub/releaseVersion.js`); any other value fails the build.
 - `modules/danner-app-update/` is an Android-only local Expo module that downloads a GitHub release APK, verifies SHA-256, and opens the system installer. It is absent from iPhone builds.
 - `modules/danner-provisioning-profile/` is an iOS-only local Expo module that reads `ExpirationDate` from the embedded signing profile. It is absent from Android builds.
-- `modules/danner-live-hls/` captures the on-screen Guardians web player into a local HLS origin for Cast.
+- `modules/danner-live-hls/` relays a sports web player's own HLS, DASH, or MP4 stream from a phone origin for Cast.
 - `eas.json` retains internal-distribution development, preview, and production profiles; Android profiles produce APKs. Family iPhones use SideStore and a free dedicated Apple Account instead of paid ad hoc distribution.
 - `metro.config.js` packages the generated offline HTML map as an app asset.
 - `android/` and `ios/` are generated locally and ignored.

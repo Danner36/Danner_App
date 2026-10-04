@@ -6,4 +6,4 @@ Checks that a map pin keeps its coordinates and receives the correct Census city
 npm run test:offline-map
 ```
 
-The runner reads `app/assets/offline-us-map.json` from `app/`.
+The runner reads `app/assets/offline-us-map.json` and `app/assets/offline-us-map.html` from `app/`, runs the selection code shipped inside the HTML, and requires it to agree with `app/tvLocation/offlineMapSelection.ts`.

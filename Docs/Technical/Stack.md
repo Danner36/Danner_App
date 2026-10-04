@@ -14,7 +14,7 @@ Phase: MVP
 ## Native integrations
 
 - `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled. iPhone native controls include AirPlay for those URLs.
-- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that Casts a page-reported HLS, DASH, or MP4 URL when the isolated player reports one, and otherwise live-converts the on-screen player through `modules/danner-live-hls/` and Casts that local playlist on Android and iPhone. MPEG-TS is declared only for the captured playlist. `youtube` sources stay phone-only.
+- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that relays the page-reported HLS, DASH, or MP4 URL through `modules/danner-live-hls/` and Casts the relay URL on Android and iPhone. HLS segment hints follow the relay's detected segment format. Pages that report no media cannot be sent. `youtube` sources stay phone-only.
 - `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages report an Android Chrome user agent, enable WKWebView AirPlay, and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
 - `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians, Patriots, and Cyclones source documents.
@@ -24,7 +24,7 @@ Phase: MVP
 - `expo-splash-screen` uses the Danner launcher art on `#F7F7F2`.
 - `expo-build-properties` sets Android minimum, compile, and target SDK versions and enables the native cleartext-traffic capability. The source allowlist still rejects HTTP unless the individual entry opts in.
 - `modules/danner-provisioning-profile/` is an Apple-only local Expo module. Its Swift implementation extracts the embedded provisioning plist and returns the real `ExpirationDate`; the menu reads it at launch and whenever the app becomes active. A one-minute timer only advances the displayed remaining time.
-- `modules/danner-live-hls/` is a local Expo module on Android and iPhone. It captures decoded frames from the web player, encodes H.264 and AAC, and serves `live.m3u8` on the first free port in 8108–8127. The phone stays the origin. Android uses MediaProjection and a `mediaProjection` foreground service. iOS uses ReplayKit and VideoToolbox. The TV control Casts that playlist; it does not start an AirPlay player during capture.
+- `modules/danner-live-hls/` is a local Expo module on Android and iPhone. It relays the page's own HLS, DASH, or MP4 stream from the first free port in 8108–8127 on the phone's LAN address, under a random session token with signed media URLs, and passes media bytes through unchanged. Android keeps the relay alive with the screen off through a `connectedDevice` foreground service. The screen-capture converter is archived under `reference/screen-capture-hls/` and is not built.
 
 iOS declares ATS media, WebView, and local-network exceptions so opted-in home-network sources can load, plus the local-network usage message displayed by iOS and `UIBackgroundModes` audio for AirPlay routing. These native capabilities do not bypass the app's per-source validation or exact-host navigation gate.
 
@@ -37,7 +37,7 @@ The app has no location library, no Android intent launcher, and no mock-locatio
 | Android | `com.example.location_helper` |
 | iOS | `com.danner.locationhelper` |
 
-Release builds bake the GitHub tag into the Android version name and version code and the iOS version and build number (`major * 10000 + minor * 100 + patch`). Local builds without `RELEASE_TAG` stay version `1.0` and code 1. Minimum SDK 29, compile and target SDK 36.
+Release builds bake the GitHub tag into the Android version name and version code and the iOS version and build number (`major * 10000 + minor * 100 + patch`). Release tags must be `vMAJOR.MINOR.PATCH` with digits only and minor and patch from 0 to 99; each release job validates the tag before building. Local builds without `RELEASE_TAG` stay version `1.0` and code 1. Minimum SDK 29, compile and target SDK 36.
 
 ## Source layout
 
@@ -57,9 +57,9 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `app/eas.json` | Existing internal-distribution development, preview, and production profiles; Android outputs APK while the selected family-iPhone delivery path is SideStore |
 | `app/modules/danner-app-update/` | Android-only GitHub APK download, SHA-256 check, and system PackageInstaller |
 | `app/modules/danner-provisioning-profile/` | iOS embedded-profile expiration reader used by the final-48-hour main-menu warning |
-| `app/modules/danner-live-hls/` | Live conversion of the on-screen web player into a local HLS origin for Cast |
+| `app/modules/danner-live-hls/` | Phone-side relay of a web player's own HLS, DASH, or MP4 stream for Cast |
 | `app/metro.config.js` | Adds generated HTML to Metro's packaged asset types |
-| `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources |
+| `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources and renders `app/scripts/offline-us-map.template.html` into the bundled map page |
 | `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
 | `app/android/` | Locally generated and ignored native project |
 | `workers/guardians-get-video/` | Shared Cloudflare Worker that checks the family PIN, starts the Guardians, Patriots, or Cyclones stream pipeline from `module`, forwards Cyclones `sport`, and serves `GET /streams` for that module |

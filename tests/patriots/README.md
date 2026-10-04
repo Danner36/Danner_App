@@ -22,6 +22,6 @@ npm run test:patriots:android:get-video
 | `npm run test:patriots:android:delayed` | Delayed game with direct delay text |
 | `npm run test:patriots:android:final` | Today's completed game with WIN badge and score |
 | `npm run test:patriots:android:live` | Live game with football scoreboard and Watch actions |
-| `npm run test:patriots:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
+| `npm run test:patriots:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play in the same session |
 
 The fixture runner starts on port 8108. `test:patriots:android:get-video` uses port 8112 so it does not collide with Expo. Production builds ignore the development overrides and fetch ESPN plus root `patriots_streams.json` from GitHub. Get video POSTs `{ pin, module: "patriots" }` and polls `/streams?module=patriots`.

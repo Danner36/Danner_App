@@ -28,10 +28,19 @@
 - Guardians Final recap no longer shows MLB Win / Loss / Save last names
 - Guardians games without a published start time show Time TBA instead of 3:33 AM
 - Android Cast of a web game follows the live stream and prefetches the next pieces so the TV does not keep pausing
+- TV send says when the TV could not play the stream, and pressing TV again reloads it or restarts the phone relay. Ending the Cast session stops the relay. Android keeps sending with the screen off and shows a Stop button in its notification. The phone relay serves only the game it is sending
+- Live and Final appear within seconds of the game changing state, a rain delay stays on the card during a live game, and a delayed game still opens Play 15 minutes before the scheduled start
+- The phone screen sleeps normally on the sports dashboards and stays on only while a game player is open
+- Watching a game on Android no longer signs TV Location out of Google
+- Starting a video stops Listen audio on Patriots and Cyclones, and Listen always has a Stop control
+- Cyclones bowls, conference tournaments, and NCAA tournament games show the right season status, and neutral-site games read `vs`
+- Get video no longer uses up the home network's GitHub request allowance, and stops when the screen closes
+- TV Location stays on YouTube and Google pages, returns to step 4 only after the TV update goes through, and names suburbs instead of the nearby big city
+- Update downloads on Android no longer stall the TV button or map, and a failed install no longer loops back to the update prompt
 - Get video on a live or soon-to-start game when no approved stream is ready yet
 - Live park-style scoreboard during a game, with faster score updates
 - Listen control for approved direct streams
-- TV control on web games that relays the page's HLS through the phone because the provider will not answer the TV directly
+- TV control on web games that relays the page's HLS, DASH, or MP4 through the phone because the provider will not answer the TV directly
 - iPhone web player pages use the Android Chrome user agent so they receive the same player build as Android
 - YouTube TV location workflow
 - Offline United States location map

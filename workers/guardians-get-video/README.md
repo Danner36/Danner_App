@@ -19,10 +19,11 @@ npx wrangler secret put GITHUB_TOKEN
 | Name | Where | Purpose |
 |------|--------|---------|
 | `FAMILY_PIN` | Cloudflare Worker secret | Must match the app build PIN |
-| `GITHUB_TOKEN` | Cloudflare Worker secret | PAT that can send `repository_dispatch` to `Danner_App` (classic `repo` scope, or fine-grained Actions write on that repo) |
+| `GITHUB_TOKEN` | Cloudflare Worker secret | PAT that can send `repository_dispatch` to `Danner_App` (classic `repo` scope, or fine-grained Contents read and write on that repo) |
 | `GUARDIANS_STREAM_PIPELINE_CONFIG` | GitHub repo secret | JSON with `extract.baseUrl` and `extract.hrefNeedle`. Copy from `scripts/guardians-stream-pipeline/config.example.json` and set the real listing URL |
 | `PATRIOTS_STREAM_PIPELINE_CONFIG` | GitHub repo secret | Same listing `extract.baseUrl` as Guardians, with `sport: "nfl"`, `hrefNeedle: "new-england-patriots"`, and `streamsPath: "patriots_streams.json"` |
 | `CYCLONES_STREAM_PIPELINE_CONFIG` | GitHub repo secret | Same listing `extract.baseUrl` as Guardians, with `sport: "cyclones"`, per-sport `hrefNeedles`, and `streamsPath: "cyclones_streams.json"` |
+| `RATE_LIMITER` | Optional Cloudflare rate-limit binding | When bound, limits Get video per IPv4 address or IPv6 /64; without it the Worker uses its in-memory limit with the same key |
 | `EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL` | GitHub Actions secret for `release.yml` | Worker origin, for example `https://guardians-get-video.<account>.workers.dev` with no trailing slash |
 | `EXPO_PUBLIC_GUARDIANS_FAMILY_PIN` | GitHub Actions secret for `release.yml` | Same value as `FAMILY_PIN` |
 
@@ -38,4 +39,4 @@ curl -X POST https://guardians-get-video.<account>.workers.dev/get-video -H "Con
 curl -X POST https://guardians-get-video.<account>.workers.dev/get-video -H "Content-Type: application/json" -d "{\"pin\":\"YOUR_PIN\",\"module\":\"cyclones\",\"sport\":\"football\"}"
 ```
 
-A 200 response starts the Action. The phone reloads the stream list from `GET /streams` until Play appears.
+A 200 response starts the Action. The phone reloads the stream list from `GET /streams` until Play appears. A body that is not a JSON object answers 400 with a JSON error. Each workflow checks its config secret before running; a Patriots or Cyclones secret without `github.streamsPath` fails fast instead of writing another module's file.

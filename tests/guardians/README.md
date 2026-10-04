@@ -1,6 +1,6 @@
 # Guardians test harness
 
-Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider. `run-snapshot.mjs` checks featured-card selection for live, later-today, Final recap, and doubleheader cases, and maps MLB `startTimeTBD` to an unknown start time.
+Simulates Guardians timing and playback states without packaging fixture data or video into Danner Apps. Video remains hosted by its provider. `run-snapshot.mjs` checks featured-card selection for live, later-today, Final recap, and doubleheader cases, maps MLB `startTimeTBD` to an unknown start time, treats Warmup as pre-game, keeps a rain delay visible, keeps postponed makeups, and keeps the newest 200 stream entries. It pins its own time zone.
 
 ## Run on Android
 
@@ -27,10 +27,10 @@ npm run test:guardians:android:get-video
 | `npm run test:guardians:android:final` | Today's completed game with WIN badge and score |
 | `npm run test:guardians:android:live` | Live game with park-style scoreboard and Watch actions |
 | `npm run test:guardians:snapshot` | Featured-card selection for live, later-today, recap, and doubleheader |
-| `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate, the page pause while a receiver has the relay, the TV press that reopens the Cast dialog, live relay stream type, and relay variant selection |
-| `npm run test:guardians:android:cast-web` | Live game plus native HLS page; taps TV and asserts the receiver plays the page-reported URL relayed from the phone |
-| `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; denied TV grants show the failure and no location prompt |
-| `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play |
+| `npm run test:guardians:cast-discovery` | Page-reported Cast URL gate, per-page message nonce, MP4-then-HLS upgrade through the injection, the page pause while a receiver has the relay, the TV press that reopens the Cast dialog, relay kinds and failure messages, live relay stream type, and relay variant selection |
+| `npm run test:guardians:android:cast-web` | Live game plus native HLS page; taps TV and asserts the receiver loads only the phone's `/<token>/live.m3u8` relay for the page-reported playlist and plays |
+| `npm run test:guardians:android:shell-fix` | Package has no location permission; Back closes Play then returns to the hub; with notification permission denied, the TV send still proceeds and no location prompt appears |
+| `npm run test:guardians:android:get-video` | Live card with no matching URL, Get video, delayed publish, then Play in the same session |
 
 The shared fixture runner starts on port 8108. `test:guardians:android:get-video` uses port 8111 so it does not collide with Expo. Both launch an Expo development build with fixture-data and fixture-source URLs set to the emulator host address. A physical phone uses this PC's LAN address instead of `10.0.2.2`; `GET /guardians-sources.json` rewrites that emulator host to the request hostname. Production builds ignore both development overrides and fetch MLB plus root `guardians_streams.json` from GitHub. Get video polls the worker `GET /streams` list, not raw GitHub.
 

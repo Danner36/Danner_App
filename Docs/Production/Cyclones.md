@@ -61,6 +61,7 @@ This is the working template Cyclones copies. It is not Cyclones work.
 - Shared package: `scripts/guardians-stream-pipeline/`.
 - Guardians config sport default is MLB. Patriots sets `"sport": "nfl"`.
 - Extract opens `extract.baseUrl`, finds `<a href>` containing `hrefNeedle`, opens that inner page, then captures a gooz player URL.
+- When several listing links contain the needles, the opponent name narrows them; `extract.requireOpponent: true` also requires it on a single match. A choice that stays ambiguous fails as `ambiguous_link`. Logs print listing paths, never the host.
 - Known working needles (observed on the listing, not invented from ESPN APIs):
   - Guardians: `cleveland-guardians`
   - Patriots: `new-england-patriots`
@@ -149,7 +150,7 @@ Featured card (one card):
 2. Else today’s next kickoff across any sport
 3. Else today’s last recap
 
-The other same-day sport stays in the schedule. Card shows the sport name. `Time TBA` when ESPN `timeValid` is false.
+The other same-day sport stays in the schedule. Card shows the sport name. `Time TBA` when ESPN `timeValid` is false; that game takes the America/New_York date of the placeholder time in the app and the pipeline.
 
 Records: three compact regular-season W–L (or W–L–T) lines under the title. Each stays `0–0` until that sport has a regular-season Final. Preseason and postseason do not change those numbers.
 
