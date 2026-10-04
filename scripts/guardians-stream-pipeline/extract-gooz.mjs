@@ -24,6 +24,7 @@ Direct mode (--page):
 Options:
   --help              Show this help
   --href <fragment>   href match for base mode (default: cleveland-guardians)
+  --opponent <name>   Opponent team name the listing link must also contain
   --timeout <sec>     Page load timeout (default 90)
 `);
 }
@@ -34,6 +35,7 @@ function parseArgs(argv) {
     directPage: false,
     help: false,
     hrefNeedle: 'cleveland-guardians',
+    opponentName: undefined,
     pageUrl: undefined,
     timeoutSeconds: 90,
   };
@@ -51,6 +53,9 @@ function parseArgs(argv) {
       index += 1;
     } else if (arg === '--href') {
       options.hrefNeedle = argv[index + 1];
+      index += 1;
+    } else if (arg === '--opponent') {
+      options.opponentName = argv[index + 1];
       index += 1;
     } else if (arg === '--timeout') {
       options.timeoutSeconds = Number.parseInt(argv[index + 1], 10);
@@ -81,6 +86,7 @@ async function main() {
       })
     : await extractGoozFromBasePage(options.baseUrl, {
         hrefNeedle: options.hrefNeedle,
+        opponentName: options.opponentName,
         timeoutSeconds: options.timeoutSeconds,
       });
 

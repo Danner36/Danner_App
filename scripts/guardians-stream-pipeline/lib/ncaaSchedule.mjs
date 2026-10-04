@@ -1,4 +1,7 @@
+import { officialDateInZone, selectFeaturedGame } from './gameWindow.mjs';
+
 export const CYCLONES_TEAM_ID = 66;
+export const CYCLONES_TIME_ZONE = 'America/Chicago';
 
 const SCHEDULE_TYPES = [1, 2, 3];
 const SCHEDULE_TIMEOUT_MS = 15_000;
@@ -13,7 +16,7 @@ function chicagoDateString(date) {
   const parts = new Intl.DateTimeFormat('en-US', {
     day: '2-digit',
     month: '2-digit',
-    timeZone: 'America/Chicago',
+    timeZone: CYCLONES_TIME_ZONE,
     year: 'numeric',
   }).formatToParts(date);
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
@@ -90,7 +93,7 @@ function espnContestStatus(statusType = {}) {
   return detail || shortDetail || description || 'Scheduled';
 }
 
-function cyclonesGameFromEspnEvent(event, sport, teamId) {
+export function cyclonesGameFromEspnEvent(event, sport, teamId) {
   const competition = event.competitions?.[0];
   const competitors = competition?.competitors ?? [];
   const sides = competitors
@@ -126,6 +129,12 @@ function cyclonesGameFromEspnEvent(event, sport, teamId) {
 
   const statusType = competition?.status?.type;
   const status = espnContestStatus(statusType);
+  const timeValid = event.timeValid !== false && competition?.timeValid !== false;
+  // An unset start is an all-day game. ESPN's placeholder is midnight Eastern, which is still the
+  // previous day in Chicago, so its date is read in America/New_York (the app does the same).
+  const officialDate = timeValid
+    ? chicagoDateString(new Date(event.date))
+    : officialDateInZone(new Date(event.date), 'America/New_York');
 
   return {
     abstractState: abstractStateFromEspn(statusType?.state),
@@ -134,23 +143,15 @@ function cyclonesGameFromEspnEvent(event, sport, teamId) {
     gameNumber: 1,
     gamePk,
     isHome: cyclones.homeAway === 'home',
-    officialDate: chicagoDateString(new Date(event.date)),
+    officialDate,
     opponentName: opponent.name,
     opponentScore: opponent.score,
     seasonType:
       typeof event.seasonType?.type === 'number' ? event.seasonType.type : 2,
     sport,
     status,
-    timeValid: event.timeValid !== false && competition?.timeValid !== false,
+    timeValid,
   };
-}
-
-function isSameLocalDay(date, other) {
-  return (
-    date.getFullYear() === other.getFullYear() &&
-    date.getMonth() === other.getMonth() &&
-    date.getDate() === other.getDate()
-  );
 }
 
 function gameInterruption(status) {
@@ -163,27 +164,26 @@ function gameInterruption(status) {
   );
 }
 
-export function featuredCyclonesGame(games, now = new Date()) {
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  ).getTime();
-  const remainingGames = games
-    .filter((game) => {
-      const isComplete = game.abstractState === 'Final' && !gameInterruption(game.status);
-      const startsTodayOrLater = new Date(game.gameDate).getTime() >= todayStart;
-      return !isComplete && (game.abstractState === 'Live' || startsTodayOrLater);
-    })
-    .sort(
-      (first, second) =>
-        new Date(first.gameDate).getTime() - new Date(second.gameDate).getTime(),
-    );
-
+function isBlockedCyclonesGame(game) {
+  const normalized = String(game.status ?? '').toLowerCase();
   return (
-    remainingGames.find((game) => game.abstractState === 'Live') ??
-    remainingGames.find((game) => isSameLocalDay(new Date(game.gameDate), now))
+    normalized.includes('cancel') ||
+    normalized.includes('postpon') ||
+    normalized.includes('suspend')
   );
+}
+
+// "Today" is the America/Chicago calendar date, independent of the process time zone. A game
+// with no start time never enters the start window; it is featured all day on its official date.
+export function featuredCyclonesGame(games, now = new Date(), options = {}) {
+  return selectFeaturedGame(games, now, {
+    graceMinutes: options.graceMinutes,
+    isBlocked: isBlockedCyclonesGame,
+    isComplete: (game) =>
+      game.abstractState === 'Final' && !gameInterruption(game.status),
+    leadMinutes: options.leadMinutes,
+    timeZone: CYCLONES_TIME_ZONE,
+  });
 }
 
 export async function fetchCyclonesGames(teamId = CYCLONES_TEAM_ID, now = new Date()) {

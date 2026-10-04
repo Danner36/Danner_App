@@ -1,4 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { isGoozHost } from './extractGooz.mjs';
+import {
+  CYCLONES_SPORTS,
+  entriesInPhoneScope,
+  isValidGameDate,
+  playableStream,
+} from './playableStream.mjs';
 
 const STREAM_FIELDS = new Set([
   'allowInsecureHttp',
@@ -10,23 +17,11 @@ const STREAM_FIELDS = new Set([
   'url',
 ]);
 
-const CYCLONES_SPORTS = new Set([
-  'football',
-  'mens-basketball',
-  'womens-basketball',
-]);
+export const STALE_ENTRY_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-function isValidGameDate(value) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return (
-    !Number.isNaN(parsed.getTime()) &&
-    parsed.toISOString().slice(0, 10) === value
-  );
-}
-
+// Structural parse only. Used to find entries that name a game, whether or not the phone
+// would accept them; playableStream decides that.
 export function streamFromUnknown(candidate) {
   if (typeof candidate !== 'object' || candidate === null) {
     return undefined;
@@ -69,13 +64,20 @@ export function streamFromUnknown(candidate) {
   return stream;
 }
 
-export async function readStreamsDocument(path) {
-  const text = await readFile(path, 'utf8');
+export function parseStreamsDocument(text) {
   const document = JSON.parse(text);
   if (typeof document !== 'object' || document === null || !Array.isArray(document.streams)) {
-    throw new Error('guardians_streams.json is missing a streams array.');
+    throw new Error('Streams file is missing a streams array.');
   }
   return document;
+}
+
+export async function readStreamsDocument(path) {
+  return parseStreamsDocument(await readFile(path, 'utf8'));
+}
+
+export function serializeStreamsDocument(document) {
+  return `${JSON.stringify(document, null, 2)}\n`;
 }
 
 export function streamMatchesGame(stream, game) {
@@ -91,44 +93,114 @@ export function streamMatchesGame(stream, game) {
   return stream.sport === undefined;
 }
 
-export function upsertStream(document, entry, game) {
-  const nextStreams = [];
-  let replaced = false;
+function isProviderEntry(stream) {
+  try {
+    return stream.kind === 'web' && isGoozHost(new URL(stream.url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+// Removes one (date, game number) pair from an entry that covers every date x number
+// combination, returning the pieces that still cover everything else.
+function withoutGameKey(candidate, officialDate, gameNumber) {
+  const otherDates = candidate.gameDates.filter((date) => date !== officialDate);
+  const otherNumbers = candidate.gameNumbers.filter((number) => number !== gameNumber);
+  const pieces = [];
+  if (otherDates.length > 0) {
+    pieces.push({ ...candidate, gameDates: otherDates });
+  }
+  if (otherNumbers.length > 0) {
+    pieces.push({ ...candidate, gameDates: [officialDate], gameNumbers: otherNumbers });
+  }
+  return pieces;
+}
+
+// Takes this game's keys away from entries the pipeline owns (provider embeds) and from entries
+// the phone would reject, then inserts `entry` where the first of them stood. Other valid sources
+// for the same game, and every other date or game number an entry covers, stay.
+export function upsertStream(document, entry, game, validation = {}) {
+  const streams = [];
+  let placed = false;
 
   for (const candidate of document.streams) {
     const stream = streamFromUnknown(candidate);
-    if (stream && streamMatchesGame(stream, game)) {
-      if (!replaced) {
-        nextStreams.push(entry);
-        replaced = true;
-      }
+    const replaceable =
+      stream &&
+      streamMatchesGame(stream, game) &&
+      (isProviderEntry(stream) || !playableStream(stream, validation));
+    if (!replaceable) {
+      streams.push(candidate);
       continue;
     }
-    nextStreams.push(candidate);
+    streams.push(...withoutGameKey(candidate, game.officialDate, game.gameNumber));
+    if (!placed) {
+      streams.push(entry);
+      placed = true;
+    }
   }
 
-  if (!replaced) {
-    nextStreams.push(entry);
+  if (!placed) {
+    streams.push(entry);
+  }
+
+  // The phone reads only the last MAX_REMOTE_STREAMS entry objects; an entry replaced in place
+  // outside that range moves to the end.
+  if (!entriesInPhoneScope(streams).includes(entry)) {
+    streams.splice(streams.indexOf(entry), 1);
+    streams.push(entry);
   }
 
   return {
     ...document,
-    streams: nextStreams,
+    streams,
   };
 }
 
-export function entryChanged(existing, nextEntry) {
-  if (!existing) {
-    return true;
-  }
-
-  return (
-    existing.kind !== nextEntry.kind ||
-    existing.url !== nextEntry.url ||
-    existing.allowInsecureHttp !== nextEntry.allowInsecureHttp ||
-    existing.trustedHosts.join(',') !== nextEntry.trustedHosts.join(',') ||
-    existing.sport !== nextEntry.sport
+function daysBefore(gameDate, today) {
+  return Math.round(
+    (new Date(`${today}T00:00:00Z`).getTime() - new Date(`${gameDate}T00:00:00Z`).getTime()) /
+      DAY_MS,
   );
+}
+
+// Drops entries whose every date is more than `keepDays` before `today`. Root keys such as
+// HOW_TO_GUIDE, marker strings, and the inactive example (its placeholder date does not parse)
+// are never touched.
+export function pruneStaleStreams(document, today, keepDays = STALE_ENTRY_DAYS) {
+  const streams = document.streams.filter((candidate) => {
+    if (typeof candidate !== 'object' || candidate === null || Array.isArray(candidate)) {
+      return true;
+    }
+    const dates = candidate.gameDates;
+    if (!Array.isArray(dates) || dates.length === 0) {
+      return true;
+    }
+    const stale = dates.every(
+      (gameDate) => isValidGameDate(gameDate) && daysBefore(gameDate, today) > keepDays,
+    );
+    return !stale;
+  });
+  return { ...document, streams };
+}
+
+export function playableStreamsForGame(document, game, validation = {}) {
+  const matches = [];
+  for (const candidate of entriesInPhoneScope(document.streams)) {
+    const stream = streamFromUnknown(candidate);
+    if (!stream || !streamMatchesGame(stream, game)) {
+      continue;
+    }
+    const playable = playableStream(stream, validation);
+    if (playable) {
+      matches.push(stream);
+    }
+  }
+  return matches;
+}
+
+export function findPlayableStreamForGame(document, game, validation = {}) {
+  return playableStreamsForGame(document, game, validation)[0];
 }
 
 export function findStreamForGame(document, game) {
@@ -141,8 +213,44 @@ export function findStreamForGame(document, game) {
   return undefined;
 }
 
+function sameStreamTarget(existing, nextEntry) {
+  return (
+    existing.kind === nextEntry.kind &&
+    existing.url === nextEntry.url &&
+    existing.allowInsecureHttp === nextEntry.allowInsecureHttp &&
+    existing.trustedHosts.join(',') === nextEntry.trustedHosts.join(',') &&
+    existing.sport === nextEntry.sport
+  );
+}
+
+export function findEquivalentStream(document, game, nextEntry, validation = {}) {
+  return playableStreamsForGame(document, game, validation).find((stream) =>
+    sameStreamTarget(stream, nextEntry),
+  );
+}
+
+// Decides what one publish attempt does with the current copy of the streams file. Runs again
+// on every retry, so a change published by another run in the meantime is seen. Pruning runs
+// before the upsert so the entry being written is never aged out (a resumed game keeps an old
+// official date).
+export function planStreamUpdate(document, { entry, force = false, game, requireSport = false, today }) {
+  const validation = { requireSport };
+  if (!force) {
+    const ready = findPlayableStreamForGame(document, game, validation);
+    if (ready) {
+      return { outcome: 'video_ready', streamEntry: ready };
+    }
+  }
+  const equivalent = findEquivalentStream(document, game, entry, validation);
+  if (equivalent) {
+    return { outcome: 'unchanged', streamEntry: equivalent };
+  }
+  const updated = upsertStream(pruneStaleStreams(document, today), entry, game, validation);
+  return { document: updated, outcome: 'update' };
+}
+
 export async function writeStreamsDocument(path, document) {
-  const text = `${JSON.stringify(document, null, 2)}\n`;
+  const text = serializeStreamsDocument(document);
   await writeFile(path, text, 'utf8');
   return text;
 }

@@ -37,8 +37,59 @@ function json(data, status = 200) {
   });
 }
 
-function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') ?? 'unknown';
+const IPV4_PATTERN = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+function ipv4Key(address) {
+  const match = address.match(IPV4_PATTERN);
+  if (!match || match.slice(1).some((part) => Number(part) > 255)) {
+    return undefined;
+  }
+  return `v4:${match.slice(1).map(Number).join('.')}`;
+}
+
+// First four hextets of an IPv6 address, or undefined when it does not parse.
+function ipv6Prefix64(address) {
+  let value = address.toLowerCase().split('%')[0];
+  if (value.includes('.')) {
+    const lastColon = value.lastIndexOf(':');
+    const embedded = value.slice(lastColon + 1).match(IPV4_PATTERN);
+    if (!embedded || embedded.slice(1).some((part) => Number(part) > 255)) {
+      return undefined;
+    }
+    const [a, b, c, d] = embedded.slice(1).map(Number);
+    value = `${value.slice(0, lastColon + 1)}${((a << 8) | b).toString(16)}:${((c << 8) | d).toString(16)}`;
+  }
+  const halves = value.split('::');
+  if (halves.length > 2) {
+    return undefined;
+  }
+  const head = halves[0] ? halves[0].split(':') : [];
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : [];
+  const missing = 8 - head.length - tail.length;
+  if (halves.length === 1 ? missing !== 0 : missing < 1) {
+    return undefined;
+  }
+  const groups = [...head, ...Array(halves.length === 2 ? missing : 0).fill('0'), ...tail];
+  if (groups.some((group) => !/^[0-9a-f]{1,4}$/.test(group))) {
+    return undefined;
+  }
+  return groups.slice(0, 4).map((group) => group.padStart(4, '0')).join(':');
+}
+
+// One bucket per IPv4 address and per IPv6 /64, the block a single subscriber is normally
+// given. Keying on the full IPv6 address would let one client rotate through its /64.
+function rateLimitKey(request) {
+  const address = (request.headers.get('CF-Connecting-IP') ?? '').trim();
+  if (!address) {
+    return 'unknown';
+  }
+  const mapped = address.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i);
+  const v4 = ipv4Key(mapped ? mapped[1] : address);
+  if (v4) {
+    return v4;
+  }
+  const prefix = address.includes(':') ? ipv6Prefix64(address) : undefined;
+  return prefix ? `v6:${prefix}::/64` : `raw:${address.toLowerCase()}`;
 }
 
 function pruneRateBuckets(now) {
@@ -52,18 +103,30 @@ function pruneRateBuckets(now) {
   }
 }
 
-function rateLimited(ip) {
+function rateLimitedInMemory(key) {
   const now = Date.now();
   pruneRateBuckets(now);
-  const bucket = rateBuckets.get(ip) ?? [];
+  const bucket = rateBuckets.get(key) ?? [];
   const recent = bucket.filter((stamp) => now - stamp < RATE_WINDOW_MS);
   if (recent.length >= RATE_MAX) {
-    rateBuckets.set(ip, recent);
+    rateBuckets.set(key, recent);
     return true;
   }
   recent.push(now);
-  rateBuckets.set(ip, recent);
+  rateBuckets.set(key, recent);
   return false;
+}
+
+// A Workers rate-limit binding named RATE_LIMITER counts across isolates. Without it, or if the
+// binding call fails, the per-isolate map applies.
+async function rateLimited(env, key) {
+  if (env.RATE_LIMITER && typeof env.RATE_LIMITER.limit === 'function') {
+    try {
+      const { success } = await env.RATE_LIMITER.limit({ key });
+      return !success;
+    } catch {}
+  }
+  return rateLimitedInMemory(key);
 }
 
 // Compares in time independent of where the first mismatch falls, so a caller cannot learn
@@ -97,12 +160,18 @@ function resolveCyclonesSport(value) {
     : undefined;
 }
 
-async function readJsonBody(request) {
+// Undefined unless the body is a JSON object. `null`, arrays, and invalid JSON are rejected
+// with a JSON 400 instead of throwing into Cloudflare's HTML error page.
+async function readJsonObjectBody(request) {
+  let body;
   try {
-    return await request.json();
+    body = await request.json();
   } catch {
-    return {};
+    return undefined;
   }
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? body
+    : undefined;
 }
 
 // Last body seen per module, keyed by the ETag GitHub returned with it.
@@ -219,7 +288,10 @@ export default {
       return json({ error: 'Worker secrets are not configured.' }, 500);
     }
 
-    const body = await readJsonBody(request);
+    const body = await readJsonObjectBody(request);
+    if (!body) {
+      return json({ error: 'Request body must be a JSON object.' }, 400);
+    }
     const pin = typeof body.pin === 'string' ? body.pin : '';
     const moduleName = resolveModule(body.module);
     if (!moduleName) {
@@ -233,7 +305,7 @@ export default {
 
     // Rate limit before checking the PIN. The other way round, a wrong PIN costs nothing
     // and the family PIN can be guessed without limit.
-    if (rateLimited(clientIp(request))) {
+    if (await rateLimited(env, rateLimitKey(request))) {
       return json({ error: 'Too many requests.' }, 429);
     }
 

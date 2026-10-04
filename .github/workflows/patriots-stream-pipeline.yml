@@ -31,6 +31,9 @@ jobs:
     name: Extract and publish Patriots stream
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Official dates are America/New_York calendar dates; the pipeline also computes them explicitly.
+    env:
+      TZ: America/New_York
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -41,6 +44,25 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: scripts/guardians-stream-pipeline/package-lock.json
+
+      - name: Write pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          PATRIOTS_STREAM_PIPELINE_CONFIG: ${{ secrets.PATRIOTS_STREAM_PIPELINE_CONFIG }}
+        run: |
+          if [ -z "$PATRIOTS_STREAM_PIPELINE_CONFIG" ]; then
+            echo "PATRIOTS_STREAM_PIPELINE_CONFIG secret is not set; using config.patriots.example.json."
+            cp config.patriots.example.json config.json
+          else
+            printf '%s' "$PATRIOTS_STREAM_PIPELINE_CONFIG" > config.json
+          fi
+
+      - name: Check pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          GUARDIANS_STREAM_CONFIG: config.json
+          PIPELINE_MODULE: patriots
+        run: node run.mjs --check-config
 
       - name: Install pipeline packages
         working-directory: scripts/guardians-stream-pipeline
@@ -63,18 +85,6 @@ jobs:
         working-directory: scripts/guardians-stream-pipeline
         run: npx playwright install-deps chromium
 
-      - name: Write pipeline config
-        working-directory: scripts/guardians-stream-pipeline
-        env:
-          PATRIOTS_STREAM_PIPELINE_CONFIG: ${{ secrets.PATRIOTS_STREAM_PIPELINE_CONFIG }}
-        run: |
-          if [ -z "$PATRIOTS_STREAM_PIPELINE_CONFIG" ]; then
-            echo "PATRIOTS_STREAM_PIPELINE_CONFIG secret is not set; using config.patriots.example.json."
-            cp config.patriots.example.json config.json
-          else
-            printf '%s' "$PATRIOTS_STREAM_PIPELINE_CONFIG" > config.json
-          fi
-
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
@@ -84,6 +94,7 @@ jobs:
           EXTRACT_HEADED: '1'
           GITHUB_TOKEN: ${{ github.token }}
           GUARDIANS_STREAM_CONFIG: config.json
+          PIPELINE_MODULE: patriots
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
         run: xvfb-run -a node run.mjs

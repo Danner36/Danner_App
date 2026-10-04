@@ -5,3 +5,11 @@ compatibility_date = "2026-08-25"
 
 [vars]
 GITHUB_REPO = "Danner36/Danner_App"
+
+# Optional. With this binding the Get video limit is counted across Worker isolates (period is 10
+# or 60 seconds); without it each isolate keeps its own 3-per-10-minute count.
+# [[unsafe.bindings]]
+# name = "RATE_LIMITER"
+# type = "ratelimit"
+# namespace_id = "1001"
+# simple = { limit = 3, period = 60 }

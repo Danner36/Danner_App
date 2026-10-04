@@ -13,7 +13,22 @@ const pipelineDir = path.dirname(fileURLToPath(import.meta.url));
 const port = Number.parseInt(process.env.GUARDIANS_PIPELINE_PORT ?? '8109', 10);
 
 let extractBusy = false;
+let previewBusy = false;
 let previewSession;
+
+const localHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+const localOrigins = new Set([`http://127.0.0.1:${port}`, `http://localhost:${port}`]);
+
+// Only this harness page may drive it. The Host check stops DNS rebinding; the Origin check stops
+// another site's page from posting to it.
+function isLocalRequest(request) {
+  const host = String(request.headers.host ?? '').toLowerCase();
+  if (!localHosts.has(host)) {
+    return false;
+  }
+  const origin = request.headers.origin;
+  return origin === undefined || localOrigins.has(String(origin).toLowerCase());
+}
 
 function json(response, statusCode, payload) {
   response.writeHead(statusCode, {
@@ -23,6 +38,8 @@ function json(response, statusCode, payload) {
   response.end(`${JSON.stringify(payload, null, 2)}\n`);
 }
 
+class BadRequestError extends Error {}
+
 async function readBody(request) {
   const chunks = [];
   for await (const chunk of request) {
@@ -31,7 +48,22 @@ async function readBody(request) {
   if (chunks.length === 0) {
     return {};
   }
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  let body;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw new BadRequestError('Request body is not valid JSON.');
+  }
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new BadRequestError('Request body must be a JSON object.');
+  }
+  return body;
+}
+
+function sendError(response, error) {
+  json(response, error instanceof BadRequestError ? 400 : 500, {
+    error: error instanceof Error ? error.message : String(error),
+  });
 }
 
 async function closePreviewSession() {
@@ -172,6 +204,8 @@ function controlHtml() {
         <input id="base-url" type="url" placeholder="https://your-approved-base-url" />
         <label class="muted" for="href-needle">Link href search</label>
         <input id="href-needle" type="text" value="cleveland-guardians" placeholder="cleveland-guardians" />
+        <label class="muted" for="opponent-name">Opponent (optional)</label>
+        <input id="opponent-name" type="text" placeholder="Detroit Tigers" />
         <button id="run-extract">Extract video</button>
       </section>
 
@@ -198,6 +232,7 @@ function controlHtml() {
       const testPlaybackButton = document.getElementById('test-playback');
       const baseUrlInput = document.getElementById('base-url');
       const hrefNeedleInput = document.getElementById('href-needle');
+      const opponentNameInput = document.getElementById('opponent-name');
       const testUrlInput = document.getElementById('test-url');
       const statusLogEl = document.getElementById('status-log');
       const streamObjectEl = document.getElementById('stream-object');
@@ -247,12 +282,13 @@ function controlHtml() {
         streamObjectEl.textContent = 'Running...';
         previewStatusEl.textContent = 'Extract running...';
 
-        const hrefNeedle = hrefNeedleInput.value.trim() || 'cleveland-guardians';
+        const hrefNeedle = hrefNeedleInput.value.trim();
+        const opponentName = opponentNameInput.value.trim();
 
         const response = await fetch('/api/extract-gooz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ baseUrl, hrefNeedle }),
+          body: JSON.stringify({ baseUrl, hrefNeedle, opponentName }),
         });
         const payload = await response.json();
 
@@ -296,6 +332,11 @@ function controlHtml() {
 const server = createServer(async (request, response) => {
   const requestUrl = new URL(request.url ?? '/', `http://localhost:${port}`);
 
+  if (!isLocalRequest(request)) {
+    json(response, 403, { error: 'Requests must come from the local harness page.' });
+    return;
+  }
+
   if (request.method === 'GET' && requestUrl.pathname === '/') {
     response.writeHead(200, {
       'Cache-Control': 'no-store',
@@ -318,12 +359,15 @@ const server = createServer(async (request, response) => {
         json(response, 400, { error: 'baseUrl is required.' });
         return;
       }
+      if (typeof body.hrefNeedle !== 'string' || !body.hrefNeedle.trim()) {
+        json(response, 400, { error: 'hrefNeedle is required.' });
+        return;
+      }
 
       const result = await extractGoozFromBasePage(body.baseUrl.trim(), {
-        hrefNeedle:
-          typeof body.hrefNeedle === 'string' && body.hrefNeedle.trim()
-            ? body.hrefNeedle.trim()
-            : 'cleveland-guardians',
+        hrefNeedle: body.hrefNeedle.trim(),
+        opponentName:
+          typeof body.opponentName === 'string' ? body.opponentName.trim() : undefined,
         timeoutSeconds: 90,
       });
 
@@ -333,9 +377,7 @@ const server = createServer(async (request, response) => {
         formattedLog: formatExtractionLog(result),
       });
     } catch (error) {
-      json(response, 500, {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      sendError(response, error);
     } finally {
       extractBusy = false;
     }
@@ -343,6 +385,12 @@ const server = createServer(async (request, response) => {
   }
 
   if (request.method === 'POST' && requestUrl.pathname === '/api/preview-gooz') {
+    if (previewBusy) {
+      json(response, 409, { error: 'A player window is already opening.' });
+      return;
+    }
+
+    previewBusy = true;
     try {
       const body = await readBody(request);
       if (typeof body.url !== 'string' || !body.url.trim()) {
@@ -364,9 +412,9 @@ const server = createServer(async (request, response) => {
         playMethod: session.playMethod,
       });
     } catch (error) {
-      json(response, 500, {
-        error: error instanceof Error ? error.message : String(error),
-      });
+      sendError(response, error);
+    } finally {
+      previewBusy = false;
     }
     return;
   }

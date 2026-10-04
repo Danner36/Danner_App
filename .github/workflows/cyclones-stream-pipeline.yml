@@ -33,6 +33,9 @@ jobs:
     name: Extract and publish Cyclones stream
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Official dates are America/Chicago calendar dates; the pipeline also computes them explicitly.
+    env:
+      TZ: America/Chicago
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -43,6 +46,26 @@ jobs:
           node-version: 24
           cache: npm
           cache-dependency-path: scripts/guardians-stream-pipeline/package-lock.json
+
+      - name: Write pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          CYCLONES_STREAM_PIPELINE_CONFIG: ${{ secrets.CYCLONES_STREAM_PIPELINE_CONFIG }}
+        run: |
+          if [ -z "$CYCLONES_STREAM_PIPELINE_CONFIG" ]; then
+            echo "CYCLONES_STREAM_PIPELINE_CONFIG secret is not set; using config.cyclones.example.json."
+            cp config.cyclones.example.json config.json
+          else
+            printf '%s' "$CYCLONES_STREAM_PIPELINE_CONFIG" > config.json
+          fi
+
+      - name: Check pipeline config
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          GUARDIANS_STREAM_CONFIG: config.json
+          PIPELINE_MODULE: cyclones
+          DISPATCH_SPORT: ${{ github.event.client_payload.sport || inputs.sport || 'football' }}
+        run: node run.mjs --check-config
 
       - name: Install pipeline packages
         working-directory: scripts/guardians-stream-pipeline
@@ -65,18 +88,6 @@ jobs:
         working-directory: scripts/guardians-stream-pipeline
         run: npx playwright install-deps chromium
 
-      - name: Write pipeline config
-        working-directory: scripts/guardians-stream-pipeline
-        env:
-          CYCLONES_STREAM_PIPELINE_CONFIG: ${{ secrets.CYCLONES_STREAM_PIPELINE_CONFIG }}
-        run: |
-          if [ -z "$CYCLONES_STREAM_PIPELINE_CONFIG" ]; then
-            echo "CYCLONES_STREAM_PIPELINE_CONFIG secret is not set; using config.cyclones.example.json."
-            cp config.cyclones.example.json config.json
-          else
-            printf '%s' "$CYCLONES_STREAM_PIPELINE_CONFIG" > config.json
-          fi
-
       - name: Install xvfb
         run: sudo apt-get update && sudo apt-get install -y xvfb
 
@@ -86,6 +97,7 @@ jobs:
           EXTRACT_HEADED: '1'
           GITHUB_TOKEN: ${{ github.token }}
           GUARDIANS_STREAM_CONFIG: config.json
+          PIPELINE_MODULE: cyclones
           DISPATCH_SPORT: ${{ github.event.client_payload.sport || inputs.sport || 'football' }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}

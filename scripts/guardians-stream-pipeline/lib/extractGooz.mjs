@@ -7,6 +7,7 @@ export const EXTRACT_USER_AGENT =
 export const PLAYER_EMBED_WAIT_MS = 20_000;
 export const GOOZ_IFRAME_WAIT_MS = 8_000;
 export const POST_PLAY_WAIT_MS = 5_000;
+const LINK_NAVIGATION_WAIT_MS = 15_000;
 
 // Matches on a label boundary, the same way GOOZ_URL_PATTERN does. A bare endsWith would
 // also accept `notgooz.aapmains.net`, letting a squatted sibling host through the checks
@@ -38,6 +39,91 @@ function goozEmbedId(url) {
 
 export function isValidGoozPlayerUrl(url) {
   return goozEmbedId(url) !== undefined;
+}
+
+// Entries are published with allowInsecureHttp false, which the phone only accepts for https.
+// The provider serves the same embed over https, so an http match is upgraded.
+export function httpsProviderUrl(url) {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol === 'http:' && isGoozHost(parsed.hostname)) {
+      parsed.protocol = 'https:';
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+const LISTING_HOST_LABEL = '[listing]';
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.toLowerCase() || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberPrivateHost(privateHosts, url) {
+  const host = hostOf(url);
+  if (host) {
+    privateHosts.add(host);
+  }
+}
+
+function isPrivateHost(host, privateHosts) {
+  for (const privateHost of privateHosts) {
+    if (
+      host === privateHost ||
+      host.endsWith(`.${privateHost}`) ||
+      privateHost.endsWith(`.${host}`)
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The listing host, its full hrefs, and extract.baseUrl stay out of public Actions logs.
+export function redactHosts(text, privateHosts) {
+  let redacted = String(text);
+  for (const host of privateHosts) {
+    if (host) {
+      redacted = redacted.replace(new RegExp(escapeRegExp(host), 'gi'), LISTING_HOST_LABEL);
+    }
+  }
+  return redacted;
+}
+
+export function urlPathForLog(url) {
+  try {
+    return new URL(url).pathname || '/';
+  } catch {
+    return '(invalid URL)';
+  }
+}
+
+// Listing-site URLs log as a path only. Other URLs log without their query, which can name the
+// embedding site (for example a YouTube chat `embed_domain`).
+export function describeUrlForLog(url, privateHosts = new Set()) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    if (!host) {
+      return redactHosts(url, privateHosts);
+    }
+    if (isPrivateHost(host, privateHosts)) {
+      return parsed.pathname || '/';
+    }
+    return redactHosts(`${parsed.origin}${parsed.pathname}`, privateHosts);
+  } catch {
+    return '(invalid URL)';
+  }
 }
 
 function normalizeUrl(value, baseUrl) {
@@ -221,16 +307,31 @@ export function formatExtractionLog(result) {
   return lines.join('\n');
 }
 
-async function extractGoozFromLoadedPage(page, pageUrl, networkUrls) {
-  const html = await page.content();
-  const htmlMatches = findGoozInText(html, pageUrl);
-  const domMatches = await collectDomGoozUrls(page);
+function currentUrls(networkUrls) {
+  return typeof networkUrls === 'function' ? networkUrls() : networkUrls;
+}
 
+// Best-effort page reads. A navigation in progress destroys the execution context, which must
+// not end the run.
+async function settle(read, fallback) {
+  try {
+    return await read();
+  } catch {
+    return fallback;
+  }
+}
+
+async function extractGoozFromLoadedPage(page, pageUrl, networkUrls) {
+  const html = await settle(() => page.content(), '');
+  const htmlMatches = findGoozInText(html, pageUrl);
+  const domMatches = await settle(() => collectDomGoozUrls(page), []);
+
+  const frameUrlMatches = [];
   const frameMatches = [];
   for (const frame of page.frames()) {
     const frameUrl = normalizeUrl(frame.url(), pageUrl);
     if (frameUrl && isGoozUrl(frameUrl)) {
-      frameMatches.push(frameUrl);
+      frameUrlMatches.push(frameUrl);
     }
     try {
       const frameDomMatches = await collectDomGoozUrls(frame);
@@ -240,16 +341,18 @@ async function extractGoozFromLoadedPage(page, pageUrl, networkUrls) {
     } catch {}
   }
 
-  const goozUrl = pickBestGoozUrl([
-    ...networkUrls,
-    ...htmlMatches,
-    ...domMatches,
+  // Frames the game page actually loaded come first, so they win a score tie.
+  const ordered = [
+    ...frameUrlMatches,
     ...frameMatches,
-  ]);
+    ...domMatches,
+    ...htmlMatches,
+    ...currentUrls(networkUrls),
+  ];
+  const bestUrl = pickBestGoozUrl(ordered);
+  const goozUrl = bestUrl ? httpsProviderUrl(bestUrl) : undefined;
 
-  const candidates = [
-    ...new Set([...networkUrls, ...htmlMatches, ...domMatches, ...frameMatches]),
-  ]
+  const candidates = [...new Set(ordered)]
     .filter(isValidGoozPlayerUrl)
     .sort((first, second) => scoreGoozUrl(second) - scoreGoozUrl(first));
 
@@ -281,17 +384,135 @@ function rememberFeaturedGame(steps, remember, game) {
   remember(message);
 }
 
+// No default team: an empty result is reported as config_missing, never widened to another team.
 function hrefNeedlesFromOptions(options = {}) {
-  if (Array.isArray(options.hrefNeedles) && options.hrefNeedles.length > 0) {
-    return options.hrefNeedles
-      .filter((needle) => typeof needle === 'string' && needle.trim())
-      .map((needle) => needle.trim().toLowerCase());
+  const values = Array.isArray(options.hrefNeedles)
+    ? options.hrefNeedles
+    : [options.hrefNeedle];
+  return values
+    .filter((needle) => typeof needle === 'string' && needle.trim())
+    .map((needle) => needle.trim().toLowerCase());
+}
+
+export function slugifyName(value) {
+  return String(value ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[&'\u2019.]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+// Listing slugs follow team names ("detroit-tigers"). Shorter forms cover listings that drop the
+// city or the mascot: word suffixes of at least four characters ("tigers", "red-sox") and
+// prefixes of at least two words ("kansas-state"). Longest first.
+export function opponentSlugVariants(opponentName) {
+  const words = slugifyName(opponentName).split('-').filter(Boolean);
+  if (words.length === 0) {
+    return [];
   }
-  const single =
-    typeof options.hrefNeedle === 'string' && options.hrefNeedle.trim()
-      ? options.hrefNeedle.trim()
-      : 'cleveland-guardians';
-  return [single.toLowerCase()];
+  const variants = new Set([words.join('-')]);
+  for (let index = 1; index < words.length; index += 1) {
+    const suffix = words.slice(index).join('-');
+    if (suffix.length >= 4) {
+      variants.add(suffix);
+    }
+    if (index >= 2) {
+      variants.add(words.slice(0, index).join('-'));
+    }
+  }
+  return [...variants].sort((first, second) => second.length - first.length);
+}
+
+function opponentMatchLength(href, needles, variants) {
+  let text;
+  try {
+    const parsed = new URL(href);
+    text = decodeURIComponent(`${parsed.pathname}${parsed.search}`).toLowerCase();
+  } catch {
+    return 0;
+  }
+  // The team's own tokens are removed first so "iowa-state-cyclones" cannot satisfy an
+  // opponent variant such as "iowa-state".
+  for (const needle of needles) {
+    text = text.split(needle).join(' ');
+  }
+  for (const variant of variants) {
+    const pattern = new RegExp(`(^|[^a-z0-9])${escapeRegExp(variant)}($|[^a-z0-9])`);
+    if (pattern.test(text)) {
+      return variant.length;
+    }
+  }
+  return 0;
+}
+
+function listingLinkKey(href) {
+  try {
+    const parsed = new URL(href);
+    return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+// Chooses the one listing link for this game. Every needle must appear in the href. When more
+// than one link matches and an opponent is known, the opponent narrows them (the longest
+// matching variant wins); requireOpponent: true also demands the opponent on a lone match.
+// More than one remaining link fails as ambiguous_link unless exactly one carries the highest
+// listing-folder score, so a football link is never published for a basketball game or game 1
+// for game 2.
+export function selectListingLink(links, options = {}) {
+  const needles = hrefNeedlesFromOptions(options);
+  if (needles.length === 0) {
+    return { failure: 'config_missing', matches: [] };
+  }
+
+  const seen = new Set();
+  const matches = [];
+  for (const link of links ?? []) {
+    const key = typeof link?.href === 'string' ? listingLinkKey(link.href) : undefined;
+    if (!key || seen.has(key)) {
+      continue;
+    }
+    const hrefLower = link.href.toLowerCase();
+    if (!needles.every((needle) => hrefLower.includes(needle))) {
+      continue;
+    }
+    seen.add(key);
+    matches.push(link);
+  }
+  if (matches.length === 0) {
+    return { failure: 'link_not_found', matches };
+  }
+
+  let narrowed = matches;
+  const variants = opponentSlugVariants(options.opponentName);
+  const enforceOpponent = options.requireOpponent === true;
+  if (variants.length > 0 && (enforceOpponent || matches.length > 1)) {
+    const scored = matches.map((link) => ({
+      length: opponentMatchLength(link.href, needles, variants),
+      link,
+    }));
+    const best = Math.max(...scored.map((entry) => entry.length));
+    if (best === 0 && enforceOpponent) {
+      return { failure: 'opponent_not_found', matches };
+    }
+    if (best > 0) {
+      narrowed = scored.filter((entry) => entry.length === best).map((entry) => entry.link);
+    }
+  }
+
+  if (narrowed.length > 1) {
+    const topScore = Math.max(...narrowed.map((link) => link.score ?? 0));
+    const top = narrowed.filter((link) => (link.score ?? 0) === topScore);
+    if (top.length !== 1) {
+      return { failure: 'ambiguous_link', matches: narrowed };
+    }
+    narrowed = top;
+  }
+
+  return { link: narrowed[0], matches };
 }
 
 export function extractRunsHeaded() {
@@ -324,14 +545,20 @@ async function newExtractContext(browser) {
   });
 }
 
-async function waitForInnerLinkByHref(page, options, timeoutMs = 15_000) {
+// Polls until the listing yields a usable link or a definite ambiguity. A listing still loading
+// rows, or mid-navigation through a challenge, keeps polling until the deadline.
+async function waitForListingLink(page, options, timeoutMs = 15_000) {
   const deadline = Date.now() + timeoutMs;
-  let matches = await findInnerLinkByHref(page, options);
-  while (!matches[0] && Date.now() < deadline) {
-    await page.waitForTimeout(1_000);
-    matches = await findInnerLinkByHref(page, options);
+  let selection = selectListingLink(await findInnerLinkByHref(page, options), options);
+  while (
+    !selection.link &&
+    selection.failure !== 'ambiguous_link' &&
+    Date.now() < deadline
+  ) {
+    await settle(() => page.waitForTimeout(1_000), undefined);
+    selection = selectListingLink(await findInnerLinkByHref(page, options), options);
   }
-  return matches;
+  return selection;
 }
 
 export function isCloudflareChallengeTitle(title) {
@@ -346,14 +573,25 @@ async function playerPageSummary(page) {
     .frames()
     .map((frame) => frame.url())
     .filter((url) => url && url !== 'about:blank' && !isIgnoredPlayerFrame(url));
-  const details = await page.evaluate(() => ({
-    iframes: [...document.querySelectorAll('iframe[src], iframe[data-src]')]
-      .map((node) => node.getAttribute('src') || node.getAttribute('data-src'))
-      .filter(Boolean)
-      .slice(0, 12),
-    title: document.title,
-    url: window.location.href,
-  }));
+  const details = await settle(
+    () =>
+      page.evaluate(() => ({
+        iframes: [...document.querySelectorAll('iframe[src], iframe[data-src]')]
+          .map((node) => {
+            const value = node.getAttribute('src') || node.getAttribute('data-src');
+            try {
+              return value ? new URL(value, window.location.href).toString() : undefined;
+            } catch {
+              return undefined;
+            }
+          })
+          .filter(Boolean)
+          .slice(0, 12),
+        title: document.title,
+        url: window.location.href,
+      })),
+    { iframes: [], title: '', url: page.url() },
+  );
   return {
     cloudflareChallenge: isCloudflareChallengeTitle(details.title),
     frameUrls: frameUrls.slice(0, 12),
@@ -364,7 +602,7 @@ async function playerPageSummary(page) {
 }
 
 function networkHasGooz(networkUrls) {
-  return networkUrls.some((url) => isValidGoozPlayerUrl(url));
+  return currentUrls(networkUrls).some((url) => isValidGoozPlayerUrl(url));
 }
 
 function pageHasGoozFrame(page) {
@@ -398,39 +636,60 @@ async function primePlayerPage(page) {
   } catch {}
 }
 
-async function openInnerPageFromLink(page, innerLink, options) {
-  const timeoutMs = (options.timeoutSeconds ?? 90) * 1000;
-  const clicked = await page.evaluate(({ href }) => {
-    for (const anchor of document.querySelectorAll('a[href]')) {
-      const rawHref = anchor.getAttribute('href');
-      if (!rawHref) {
-        continue;
+async function clickListingAnchor(page, href) {
+  try {
+    return await page.evaluate((target) => {
+      for (const anchor of document.querySelectorAll('a[href]')) {
+        const rawHref = anchor.getAttribute('href');
+        if (!rawHref) {
+          continue;
+        }
+        let absoluteHref;
+        try {
+          absoluteHref = new URL(rawHref, window.location.href).toString();
+        } catch {
+          continue;
+        }
+        if (absoluteHref !== target) {
+          continue;
+        }
+        anchor.click();
+        return true;
       }
-      let absoluteHref;
-      try {
-        absoluteHref = new URL(rawHref, window.location.href).toString();
-      } catch {
-        continue;
-      }
-      if (absoluteHref !== href) {
-        continue;
-      }
-      anchor.click();
-      return true;
-    }
-    return false;
-  }, { href: innerLink.href });
+      return false;
+    }, href);
+  } catch {
+    // The click can navigate before evaluate returns; the URL wait below decides.
+    return true;
+  }
+}
 
-  if (clicked) {
-    await page.waitForLoadState('domcontentloaded', { timeout: timeoutMs });
-  } else {
+async function openInnerPageFromLink(page, innerLink, options, capture) {
+  const timeoutMs = (options.timeoutSeconds ?? 90) * 1000;
+  const listingUrl = page.url();
+  capture?.armForNavigation();
+
+  // Waiting starts before the click so a fast navigation is not missed. waitForLoadState alone
+  // returns at once because the listing itself is already loaded.
+  const navigated = page
+    .waitForURL((url) => url.toString() !== listingUrl, {
+      timeout: Math.min(timeoutMs, LINK_NAVIGATION_WAIT_MS),
+      waitUntil: 'domcontentloaded',
+    })
+    .then(
+      () => true,
+      () => false,
+    );
+  const clicked = await clickListingAnchor(page, innerLink.href);
+
+  if (!clicked || !(await navigated)) {
     await page.goto(innerLink.href, {
       waitUntil: 'domcontentloaded',
       timeout: timeoutMs,
     });
   }
 
-  await page.waitForTimeout(3_000);
+  await settle(() => page.waitForTimeout(3_000), undefined);
 }
 
 async function listingPageSummary(page) {
@@ -438,18 +697,25 @@ async function listingPageSummary(page) {
     .frames()
     .map((frame) => frame.url())
     .filter((url) => isIgnoredPlayerFrame(url));
-  const details = await page.evaluate(() => ({
-    anchorCount: document.querySelectorAll('a[href]').length,
-    title: document.title,
-    url: window.location.href,
-  }));
+  const details = await settle(
+    () =>
+      page.evaluate(() => ({
+        anchorCount: document.querySelectorAll('a[href]').length,
+        title: document.title,
+        url: window.location.href,
+      })),
+    { anchorCount: 0, title: '', url: page.url() },
+  );
   return { ...details, challengeFrames };
 }
 
 async function findInnerLinkByHref(page, options) {
   const hrefNeedles = hrefNeedlesFromOptions(options);
+  if (hrefNeedles.length === 0) {
+    return [];
+  }
 
-  return page.evaluate(({ hrefNeedles }) => {
+  return settle(() => page.evaluate(({ hrefNeedles }) => {
     const matches = [];
 
     for (const anchor of document.querySelectorAll('a[href]')) {
@@ -494,7 +760,7 @@ async function findInnerLinkByHref(page, options) {
 
     matches.sort((first, second) => second.score - first.score);
     return matches;
-  }, { hrefNeedles });
+  }, { hrefNeedles }), []);
 }
 
 async function activateVideoPlayer(page, networkUrls = [], options = {}) {
@@ -524,7 +790,7 @@ async function activateVideoPlayer(page, networkUrls = [], options = {}) {
   async function clickPlayInTarget(target) {
     for (const selector of playSelectors) {
       const locator = target.locator(selector).first();
-      if ((await locator.count()) === 0) {
+      if ((await settle(() => locator.count(), 0)) === 0) {
         continue;
       }
       try {
@@ -588,40 +854,86 @@ async function extractGoozWithRetries(page, pageUrl, networkUrls) {
     return firstPass;
   }
 
-  await page.waitForTimeout(3_000);
+  await settle(() => page.waitForTimeout(3_000), undefined);
   return extractGoozFromLoadedPage(page, pageUrl, networkUrls);
+}
+
+// Collects provider URLs seen on the network. Every URL is tagged with the main-frame document it
+// belongs to; armForNavigation() makes the next main-frame commit start a new document, and
+// urls() returns only the current document's URLs. So a listing page's requests, including
+// responses that finish after the game page commits, never count as the game page's player.
+export function createGoozCapture(page, pageUrl) {
+  let armed = false;
+  let documentIndex = 0;
+  const entries = [];
+  const requestDocuments = new WeakMap();
+
+  const documentForRequest = (request) => {
+    if (requestDocuments.has(request)) {
+      return requestDocuments.get(request);
+    }
+    let index = documentIndex;
+    try {
+      // The game page's own navigation request is issued before its commit.
+      if (armed && request.isNavigationRequest() && request.frame() === page.mainFrame()) {
+        index = documentIndex + 1;
+      }
+    } catch {}
+    requestDocuments.set(request, index);
+    return index;
+  };
+
+  const remember = (url, index, baseUrl) => {
+    const normalized = normalizeUrl(url, baseUrl);
+    if (normalized && isGoozUrl(normalized)) {
+      entries.push({ index, url: normalized });
+    }
+  };
+
+  page.on('request', (request) => {
+    remember(request.url(), documentForRequest(request), pageUrl);
+  });
+  page.on('response', async (response) => {
+    const index = documentForRequest(response.request());
+    remember(response.url(), index, pageUrl);
+    try {
+      const body = await response.text();
+      for (const match of findGoozInText(body, response.url())) {
+        entries.push({ index, url: match });
+      }
+    } catch {}
+  });
+  page.on('framenavigated', (frame) => {
+    if (armed && frame === page.mainFrame()) {
+      armed = false;
+      documentIndex += 1;
+    }
+  });
+
+  return {
+    armForNavigation() {
+      armed = true;
+    },
+    urls() {
+      return entries
+        .filter((entry) => entry.index === documentIndex)
+        .map((entry) => entry.url);
+    },
+  };
 }
 
 async function openPageWithGoozCapture(context, pageUrl, options) {
   const timeoutMs = (options.timeoutSeconds ?? 90) * 1000;
   const page = await context.newPage();
-  const networkUrls = [];
-
-  const rememberNetworkUrl = (url) => {
-    const normalized = normalizeUrl(url, pageUrl);
-    if (normalized && isGoozUrl(normalized)) {
-      networkUrls.push(normalized);
-    }
-  };
-
-  page.on('request', (request) => rememberNetworkUrl(request.url()));
-  page.on('response', async (response) => {
-    rememberNetworkUrl(response.url());
-    try {
-      const body = await response.text();
-      for (const match of findGoozInText(body, response.url())) {
-        networkUrls.push(match);
-      }
-    } catch {}
-  });
+  const capture = createGoozCapture(page, pageUrl);
 
   await page.goto(pageUrl, {
     waitUntil: 'domcontentloaded',
     timeout: timeoutMs,
   });
-  await page.waitForTimeout(POST_PLAY_WAIT_MS);
+  await settle(() => page.waitForTimeout(POST_PLAY_WAIT_MS), undefined);
 
-  return { networkUrls, page };
+  return { capture, page };
 }
 
 export async function openGoozPlayerPreview(goozUrl, options = {}) {
@@ -630,42 +942,47 @@ export async function openGoozPlayerPreview(goozUrl, options = {}) {
   }
 
   const browser = await launchExtractBrowser({ forceHeaded: true });
-  const page = await browser.newPage({
-    locale: 'en-US',
-    timezoneId: 'America/New_York',
-    userAgent: EXTRACT_USER_AGENT,
-    viewport: { width: 1280, height: 720 },
-  });
+  try {
+    const page = await browser.newPage({
+      locale: 'en-US',
+      timezoneId: 'America/New_York',
+      userAgent: EXTRACT_USER_AGENT,
+      viewport: { width: 1280, height: 720 },
+    });
 
-  await page.goto(goozUrl, {
-    waitUntil: 'domcontentloaded',
-    timeout: (options.timeoutSeconds ?? 90) * 1000,
-  });
-  const playMethod = await activateVideoPlayer(page, []);
+    await page.goto(goozUrl, {
+      waitUntil: 'domcontentloaded',
+      timeout: (options.timeoutSeconds ?? 90) * 1000,
+    });
+    const playMethod = await activateVideoPlayer(page, []);
 
-  return {
-    browser,
-    goozUrl,
-    page,
-    playMethod,
-  };
+    return {
+      browser,
+      goozUrl,
+      page,
+      playMethod,
+    };
+  } catch (error) {
+    await browser.close().catch(() => {});
+    throw error;
+  }
 }
 
 export async function extractGoozFromPage(pageUrl, options = {}) {
   const browser = await launchExtractBrowser();
-  const context = await newExtractContext(browser);
 
   try {
-    const { networkUrls, page } = await openPageWithGoozCapture(
+    const context = await newExtractContext(browser);
+    const { capture, page } = await openPageWithGoozCapture(
       context,
       pageUrl,
       options,
     );
-    await activateVideoPlayer(page, networkUrls);
+    await activateVideoPlayer(page, capture.urls);
     const extraction = await extractGoozWithRetries(
       page,
       pageUrl,
-      networkUrls,
+      capture.urls,
     );
 
     return {
@@ -673,8 +990,23 @@ export async function extractGoozFromPage(pageUrl, options = {}) {
       ...extraction,
     };
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
+}
+
+function linkFailureLines(selection, options, forLog) {
+  const paths = selection.matches.slice(0, 5).map((link) => forLog(link.href));
+  if (selection.failure === 'ambiguous_link') {
+    return [
+      `More than one listing link matches this game: ${paths.join(' ')}. Add a distinguishing href needle for this sport.`,
+    ];
+  }
+  if (selection.failure === 'opponent_not_found') {
+    return [
+      `No matching listing link names ${options.opponentName}. Matching paths: ${paths.join(' ')}.`,
+    ];
+  }
+  return [];
 }
 
 export async function extractGoozFromBasePage(baseUrl, options = {}) {
@@ -683,71 +1015,103 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
   const steps = [];
   steps.onStep = options.onStep;
   const logLines = [];
-  const browser = await launchExtractBrowser();
-  const context = await newExtractContext(browser);
+  const game = featuredGameFromOptions(options);
+  const opponentName =
+    typeof options.opponentName === 'string' && options.opponentName.trim()
+      ? options.opponentName.trim()
+      : undefined;
+  const selectionOptions = {
+    hrefNeedles,
+    opponentName,
+    requireOpponent: options.requireOpponent === true,
+  };
+  const privateHosts = new Set();
+  rememberPrivateHost(privateHosts, baseUrl);
+  const forLog = (url) => describeUrlForLog(url, privateHosts);
 
   const remember = (message) => {
     logLines.push(message);
   };
 
+  const failureResult = (failure, message, extra = {}) => ({
+    baseUrl,
+    blankStreamEntry: buildBlankStreamEntry(game),
+    failure,
+    found: false,
+    game,
+    hrefNeedle,
+    innerPageUrl: undefined,
+    linkCandidates: [],
+    logLines,
+    message,
+    steps,
+    userMessage: message,
+    ...extra,
+  });
+
+  if (hrefNeedles.length === 0) {
+    const message = 'No listing href needles are configured.';
+    pushStep(steps, 'config_missing', message, { success: false });
+    remember(message);
+    return failureResult('config_missing', message);
+  }
+
+  let browser;
   try {
+    browser = await launchExtractBrowser();
+    const context = await newExtractContext(browser);
+
     if (extractRunsHeaded()) {
       remember('Running headed browser for Cloudflare-protected pages.');
     }
-    pushStep(steps, 'connect_base', `Connected to base URL: ${baseUrl}`);
-    remember(`Connected to base URL: ${baseUrl}`);
+    const listingPath = urlPathForLog(baseUrl);
+    pushStep(steps, 'connect_base', `Opening listing path ${listingPath}`);
+    remember(`Opening listing path ${listingPath}`);
 
-    const { networkUrls, page: basePage } = await openPageWithGoozCapture(
+    const { capture, page: basePage } = await openPageWithGoozCapture(
       context,
       baseUrl,
       options,
     );
+    rememberPrivateHost(privateHosts, basePage.url());
     pushStep(steps, 'base_loaded', 'Base page loaded.');
     remember('Base page loaded.');
 
-    pushStep(
-      steps,
-      'search_links',
-      `Searching page elements for href containing "${hrefNeedle}"...`,
-      { hrefNeedle },
-    );
-    remember(`Searching page elements for href containing "${hrefNeedle}"...`);
+    const searchMessage = opponentName
+      ?`Searching page elements for href containing "${hrefNeedle}" and opponent ${opponentName}...`
+      : `Searching page elements for href containing "${hrefNeedle}"...`;
+    pushStep(steps, 'search_links', searchMessage, { hrefNeedle });
+    remember(searchMessage);
 
-    const linkMatches = await waitForInnerLinkByHref(basePage, {
-      hrefNeedles,
-    });
-    const innerLink = linkMatches[0];
+    const selection = await waitForListingLink(basePage, selectionOptions);
+    const innerLink = selection.link;
 
     if (!innerLink) {
-      const game = featuredGameFromOptions(options);
       const listing = await listingPageSummary(basePage);
       const message = 'No video found.';
-      pushStep(steps, 'link_not_found', message, { success: false });
+      pushStep(steps, selection.failure ?? 'link_not_found', message, { success: false });
       remember(message);
+      for (const line of linkFailureLines(selection, selectionOptions, forLog)) {
+        remember(line);
+      }
       remember(
-        `Listing page title is "${listing.title}" at ${listing.url} with ${listing.anchorCount} links.`,
+        `Listing page at ${forLog(listing.url)} has ${listing.anchorCount} links.`,
       );
+      if (isCloudflareChallengeTitle(listing.title)) {
+        remember(`Cloudflare challenge page title: "${listing.title}".`);
+      }
       if (listing.challengeFrames.length > 0) {
         remember(
-          `Challenge frame present: ${listing.challengeFrames[0]}`,
+          `Challenge frame present: ${forLog(listing.challengeFrames[0])}`,
         );
       }
       rememberFeaturedGame(steps, remember, game);
-      return {
-        baseUrl,
-        blankStreamEntry: buildBlankStreamEntry(game),
-        found: false,
-        game,
-        hrefNeedle,
-        innerPageUrl: undefined,
-        linkCandidates: [],
-        logLines,
-        message,
-        steps,
-        userMessage: message,
-      };
+      return failureResult(selection.failure ?? 'link_not_found', message, {
+        linkCandidates: selection.matches.slice(0, 5),
+      });
     }
 
+    rememberPrivateHost(privateHosts, innerLink.href);
     pushStep(steps, 'link_found', 'Found link element.', {
       href: innerLink.href,
       hrefNeedleMatched: innerLink.hrefNeedleMatched,
@@ -755,22 +1119,23 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       text: innerLink.text,
     });
     remember(`Found link element: "${innerLink.text}"`);
-    remember(`Link href is: ${innerLink.href}`);
+    remember(`Link path is: ${forLog(innerLink.href)}`);
 
     pushStep(
       steps,
       'open_video_page',
-      `Opening video page: ${innerLink.href}`,
+      `Opening video page: ${forLog(innerLink.href)}`,
       { innerPageUrl: innerLink.href },
     );
-    remember(`Opening video page: ${innerLink.href}`);
+    remember(`Opening video page: ${forLog(innerLink.href)}`);
 
-    await openInnerPageFromLink(basePage, innerLink, options);
+    await openInnerPageFromLink(basePage, innerLink, options, capture);
     const innerPage = basePage;
+    rememberPrivateHost(privateHosts, innerPage.url());
     pushStep(steps, 'video_page_loaded', 'Video page loaded.');
     remember('Video page loaded.');
 
-    const embedsReady = await waitForPlayerEmbeds(innerPage, networkUrls);
+    const embedsReady = await waitForPlayerEmbeds(innerPage, capture.urls);
     if (embedsReady) {
       pushStep(steps, 'embeds_ready', 'Player embeds are present on the video page.', {
         success: true,
@@ -791,9 +1156,10 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
 
     pushStep(steps, 'press_play', 'Pressing play on the video player...');
     remember('Pressing play on the video player...');
-    const playMethod = await activateVideoPlayer(innerPage, networkUrls, {
+    const rawPlayMethod = await activateVideoPlayer(innerPage, capture.urls, {
       skipEmbedWait: true,
     });
+    const playMethod = rawPlayMethod ? redactHosts(rawPlayMethod, privateHosts) : undefined;
     if (playMethod) {
       pushStep(steps, 'play_pressed', `Play activated using: ${playMethod}`, {
         playMethod,
@@ -813,10 +1179,9 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     const extraction = await extractGoozWithRetries(
       innerPage,
       innerLink.href,
-      networkUrls,
+      capture.urls,
     );
 
-    const game = featuredGameFromOptions(options);
     rememberFeaturedGame(steps, remember, game);
 
     if (extraction.goozUrl) {
@@ -840,10 +1205,10 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       pushStep(steps, 'gooz_not_found', message, { success: false });
       remember(message);
       remember(
-        `Player page frames: ${player.frameUrls.join(' ') || 'none'}.`,
+        `Player page frames: ${player.frameUrls.map(forLog).join(' ') || 'none'}.`,
       );
       remember(
-        `Player page iframes: ${player.iframes.join(' ') || 'none'}.`,
+        `Player page iframes: ${player.iframes.map(forLog).join(' ') || 'none'}.`,
       );
       if (player.cloudflareChallenge) {
         remember(`Cloudflare challenge page title: "${player.title}".`);
@@ -859,16 +1224,22 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       innerPageUrl: innerLink.href,
       innerLinkText: innerLink.text,
       innerLinkHrefMatched: innerLink.hrefNeedleMatched,
-      linkCandidates: linkMatches.slice(0, 5),
+      linkCandidates: selection.matches.slice(0, 5),
       logLines,
       steps,
       userMessage: extraction.found ? undefined : 'No video found.',
       ...extraction,
+      ...(extraction.found ? {} : { failure: 'gooz_not_found' }),
       message: extraction.found
         ? 'Stream page and gooz player URL found.'
         : 'No video found.',
     };
+  } catch (error) {
+    // Playwright errors quote the URL being loaded.
+    throw new Error(
+      redactHosts(error instanceof Error ? error.message : String(error), privateHosts),
+    );
   } finally {
-    await browser.close();
+    await browser?.close().catch(() => {});
   }
 }

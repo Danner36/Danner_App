@@ -4,9 +4,16 @@ import { fileURLToPath } from 'node:url';
 import {
   buildBlankStreamEntry,
   extractGoozFromBasePage,
-  isGoozHost,
+  httpsProviderUrl,
   isValidGoozPlayerUrl,
+  redactHosts,
+  urlPathForLog,
 } from './extractGooz.mjs';
+import {
+  DEFAULT_LEAD_MINUTES,
+  DEFAULT_POST_START_GRACE_MINUTES,
+  officialDateInZone,
+} from './gameWindow.mjs';
 import {
   featuredGame,
   fetchGuardiansGames,
@@ -17,12 +24,16 @@ import {
   fetchCyclonesGames,
 } from './ncaaSchedule.mjs';
 import { fetchPatriotsGames } from './nflSchedule.mjs';
-import { publishStreamsFile } from './publishGithub.mjs';
+import { CYCLONES_SPORTS, isPlayableStream } from './playableStream.mjs';
 import {
-  entryChanged,
-  findStreamForGame,
+  publishStreamsUpdate,
+  readRemoteStreamsDocument,
+} from './publishGithub.mjs';
+import {
+  findEquivalentStream,
+  findPlayableStreamForGame,
+  planStreamUpdate,
   readStreamsDocument,
-  upsertStream,
   writeStreamsDocument,
 } from './streamsDocument.mjs';
 
@@ -33,26 +44,165 @@ export const defaultConfigPath = path.join(
   'config.json',
 );
 
+// Each module writes only its own root file. Official dates, and the "today" used to pick a game
+// and to age out old entries, are calendar dates in the module's zone.
+const MODULES = {
+  guardians: {
+    label: 'Guardians',
+    streamsPath: 'guardians_streams.json',
+    timeZone: 'America/New_York',
+  },
+  patriots: {
+    label: 'Patriots',
+    sport: 'nfl',
+    streamsPath: 'patriots_streams.json',
+    timeZone: 'America/New_York',
+  },
+  cyclones: {
+    label: 'Cyclones',
+    sport: 'cyclones',
+    streamsPath: 'cyclones_streams.json',
+    timeZone: 'America/Chicago',
+  },
+};
+
+// JSON.parse errors quote part of the text, which would print extract.baseUrl.
 export async function loadConfig(configPath = defaultConfigPath) {
-  const text = await readFile(configPath, 'utf8');
-  return JSON.parse(text);
+  let text;
+  try {
+    text = await readFile(configPath, 'utf8');
+  } catch {
+    throw new Error('Pipeline config file could not be read.');
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Pipeline config is not valid JSON.');
+  }
+}
+
+export function moduleForConfig(config) {
+  if (config?.sport === undefined || config?.sport === 'mlb') {
+    return 'guardians';
+  }
+  if (config.sport === 'nfl') {
+    return 'patriots';
+  }
+  if (config.sport === 'cyclones') {
+    return 'cyclones';
+  }
+  return undefined;
+}
+
+export function moduleTimeZone(config) {
+  return MODULES[moduleForConfig(config) ?? 'guardians'].timeZone;
+}
+
+// Guardians predates github.streamsPath and keeps its default. Patriots and Cyclones must name
+// their own file; configProblem rejects them otherwise.
+export function streamsRelativePath(config) {
+  const configured =
+    typeof config.github?.streamsPath === 'string' ? config.github.streamsPath.trim() : '';
+  if (configured) {
+    return configured;
+  }
+  return moduleForConfig(config) === 'guardians' ? MODULES.guardians.streamsPath : undefined;
 }
 
 export function streamsPathForConfig(config) {
-  return path.resolve(
-    repoRoot,
-    config.github?.streamsPath ?? 'guardians_streams.json',
-  );
+  const relative = streamsRelativePath(config);
+  return relative ? path.resolve(repoRoot, relative) : undefined;
+}
+
+function cleanNeedles(values) {
+  return Array.isArray(values)
+    ? values
+        .filter((value) => typeof value === 'string' && value.trim())
+        .map((value) => value.trim())
+    : [];
+}
+
+// Cyclones: extract.hrefNeedles is an object keyed by sport. Guardians and Patriots:
+// extract.hrefNeedles array or extract.hrefNeedle string. Only a Guardians config without
+// needles falls back to its own team; no other module ever borrows a team.
+export function hrefNeedlesForGame(config, game) {
+  const configured = config.extract?.hrefNeedles;
+  if (moduleForConfig(config) === 'cyclones') {
+    if (
+      !game?.sport ||
+      typeof configured !== 'object' ||
+      configured === null ||
+      Array.isArray(configured)
+    ) {
+      return [];
+    }
+    return cleanNeedles(configured[game.sport]);
+  }
+  const needles = Array.isArray(configured)
+    ? cleanNeedles(configured)
+    : cleanNeedles([config.extract?.hrefNeedle]);
+  if (needles.length === 0 && moduleForConfig(config) === 'guardians') {
+    return ['cleveland-guardians'];
+  }
+  return needles;
+}
+
+// Returns a message naming the missing or mismatched setting, never its value.
+export function configProblem(config, { dispatchSport, expectedModule } = {}) {
+  if (typeof config !== 'object' || config === null || Array.isArray(config)) {
+    return 'Pipeline config is not a JSON object.';
+  }
+  const moduleName = moduleForConfig(config);
+  if (!moduleName) {
+    return 'Pipeline config sport must be omitted (Guardians), "nfl", or "cyclones".';
+  }
+  if (expectedModule && moduleName !== expectedModule) {
+    return `Pipeline config is for ${moduleName}, but this workflow runs ${expectedModule}.`;
+  }
+
+  const expectedPath = MODULES[moduleName].streamsPath;
+  const streamsPath = config.github?.streamsPath;
+  if (streamsPath === undefined && moduleName !== 'guardians') {
+    return `Pipeline config is missing github.streamsPath (${expectedPath}).`;
+  }
+  if (streamsPath !== undefined && streamsPath !== expectedPath) {
+    return `Pipeline config github.streamsPath must be ${expectedPath}.`;
+  }
+
+  const baseUrl = config.extract?.baseUrl;
+  let baseUrlValid = false;
+  try {
+    const parsed = new URL(typeof baseUrl === 'string' ? baseUrl.trim() : '');
+    baseUrlValid = parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {}
+  if (!baseUrlValid) {
+    return 'Pipeline config extract.baseUrl is missing or is not an http(s) URL.';
+  }
+
+  if (moduleName === 'cyclones') {
+    const bySport = config.extract?.hrefNeedles;
+    if (typeof bySport !== 'object' || bySport === null || Array.isArray(bySport)) {
+      return 'Pipeline config extract.hrefNeedles must map each Cyclones sport to href needles.';
+    }
+    if (dispatchSport !== undefined && !CYCLONES_SPORTS.has(dispatchSport)) {
+      return 'Dispatch sport is not football, mens-basketball, or womens-basketball.';
+    }
+    const sports = dispatchSport ? [dispatchSport] : [...CYCLONES_SPORTS];
+    const missing = sports.filter((sport) => cleanNeedles(bySport[sport]).length === 0);
+    if (missing.length === sports.length || (dispatchSport && missing.length > 0)) {
+      return `Pipeline config extract.hrefNeedles has no needles for ${missing.join(', ')}.`;
+    }
+    return undefined;
+  }
+
+  if (hrefNeedlesForGame(config, undefined).length === 0) {
+    return 'Pipeline config is missing extract.hrefNeedle.';
+  }
+  return undefined;
 }
 
 function noGameMessage(config) {
-  if (config.sport === 'nfl') {
-    return 'No Patriots game is scheduled for today.';
-  }
-  if (config.sport === 'cyclones') {
-    return 'No Cyclones game is scheduled for today.';
-  }
-  return 'No Guardians game is scheduled for today.';
+  return `No ${MODULES[moduleForConfig(config)].label} game is scheduled for today.`;
 }
 
 function scheduleStepName(config) {
@@ -75,28 +225,19 @@ async function fetchConfiguredGames(config, now) {
   return fetchGuardiansGames(config.teamId ?? 114, now);
 }
 
-function featuredGameForConfig(config, games, now, dispatchSport) {
+export function featuredGameForConfig(config, games, now, dispatchSport) {
+  const options = {
+    graceMinutes: config.postStartGraceMinutes ?? DEFAULT_POST_START_GRACE_MINUTES,
+    leadMinutes: config.leadMinutes ?? DEFAULT_LEAD_MINUTES,
+    timeZone: moduleTimeZone(config),
+  };
   if (config.sport === 'cyclones') {
     const scoped = dispatchSport
       ? games.filter((game) => game.sport === dispatchSport)
       : games;
-    return featuredCyclonesGame(scoped, now);
+    return featuredCyclonesGame(scoped, now, options);
   }
-  return featuredGame(games, now);
-}
-
-function hrefNeedlesForGame(config, game) {
-  const bySport = config.extract?.hrefNeedles;
-  if (game?.sport && bySport && typeof bySport === 'object') {
-    const needles = bySport[game.sport];
-    if (Array.isArray(needles) && needles.length > 0) {
-      return needles;
-    }
-  }
-  if (typeof config.extract?.hrefNeedle === 'string' && config.extract.hrefNeedle.trim()) {
-    return [config.extract.hrefNeedle.trim()];
-  }
-  return ['cleveland-guardians'];
+  return featuredGame(games, now, options);
 }
 
 export function isGameOver(game) {
@@ -118,55 +259,94 @@ export function isWithinGetVideoWindow(game, now, leadMinutes) {
   return now.getTime() >= startMs - leadMs;
 }
 
-export function isValidStreamEntry(stream) {
-  if (
-    !stream ||
-    typeof stream.url !== 'string' ||
-    !stream.url.trim() ||
-    (stream.kind !== 'direct' &&
-      stream.kind !== 'web' &&
-      stream.kind !== 'youtube')
-  ) {
-    return false;
-  }
+function githubTarget(config) {
+  const github = config.github ?? {};
+  return {
+    branch: github.branch ?? 'main',
+    owner: github.owner ?? 'Danner36',
+    path: streamsRelativePath(config),
+    repo: github.repo ?? 'Danner_App',
+  };
+}
 
-  try {
-    const parsed = new URL(stream.url);
-    const protocolAllowed =
-      parsed.protocol === 'https:' ||
-      (parsed.protocol === 'http:' && stream.allowInsecureHttp === true);
-    if (!protocolAllowed) {
-      return false;
+// Readiness is judged against the branch, not the job's checkout, which a queued run took
+// before an earlier run published.
+async function readCurrentStreamsDocument({ github, streamsPath, steps, token }) {
+  if (token) {
+    try {
+      const remote = await readRemoteStreamsDocument({ ...github, token });
+      if (remote) {
+        return remote.document;
+      }
+    } catch (error) {
+      steps.push({
+        step: 'read_remote',
+        message: `Could not read ${github.path} from GitHub (${error instanceof Error ? error.message : String(error)}); using the checkout copy.`,
+        success: false,
+      });
     }
-    if (isGoozHost(parsed.hostname)) {
-      return isValidGoozPlayerUrl(stream.url);
-    }
-    return true;
-  } catch {
-    return false;
   }
+  return readStreamsDocument(streamsPath);
+}
+
+function skippedPublishResult({ change, game, nextEntry, steps }) {
+  if (change.outcome === 'video_ready') {
+    return {
+      game,
+      outcome: 'video_ready',
+      message: 'Video entry is already loaded for this game.',
+      steps,
+      streamEntry: change.streamEntry,
+      success: true,
+    };
+  }
+  return {
+    game,
+    outcome: 'unchanged',
+    message: 'Stream entry is already up to date; nothing to publish.',
+    nextEntry,
+    steps,
+    streamEntry: change.streamEntry,
+    success: true,
+  };
+}
+
+// A resumed MLB game keeps the officialDate and game number of the day it was suspended, so the
+// entry already under that key points at the first day's stream. It is re-extracted and
+// replaced, as a forced run would.
+function replacesExistingEntry(options, game) {
+  return Boolean(options.force || options.forceRefresh || game.resumed);
 }
 
 async function publishStreamDocument({
   config,
   document,
   game,
+  github,
   nextEntry,
   options,
   steps,
   streamsPath,
+  today,
+  token,
 }) {
-  const updated = upsertStream(document, nextEntry, game);
-  await writeStreamsDocument(streamsPath, updated);
-  steps.push({
-    step: 'write_local',
-    message: `Updated ${path.relative(repoRoot, streamsPath)}.`,
-    streamEntry: nextEntry,
-    success: true,
-  });
+  const force = replacesExistingEntry(options, game);
+  const requireSport = moduleForConfig(config) === 'cyclones';
+  const plan = (current) =>
+    planStreamUpdate(current, { entry: nextEntry, force, game, requireSport, today });
 
-  const token = options.githubToken?.trim() || process.env.GITHUB_TOKEN?.trim();
   if (!token) {
+    const change = plan(document);
+    if (!change.document) {
+      return skippedPublishResult({ change, game, nextEntry, steps });
+    }
+    await writeStreamsDocument(streamsPath, change.document);
+    steps.push({
+      step: 'write_local',
+      message: `Updated ${github.path}.`,
+      streamEntry: nextEntry,
+      success: true,
+    });
     return {
       game,
       outcome: 'local_only',
@@ -178,28 +358,32 @@ async function publishStreamDocument({
     };
   }
 
-  const github = config.github ?? {};
-  const owner = github.owner ?? 'Danner36';
-  const repo = github.repo ?? 'Danner_App';
-  const branch = github.branch ?? 'main';
   const messagePrefix =
-    github.commitMessagePrefix ?? 'guardians: update stream for';
+    config.github?.commitMessagePrefix ?? 'guardians: update stream for';
   const commitMessage = `${messagePrefix} ${game.officialDate} game ${game.gameNumber}`;
 
-  await publishStreamsFile({
-    branch,
-    localPath: streamsPath,
+  const published = await publishStreamsUpdate({
+    ...github,
+    fallbackDocument: document,
     message: commitMessage,
-    owner,
-    path: github.streamsPath ?? 'guardians_streams.json',
-    repo,
     token,
+    update: plan,
   });
+  if (!published.published) {
+    return skippedPublishResult({ change: published.change, game, nextEntry, steps });
+  }
 
+  await writeStreamsDocument(streamsPath, published.document);
+  steps.push({
+    step: 'write_local',
+    message: `Updated ${github.path}.`,
+    streamEntry: nextEntry,
+    success: true,
+  });
   steps.push({
     step: 'publish_github',
     commitMessage,
-    message: `Published to ${owner}/${repo}@${branch}.`,
+    message: `Published to ${github.owner}/${github.repo}@${github.branch}${published.attempts > 1 ? ` after ${published.attempts} attempts` : ''}.`,
     success: true,
   });
 
@@ -217,14 +401,32 @@ async function publishStreamDocument({
 export async function runGoozPipeline(options = {}) {
   const configPath = options.configPath ?? defaultConfigPath;
   const config = await loadConfig(configPath);
-  const leadMinutes = config.leadMinutes ?? 15;
+  const steps = [];
+  const dispatchSport =
+    options.dispatchSport ?? (process.env.DISPATCH_SPORT?.trim() || undefined);
+  const expectedModule =
+    options.module ?? (process.env.PIPELINE_MODULE?.trim() || undefined);
+
+  const problem = configProblem(config, { dispatchSport, expectedModule });
+  if (problem) {
+    return {
+      outcome: 'config_missing',
+      message: problem,
+      steps,
+      success: false,
+    };
+  }
+
+  const moduleName = moduleForConfig(config);
+  const leadMinutes = config.leadMinutes ?? DEFAULT_LEAD_MINUTES;
   const timeoutSeconds =
     config.extract?.timeoutSeconds ?? config.probeTimeoutSeconds ?? 90;
   const streamsPath = streamsPathForConfig(config);
-  const now = new Date();
-  const steps = [];
-  const dispatchSport =
-    options.dispatchSport ?? process.env.DISPATCH_SPORT?.trim() ?? undefined;
+  const github = githubTarget(config);
+  const token = options.githubToken?.trim() || process.env.GITHUB_TOKEN?.trim();
+  const validation = { requireSport: moduleName === 'cyclones' };
+  const now = options.now ?? new Date();
+  const today = officialDateInZone(now, moduleTimeZone(config));
 
   const games = await fetchConfiguredGames(config, now);
   const game = featuredGameForConfig(config, games, now, dispatchSport);
@@ -263,13 +465,15 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
-  const document = await readStreamsDocument(streamsPath);
-  const existing = findStreamForGame(document, game);
-  if (
-    isValidStreamEntry(existing) &&
-    !options.force &&
-    !options.forceRefresh
-  ) {
+  const document = await readCurrentStreamsDocument({ github, streamsPath, steps, token });
+  const existing = findPlayableStreamForGame(document, game, validation);
+  if (existing && game.resumed) {
+    steps.push({
+      step: 'resumed_game',
+      message: `Resumed game; replacing the entry for ${game.officialDate} game ${game.gameNumber}.`,
+    });
+  }
+  if (existing && !replacesExistingEntry(options, game)) {
     return {
       game,
       outcome: 'video_ready',
@@ -290,39 +494,71 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
-  const baseUrl =
-    typeof config.extract?.baseUrl === 'string'
-      ? config.extract.baseUrl.trim()
-      : '';
-  if (!baseUrl) {
+  const baseUrl = config.extract.baseUrl.trim();
+  const hrefNeedles = hrefNeedlesForGame(config, game);
+  if (hrefNeedles.length === 0) {
     return {
       game,
       outcome: 'config_missing',
-      message: 'extract.baseUrl is missing from pipeline config.',
+      message: `Pipeline config has no href needles for ${game.sport ?? moduleName}.`,
       steps,
       success: false,
     };
   }
 
-  const hrefNeedles = hrefNeedlesForGame(config, game);
-
   steps.push({
     step: 'extract_gooz',
-    message: `Extracting gooz URL from ${baseUrl} using href "${hrefNeedles.join(' + ')}".`,
+    message: `Extracting gooz URL from listing path ${urlPathForLog(baseUrl)} using href "${hrefNeedles.join(' + ')}".`,
   });
 
-  const extraction = await extractGoozFromBasePage(baseUrl, {
-    game,
-    hrefNeedles,
-    timeoutSeconds,
-  });
+  let extraction;
+  try {
+    extraction = await extractGoozFromBasePage(baseUrl, {
+      game,
+      hrefNeedles,
+      opponentName: game.opponentName,
+      requireOpponent: config.extract?.requireOpponent === true,
+      timeoutSeconds,
+    });
+  } catch (error) {
+    let listingHost;
+    try {
+      listingHost = new URL(baseUrl).hostname;
+    } catch {}
+    return {
+      game,
+      outcome: 'extract_failed',
+      message: `Extraction failed: ${redactHosts(error instanceof Error ? error.message : String(error), [listingHost])}`,
+      steps,
+      success: false,
+    };
+  }
   for (const line of extraction.logLines ?? []) {
     steps.push({ step: 'extract_log', message: line });
   }
 
+  if (extraction.failure === 'ambiguous_link') {
+    return {
+      game,
+      outcome: 'ambiguous_link',
+      message: 'More than one listing link matches this game; nothing was published.',
+      steps,
+      success: false,
+    };
+  }
+  if (extraction.failure === 'config_missing') {
+    return {
+      game,
+      outcome: 'config_missing',
+      message: extraction.message,
+      steps,
+      success: false,
+    };
+  }
+
   const foundUrl =
     extraction.found && isValidGoozPlayerUrl(extraction.goozUrl)
-      ? extraction.goozUrl
+      ? httpsProviderUrl(extraction.goozUrl)
       : undefined;
   if (!foundUrl) {
     steps.push({
@@ -351,14 +587,26 @@ export async function runGoozPipeline(options = {}) {
     ...(game.sport ? { sport: game.sport } : {}),
   };
 
-  if (!entryChanged(existing, nextEntry)) {
+  if (!isPlayableStream(nextEntry, validation)) {
+    return {
+      game,
+      outcome: 'invalid_entry',
+      message: 'Extracted entry would be rejected by the phone; nothing was published.',
+      nextEntry,
+      steps,
+      success: false,
+    };
+  }
+
+  const equivalent = findEquivalentStream(document, game, nextEntry, validation);
+  if (equivalent) {
     return {
       game,
       outcome: 'unchanged',
       message: 'Stream entry is already up to date; nothing to publish.',
       nextEntry,
       steps,
-      streamEntry: existing,
+      streamEntry: equivalent,
       success: true,
     };
   }
@@ -367,7 +615,7 @@ export async function runGoozPipeline(options = {}) {
     return {
       game,
       outcome: 'dry_run',
-      message: `Dry run complete; ${config.github?.streamsPath ?? 'guardians_streams.json'} was not written.`,
+      message: `Dry run complete; ${github.path} was not written.`,
       nextEntry,
       steps,
       success: true,
@@ -378,9 +626,12 @@ export async function runGoozPipeline(options = {}) {
     config,
     document,
     game,
+    github,
     nextEntry,
     options,
     steps,
     streamsPath,
+    today,
+    token,
   });
 }
