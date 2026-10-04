@@ -162,6 +162,40 @@ const isPermissionDeny = (node) =>
   /text="Don.t allow"/i.test(node) ||
   /text="Don.t Allow"/i.test(node);
 
+// Messages the TV control shows once a relay start was attempted.
+const relayFailureTexts = [
+  'Connect this phone to the same Wi-Fi as the TV.',
+  'The game stream is not answering right now. Try again in a minute.',
+  "This page's video can't be sent to the TV.",
+  'Could not send to the TV.',
+];
+
+const readLogcat = async () => {
+  const result = await run(adbPath, ['logcat', '-d']);
+  return `${result.stdout}\n${result.stderr}`;
+};
+
+const screenSize = async () => {
+  const output = await adb(['shell', 'wm', 'size']);
+  const match = /(\d+)x(\d+)/.exec(output);
+  return {
+    width: match ? Number(match[1]) : 1080,
+    height: match ? Number(match[2]) : 1920,
+  };
+};
+
+const swipeUp = async () => {
+  const size = await screenSize();
+  const x = Math.round(size.width / 2);
+  const fromY = Math.round(size.height * 0.72);
+  const toY = Math.round(size.height * 0.38);
+  await adb(['shell', 'input', 'swipe', String(x), String(fromY), String(x), String(toY), '350']);
+};
+
+const askedLocation = (labels) =>
+  labels.toLowerCase().includes('location') &&
+  (labels.includes("Don't allow") || labels.includes('Allow'));
+
 const ensureEmulator = async () => {
   const devices = await run(adbPath, ['devices']);
   if (devices.stdout.includes('\tdevice')) {
@@ -369,14 +403,20 @@ try {
 
   await openGuardians('Guardians after hub');
   await sleep(2_000);
-  await waitFor('web Play', 30_000, async () =>
-    (await tapIfPresent('Play video 6', hasDesc('Play video 6'))) ||
-    (await tapIfPresent('Play video', hasDesc('Play video'))),
-  ).catch(async (error) => {
+  // Play video 5 is the page-reported HLS player, so the TV press reaches the
+  // notification prompt and the relay start.
+  await waitFor('web Play', 30_000, async () => {
+    if (await tapIfPresent('Play video 5', hasDesc('Play video 5'))) {
+      return true;
+    }
+    await swipeUp();
+    return false;
+  }).catch(async (error) => {
     throw new Error(`${error.message}. ${await dumpLabels()}`);
   });
   await sleep(2_000);
   await adb(['shell', 'input', 'tap', '540', '1100']);
+  await adb(['logcat', '-c']);
   await waitFor('Send to TV', 20_000, () =>
     tapIfPresent('Send to TV', hasDesc('Send to TV')),
   ).catch(async (error) => {
@@ -386,16 +426,42 @@ try {
   await dismissPermissionDialogs();
   await sleep(1_000);
   const afterTvDeny = await dumpLabels();
-  const askedLocation =
-    afterTvDeny.toLowerCase().includes('location') &&
-    (afterTvDeny.includes("Don't allow") || afterTvDeny.includes('Allow'));
-  if (askedLocation) {
+  if (askedLocation(afterTvDeny)) {
     throw new Error(`TV send showed a location prompt. ${afterTvDeny}`);
   }
-  if (!afterTvDeny.includes('TV send needs permission')) {
-    throw new Error(`Denied TV send did not show the failure. ${afterTvDeny}`);
+  // A denied notification does not block the send: the relay starts, or the relay
+  // start reports its own failure.
+  let locationPrompt;
+  let noPageVideo;
+  const tvSend = await waitFor('TV send after denied permission', 20_000, async () => {
+    const labels = await dumpLabels();
+    if (askedLocation(labels)) {
+      locationPrompt = labels;
+      return 'location prompt';
+    }
+    if (labels.includes('This page did not offer a video to send.')) {
+      noPageVideo = labels;
+      return 'no page video';
+    }
+    await dismissPermissionDialogs();
+    const relay = /\[DannerCast\] relay (\S+) for (\S+)/.exec(
+      (await readLogcat()).replace(/\r?\n/g, ' '),
+    );
+    if (relay) {
+      return `relay ${relay[1]}`;
+    }
+    const failure = relayFailureTexts.find((text) => labels.includes(text));
+    return failure ? `relay start failed: ${failure}` : undefined;
+  }).catch(async (error) => {
+    throw new Error(`${error.message}. ${await dumpLabels()}`);
+  });
+  if (locationPrompt) {
+    throw new Error(`TV send showed a location prompt. ${locationPrompt}`);
   }
-  findings.push('tv-deny=permission-text');
+  if (noPageVideo) {
+    throw new Error(`TV send found no page video. ${noPageVideo}`);
+  }
+  findings.push(`tv-deny=send-proceeds (${tvSend})`);
 
   process.stdout.write(`${findings.join('\n')}\n`);
 } catch (error) {

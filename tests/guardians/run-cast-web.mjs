@@ -21,24 +21,59 @@ const emulatorPath = path.join(
 const packageName = 'com.example.location_helper';
 const metroPort = 8081;
 
+const logToken = (value) => value.replace(/['",]+$/, '');
+
 const loadMediaUrls = (logs) => {
   const joined = logs.replace(/\r?\n/g, ' ');
-  return [...joined.matchAll(/\[DannerCast\] loadMedia\s+(\S+)/g)].map((match) => match[1]);
+  return [...joined.matchAll(/\[DannerCast\] loadMedia\s+(\S+)/g)].map((match) =>
+    logToken(match[1]),
+  );
+};
+
+// The relay serves the page's playlist from the phone's LAN address under a
+// per-session token.
+const relayPlaylistPattern =
+  /^http:\/\/(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}:\d+\/[0-9a-f]{32}\/live\.m3u8$/;
+
+const isRelayPlaylist = (url) => {
+  const match = relayPlaylistPattern.exec(url);
+  if (!match) {
+    return false;
+  }
+  const first = Number(match[1]);
+  const second = Number(match[2]);
+  return first === 10 ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168);
+};
+
+const relayLogs = (logs) => {
+  const joined = logs.replace(/\r?\n/g, ' ');
+  return [...joined.matchAll(/\[DannerCast\] relay (\S+) for (\S+)/g)]
+    .map((match) => ({ page: logToken(match[2]), relay: logToken(match[1]) }))
+    .filter((entry) => isRelayPlaylist(entry.relay));
 };
 
 const pageReportedPlayback = (logs) => {
-  const unique = [...new Set(loadMediaUrls(logs))];
-  if (unique.length !== 1) {
+  const relays = relayLogs(logs);
+  const latest = relays[relays.length - 1];
+  if (!latest) {
     return undefined;
   }
-  const url = unique[0];
-  if (!url.includes('.m3u8') || url.includes('prog_index') || url.includes('/live.m3u8')) {
+  // The page's player named its master playlist; a network-only variant does not count.
+  if (!latest.page.includes('.m3u8') || latest.page.includes('prog_index')) {
     return undefined;
   }
-  if (!logs.includes('[DannerCast] playerState playing')) {
+  const loaded = [...new Set(loadMediaUrls(logs))];
+  if (!loaded.includes(latest.relay) || loaded.some((url) => !isRelayPlaylist(url))) {
     return undefined;
   }
-  return url;
+  const joined = logs.replace(/\r?\n/g, ' ');
+  const afterLoad = joined.slice(joined.lastIndexOf(`[DannerCast] loadMedia ${latest.relay}`));
+  if (!afterLoad.includes('[DannerCast] playerState playing')) {
+    return undefined;
+  }
+  return latest;
 };
 
 const children = [];
@@ -400,17 +435,14 @@ try {
     throw new Error(`${error.message}. ${await dumpLabels()}`);
   });
 
-  if (logs.includes('[DannerCast] converter')) {
-    throw new Error('TV send used the converter instead of the page-reported URL.');
-  }
-
   await assertNoCaptureSheet();
+  const playback = pageReportedPlayback(logs);
   report = [
     `page ${onCastPage ? 'Cast web source' : 'Play video 5'}`,
-    `loadMedia ${pageReportedPlayback(logs)}`,
+    `relay ${playback.relay} for ${playback.page}`,
+    `loadMedia ${playback.relay}`,
     'playerState playing',
     'no capture sheet',
-    'no converter origin',
   ].join('\n');
   passed = true;
   process.stdout.write(`${report}\n`);

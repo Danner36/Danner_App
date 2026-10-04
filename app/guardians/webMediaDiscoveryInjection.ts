@@ -1,3 +1,5 @@
+import type { RelayStartFailure } from '../modules/danner-live-hls/src/liveRelay';
+
 export const HLS_CONTENT_TYPE = 'application/x-mpegURL';
 export const DASH_CONTENT_TYPE = 'application/dash+xml';
 export const MP4_CONTENT_TYPE = 'video/mp4';
@@ -74,13 +76,37 @@ export function preferDiscoveredMedia(
   return current;
 }
 
+/** A per-load secret the page injection stamps on every message it posts. */
+export function newDiscoveryNonce(): string {
+  const bytes = new Uint8Array(16);
+  const random = (
+    globalThis as {
+      crypto?: { getRandomValues?: (array: Uint8Array) => Uint8Array };
+    }
+  ).crypto;
+  if (typeof random?.getRandomValues === 'function') {
+    random.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join(
+    '',
+  );
+}
+
 /**
  * Reports the media URL an approved player page is actually loading, together with the
  * content type that identified it. A provider playlist is often served from a path with no
  * file extension, so the page hooks take the type from the hls.js entry point and from
  * response headers instead of inferring it from the URL alone.
+ *
+ * The nonce stays in the script's closure. Android opens the message bridge to every frame,
+ * and a message without it did not come from this script.
  */
-export const WEB_MEDIA_DISCOVERY_INJECTION = `
+export function webMediaDiscoveryInjection(nonce: string): string {
+  return `
 (function () {
   if (window.__dannerMediaDiscovery) {
     return;
@@ -90,8 +116,9 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
   var HLS = '${HLS_CONTENT_TYPE}';
   var DASH = '${DASH_CONTENT_TYPE}';
   var MP4 = '${MP4_CONTENT_TYPE}';
+  var nonce = ${JSON.stringify(nonce)};
   var reported = {};
-  var playerNamed = false;
+  var playerType = '';
   var networkLocked = false;
 
   var typeFromPath = function (value) {
@@ -142,10 +169,13 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     if (!contentType) {
       return;
     }
-    if (playerNamed) {
-      return;
-    }
-    if (!fromPlayer && networkLocked) {
+    if (playerType) {
+      // A player MP4 is often a bumper or ad in front of the game, so the player's
+      // later HLS or DASH URL is still reported.
+      if (!fromPlayer || playerType !== MP4 || contentType === MP4) {
+        return;
+      }
+    } else if (!fromPlayer && networkLocked) {
       return;
     }
     var key = url + '|' + contentType;
@@ -154,7 +184,7 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
     }
     reported[key] = true;
     if (fromPlayer) {
-      playerNamed = true;
+      playerType = contentType;
     } else {
       networkLocked = true;
     }
@@ -163,6 +193,7 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
         window.ReactNativeWebView.postMessage(
           JSON.stringify({
             contentType: contentType,
+            nonce: nonce,
             source: fromPlayer ? 'player' : 'network',
             type: 'media-url',
             url: url,
@@ -347,6 +378,50 @@ export const WEB_MEDIA_DISCOVERY_INJECTION = `
 })();
 true;
 `;
+}
+
+/**
+ * Accepts a `media-url` message only when it carries this load's nonce and names a
+ * castable URL and content type for this source's transport policy.
+ */
+export function parseDiscoveredMediaMessage(
+  data: string,
+  nonce: string,
+  allowInsecureHttp: boolean,
+): DiscoveredMedia | undefined {
+  if (typeof data !== 'string' || typeof nonce !== 'string' || !nonce) {
+    return undefined;
+  }
+  let payload: unknown;
+  try {
+    payload = JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+  if (!payload || typeof payload !== 'object') {
+    return undefined;
+  }
+  const message = payload as Record<string, unknown>;
+  if (
+    message.type !== 'media-url' ||
+    message.nonce !== nonce ||
+    typeof message.url !== 'string'
+  ) {
+    return undefined;
+  }
+  if (message.source !== 'player' && message.source !== 'network') {
+    return undefined;
+  }
+  const contentType = castableDiscoveredContentType(
+    message.url,
+    message.contentType,
+    allowInsecureHttp,
+  );
+  if (!contentType) {
+    return undefined;
+  }
+  return { contentType, source: message.source, url: message.url };
+}
 
 /** Asks the isolated page to pause or resume the on-screen player. */
 export function pagePlaybackHoldScript(held: boolean): string {
@@ -355,10 +430,6 @@ export function pagePlaybackHoldScript(held: boolean): string {
   }); true;`;
 }
 
-/**
- * The phone pauses its page while the receiver is buffering, playing, or paused.
- * Idle means the receiver dropped the stream, so the page may play again.
- */
 /**
  * The first TV press opens the Cast dialog only when no receiver is connected.
  * A later press opens it again so the connected dialog can stop the session or
@@ -371,6 +442,10 @@ export function showCastDialogOnTvPress(
   return alreadyRelaying || !hasClient;
 }
 
+/**
+ * The phone pauses its page while the receiver is buffering, playing, or paused.
+ * Idle means the receiver dropped the stream, so the page may play again.
+ */
 export function phoneHoldForReceiverState(state: unknown): boolean | undefined {
   if (typeof state !== 'string') {
     return undefined;
@@ -385,5 +460,72 @@ export function phoneHoldForReceiverState(state: unknown): boolean | undefined {
       return false;
     default:
       return undefined;
+  }
+}
+
+/** The receiver dropped the stream because it could not fetch or decode it. */
+export function receiverPlaybackFailed(
+  state: unknown,
+  idleReason: unknown,
+): boolean {
+  return (
+    typeof state === 'string' &&
+    state.toLowerCase() === 'idle' &&
+    typeof idleReason === 'string' &&
+    idleReason.toLowerCase() === 'error'
+  );
+}
+
+type ReceiverStatusLike =
+  | {
+      mediaInfo?: { contentId?: unknown; contentUrl?: unknown } | null;
+      playerState?: unknown;
+    }
+  | null
+  | undefined;
+
+/**
+ * True when the receiver is already on this URL and has not gone idle, so a resumed or
+ * reopened session does not restart it.
+ */
+export function receiverHasMedia(
+  status: ReceiverStatusLike,
+  playbackUrl: string,
+): boolean {
+  const info = status?.mediaInfo;
+  if (!info || !playbackUrl) {
+    return false;
+  }
+  if (info.contentUrl !== playbackUrl && info.contentId !== playbackUrl) {
+    return false;
+  }
+  return phoneHoldForReceiverState(status?.playerState) === true;
+}
+
+/**
+ * A TV press with a running relay reloads the receiver unless it is already playing or
+ * paused, so opening the dialog for the volume does not restart the game.
+ */
+export function tvPressForcesReload(receiverState: unknown): boolean {
+  if (typeof receiverState !== 'string') {
+    return true;
+  }
+  const state = receiverState.toLowerCase();
+  return state !== 'playing' && state !== 'paused';
+}
+
+export const TV_PLAYBACK_FAILED_MESSAGE =
+  'The TV could not play the stream. Press TV to try again.';
+
+export function tvRelayFailureMessage(reason: RelayStartFailure): string {
+  switch (reason) {
+    case 'no-network':
+      return 'Connect this phone to the same Wi-Fi as the TV.';
+    case 'source-unavailable':
+      return 'The game stream is not answering right now. Try again in a minute.';
+    case 'unsupported':
+      return "This page's video can't be sent to the TV.";
+    default:
+      return 'Could not send to the TV.';
   }
 }
