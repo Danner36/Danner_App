@@ -3,7 +3,7 @@ Phase: MVP
 
 # Validation
 
-Last updated: 2026-10-04
+Last updated: 2026-10-05
 
 | Check | Status | Evidence |
 |-------|--------|----------|
@@ -44,7 +44,7 @@ Last updated: 2026-10-04
 | Guardians approved-page isolation | Review | Web playback disables files, file bridging, location, shared and third-party cookies, cache, and downloads while limiting top-level navigation to exact configured hosts; cleartext navigation and mixed content remain disabled unless the selected source opts in. Since v1.4.13 the player is incognito on iPhone only, because Android incognito clears every WebView cookie and signs TV Location out of Google, and a page that loads an unapproved URL anyway is stopped and the approved page reloads. Android confirmation that TV Location stays signed in after a game is still required |
 | Guardians popup and redirect gate | Pass | On the opted-in HTTP test page, Pixel 7 API 34 retained the original player after unapproved popup and redirect requests, promoted an approved popup into the same isolated player, and followed its approved redirect; the official HTTPS MLB YouTube archive continued playing afterward |
 | Guardians production live playback | Review | Root `guardians_streams.json` holds dated `web` entries for 2026-08-20, 08-25, 08-26, and 08-28 plus the inactive example. Play still requires a date- and game-number match for the featured game. The 2026-08-29 featured game has no matching URL in that file |
-| Guardians Get video | Pass | Source POSTs `{ pin }` to the Worker, then polls Worker `/streams`, raw-by-commit SHA, then raw `main` for up to 5 minutes. Pixel 7 API 34 development harness showed Getting video then Play without restart. Live Worker `/streams` returned 200 after the 2026-09-01 Worker deploy |
+| Guardians Get video | Pass | Source POSTs `{ pin }` to the Worker, then polls Worker `/streams`, raw-by-commit SHA, then raw `main` for up to 5 minutes. Pixel 7 API 34 development harness showed Getting video then Play without restart. Live Worker `/streams` returned 200 after the 2026-09-01 Worker deploy. 2026-10-05: the v1.4.13 Worker was redeployed (version `663e8c86`); live `/health` and `/streams` for all three modules returned 200, and a `null`, array, or unknown-module body returned a JSON 400. The same day the Guardians pipeline on the v1.4.13 workflow passed its config check and published the 2026-10-05 entry, pruning entries older than 7 days. An earlier dispatch that day failed only because GitHub never assigned it a hosted runner |
 | Patriots live-data and snapshot | Pass | Repository snapshot tests cover featured live/today/recap selection, regular-season record ignoring preseason, Time TBA, ESPN event parse (scheduled contests map to `Scheduled` rather than ESPN kickoff `detail`), Eastern official date `2026-09-09` for kickoff `2026-09-10T00:20Z`, and ESPN schedule `{ value, displayValue }` scores |
 | Patriots dashboard | Review | Pixel emulator Get video harness reached the live featured card and Get video. Separate today, ready, delayed, and Final scenario launches were not run |
 | Patriots source schema | Pass | Parser reuses the Guardians six-field checks against root `patriots_streams.json` (guide plus inactive example only) |
