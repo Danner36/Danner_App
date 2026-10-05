@@ -32,234 +32,6 @@
     "REAL DEAL",
     {
       "gameDates": [
-        "2026-08-20"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/54914?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-08-25"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55220?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-08-26"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55250?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-08-28"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55387?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-08-30"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55563?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-01"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55645?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-02"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55692?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-03"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55714?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-04"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55753?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-05"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55881?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-06"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55986?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-07"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56030?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-08"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56072?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-11"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56217?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-12"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56313?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-13"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56437?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-20"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56832?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-26"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/57194?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
-        "2026-09-27"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/57305?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
         "2026-10-03"
       ],
       "gameNumbers": [
@@ -267,6 +39,18 @@
       ],
       "kind": "web",
       "url": "https://gooz.aapmains.net/new-stream-embed/57483?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    },
+    {
+      "gameDates": [
+        "2026-10-05"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/57643?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": []
     }
