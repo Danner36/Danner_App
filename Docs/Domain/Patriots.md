@@ -13,6 +13,8 @@ After today's game reaches Final, that same card stays through local midnight of
 
 Delayed, postponed, suspended, and canceled games state the condition directly. A live game shows the current score and a stadium-style board (quarters, total, clock, down and distance, possession). The regular-season record and remaining schedule stay below the featured card. The hero record is regular-season W–L, or W–L–T when ties exist. It stays `0–0` until a regular-season game is final.
 
+The featured card shows a `WIN CHANCE` bar under the matchup line: `Us` and `Them` percentages over a navy-and-grey bar. Before the game it reads ESPN's pre-game prediction for the game's ESPN id (`sports.core.api.espn.com/v2/sports/football/leagues/nfl/events/{id}/competitions/{id}/predictor`); while the game is live it reads the newest entry of that game's `probabilities` list. ESPN's two percentages can total slightly under 100 because a tie is possible, so the bar splits by their ratio. The bar refreshes every ten minutes before the game and every 30 seconds while live. It is hidden after Final, for postponed and canceled games, and whenever ESPN returns no number, and a failed request never holds back the countdown, Play, or Get video. When no game is featured, the first schedule row shows the same bar under it.
+
 The schedule contains no completed or featured game. Remaining games are ordered by start time and display `vs` or `at`. Dates and times use the phone's locale and time zone. Bye weeks have no row. A failed ESPN request exposes Retry without discarding previously loaded information.
 
 ## Approved source file

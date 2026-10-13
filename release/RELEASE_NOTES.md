@@ -46,3 +46,5 @@
 - Offline United States location map
 - iPhone SideStore expiration warning
 - Launch check for a newer GitHub release, with Yes installing the Android APK or opening SideStore for the iPhone IPA
+- Win chance bar on the Guardians, Patriots, and Cyclones featured card: `Us` and `Them` percentages over a bar, from ESPN's pre-game prediction and live win probability. With no featured game, the first schedule row shows it
+- Android TV Location writes its Google sign-in cookies to disk while verification is open, when the app leaves the foreground, and when it closes

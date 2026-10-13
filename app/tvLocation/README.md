@@ -14,3 +14,4 @@ Four-step YouTube TV location setup, bundled nationwide map, and verification We
 - Activates an enabled `Next` on the playback-area prompt and returns to step 4 only after `Next` is followed by a page change on `tv.youtube.com`. Closing verification by hand returns to step 3 with a retry note, and a failed load shows a Retry button.
 - Instructs the parent to wait for the welcome message on the TV before reopening `Live` on the TV.
 - Android hardware back closes verification when that view is open, dismisses the map picker through the system modal, and otherwise returns to the hub.
+- On Android, writes the WebView cookie store to disk every 20 seconds while verification is open, when the app leaves the foreground, and when verification closes, through `modules/danner-webview-cookies/`, so the Google sign-in survives a swiped-away app. iPhone keeps `sharedCookiesEnabled` and has no flush call.
