@@ -71,6 +71,8 @@ import {
   type GuardiansGame,
   type GuardiansSnapshot,
 } from './guardiansSnapshot';
+import { useWinChance } from './espnWinChance';
+import { WinChanceBar } from './WinChanceBar';
 
 const REFRESH_INTERVAL_MS = 60_000;
 // The schedule query spans the rest of the season with linescore/team hydrated, so
@@ -864,6 +866,7 @@ function FeaturedGameCard({
   showGetVideo: boolean;
   streams: PlayableStream[];
 }) {
+  const winChance = useWinChance(game);
   const interruption = gameInterruption(game.status);
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
@@ -949,6 +952,14 @@ function FeaturedGameCard({
             {interruptionMessage(interruption)}
           </Text>
         </View>
+      ) : null}
+
+      {winChance ? (
+        <WinChanceBar
+          chance={winChance}
+          opponentName={game.opponentName}
+          teamName="Guardians"
+        />
       ) : null}
 
       {isLive && game.scoreboard ? (

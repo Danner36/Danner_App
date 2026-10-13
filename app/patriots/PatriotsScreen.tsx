@@ -44,7 +44,9 @@ import {
   liveScoreboardFromEspn,
   liveScoreboardFromHarness,
 } from './espnScoreboard';
+import { useWinChance } from './espnWinChance';
 import { PatriotsScoreboard } from './PatriotsScoreboard';
+import { WinChanceBar } from './WinChanceBar';
 import {
   isGetVideoAvailable,
   liveStreamsUrl,
@@ -765,6 +767,7 @@ function FeaturedGameCard({
   showGetVideo: boolean;
   streams: PlayableStream[];
 }) {
+  const winChance = useWinChance(game);
   const interruption = gameInterruption(game.status);
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
@@ -839,6 +842,14 @@ function FeaturedGameCard({
             {interruptionMessage(interruption)}
           </Text>
         </View>
+      ) : null}
+
+      {winChance ? (
+        <WinChanceBar
+          chance={winChance}
+          opponentName={game.opponentName}
+          teamName="Patriots"
+        />
       ) : null}
 
       {isLive && game.scoreboard ? (

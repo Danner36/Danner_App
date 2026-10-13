@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   BackHandler,
   type LayoutChangeEvent,
   Modal,
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
+import { flushWebViewCookies } from '../modules/danner-webview-cookies/src';
 import {
   DESTINATION_STORAGE_KEY,
   TRIPOLI_DESTINATION,
@@ -28,6 +30,8 @@ import { OfflineUsMap } from './OfflineUsMap';
 import { allowVerifyNavigation, isVerifyPageUrl } from './verifyNavigation';
 
 const VERIFY_URL = 'https://tv.youtube.com/verify';
+// Shorter than the WebView cookie store's 30-second write batch.
+const COOKIE_FLUSH_INTERVAL_MS = 20_000;
 
 type StepNumber = 1 | 2 | 3 | 4;
 type StepStatus = 'complete' | 'current' | 'upcoming';
@@ -515,6 +519,24 @@ function VerifyView({
     },
     [],
   );
+
+  // Android writes the sign-in cookies to disk while verification is open, when the app
+  // leaves the foreground, and when verification closes, so a swiped-away app keeps them.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void flushWebViewCookies();
+    }, COOKIE_FLUSH_INTERVAL_MS);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') {
+        void flushWebViewCookies();
+      }
+    });
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+      void flushWebViewCookies();
+    };
+  }, []);
 
   const onMessage = (event: WebViewMessageEvent) => {
     try {

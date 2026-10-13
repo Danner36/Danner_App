@@ -73,6 +73,8 @@ import {
   type SportRecord,
 } from './cyclonesSnapshot';
 import { fetchEspnCyclonesEvents } from './espnCyclones';
+import { useWinChance } from './espnWinChance';
+import { WinChanceBar } from './WinChanceBar';
 import {
   fetchLiveCyclonesSummary,
   liveBasketballScoreboardFromEspn,
@@ -878,6 +880,7 @@ function FeaturedGameCard({
   sportStatusLabel?: string;
   streams: PlayableStream[];
 }) {
+  const winChance = useWinChance(game);
   const interruption = gameInterruption(game.status);
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
@@ -956,6 +959,14 @@ function FeaturedGameCard({
             {interruptionMessage(interruption)}
           </Text>
         </View>
+      ) : null}
+
+      {winChance ? (
+        <WinChanceBar
+          chance={winChance}
+          opponentName={game.opponentName}
+          teamName="Cyclones"
+        />
       ) : null}
 
       {isLive && game.scoreboard ? (
