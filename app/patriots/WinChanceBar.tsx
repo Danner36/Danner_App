@@ -24,10 +24,10 @@ export function WinChanceBar({
       <Text style={styles.label}>WIN CHANCE</Text>
       <View style={styles.row}>
         <Text numberOfLines={1} style={styles.teamText}>
-          {teamName} {teamPercent}%
+          Us {teamPercent}%
         </Text>
         <Text numberOfLines={1} style={[styles.teamText, styles.opponentText]}>
-          {opponentName} {opponentPercent}%
+          Them {opponentPercent}%
         </Text>
       </View>
       <View style={styles.track}>
