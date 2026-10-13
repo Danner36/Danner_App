@@ -74,7 +74,7 @@ import {
 } from './cyclonesSnapshot';
 import { fetchEspnCyclonesEvents } from './espnCyclones';
 import { useWinChance } from './espnWinChance';
-import { WinChanceBar } from './WinChanceBar';
+import { NextGameWinChance, WinChanceBar } from './WinChanceBar';
 import {
   fetchLiveCyclonesSummary,
   liveBasketballScoreboardFromEspn,
@@ -1679,6 +1679,9 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
                           {game.opponentName}
                         </Text>
                       </View>
+                      {index === 0 && !snapshot.featuredGame ? (
+                        <NextGameWinChance game={game} />
+                      ) : null}
                     </View>
                   ))}
                 </View>

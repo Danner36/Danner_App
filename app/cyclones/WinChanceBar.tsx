@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { WinChance } from './espnWinChance';
+import { useWinChance, type WinChance } from './espnWinChance';
+import type { CyclonesGame } from './cyclonesSnapshot';
 
 export function WinChanceBar({
   chance,
@@ -37,7 +38,27 @@ export function WinChanceBar({
   );
 }
 
+// The win chance under the first schedule row when no game is featured.
+export function NextGameWinChance({ game }: { game: CyclonesGame }) {
+  const chance = useWinChance(game);
+  if (!chance) {
+    return null;
+  }
+  return (
+    <View style={styles.nextGame}>
+      <WinChanceBar
+        chance={chance}
+        opponentName={game.opponentName}
+        teamName="Cyclones"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  nextGame: {
+    paddingBottom: 14,
+  },
   box: {
     marginTop: 17,
   },

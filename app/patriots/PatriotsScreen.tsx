@@ -46,7 +46,7 @@ import {
 } from './espnScoreboard';
 import { useWinChance } from './espnWinChance';
 import { PatriotsScoreboard } from './PatriotsScoreboard';
-import { WinChanceBar } from './WinChanceBar';
+import { NextGameWinChance, WinChanceBar } from './WinChanceBar';
 import {
   isGetVideoAvailable,
   liveStreamsUrl,
@@ -1532,6 +1532,9 @@ export function PatriotsScreen({ onBack }: { onBack: () => void }) {
                           {game.isHome ? 'vs' : 'at'} {game.opponentName}
                         </Text>
                       </View>
+                      {index === 0 && !snapshot.featuredGame ? (
+                        <NextGameWinChance game={game} />
+                      ) : null}
                     </View>
                   ))}
                 </View>

@@ -72,7 +72,7 @@ import {
   type GuardiansSnapshot,
 } from './guardiansSnapshot';
 import { useWinChance } from './espnWinChance';
-import { WinChanceBar } from './WinChanceBar';
+import { NextGameWinChance, WinChanceBar } from './WinChanceBar';
 
 const REFRESH_INTERVAL_MS = 60_000;
 // The schedule query spans the rest of the season with linescore/team hydrated, so
@@ -1650,6 +1650,9 @@ export function GuardiansScreen({ onBack }: { onBack: () => void }) {
                           {game.isHome ? 'vs' : 'at'} {game.opponentName}
                         </Text>
                       </View>
+                      {index === 0 && !snapshot.featuredGame ? (
+                        <NextGameWinChance game={game} />
+                      ) : null}
                     </View>
                   ))}
                 </View>
