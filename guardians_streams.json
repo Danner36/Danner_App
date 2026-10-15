@@ -32,18 +32,6 @@
     "REAL DEAL",
     {
       "gameDates": [
-        "2026-10-05"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/57643?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": []
-    },
-    {
-      "gameDates": [
         "2026-10-08"
       ],
       "gameNumbers": [
@@ -75,6 +63,18 @@
       ],
       "kind": "web",
       "url": "https://gooz.aapmains.net/new-stream-embed/57983?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    },
+    {
+      "gameDates": [
+        "2026-10-15"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/58070?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": []
     }
