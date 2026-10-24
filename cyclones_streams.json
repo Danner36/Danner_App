@@ -33,52 +33,13 @@
     },
     {
       "gameDates": [
-        "2026-09-05"
+        "2026-10-24"
       ],
       "gameNumbers": [
         1
       ],
       "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/55840?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": [],
-      "sport": "football"
-    },
-    {
-      "gameDates": [
-        "2026-09-12"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56361?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": [],
-      "sport": "football"
-    },
-    {
-      "gameDates": [
-        "2026-09-19"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/56658?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": [],
-      "sport": "football"
-    },
-    {
-      "gameDates": [
-        "2026-10-03"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/57475?ad=111",
+      "url": "https://gooz.aapmains.net/new-stream-embed/58568?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "sport": "football"
