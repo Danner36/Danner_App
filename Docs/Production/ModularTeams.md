@@ -710,7 +710,7 @@ Only the boolean or the enum crosses the bridge; cookie values never reach JS, l
 
 ### `AI_Framework/AI_RULES.md`
 
-Phase 0 removes the directives that forbid planned work and marks the ones a later phase rewrites. Behavior rules are rewritten when the phase that changes the behavior lands, because docs describe current behavior (`AI_RULES.md:28`).
+`AI_RULES.md` line numbers in this plan refer to the file at `823d2be`; after Phase 0, old lines 18-40 are +1, 42-57 are +2, and 58-63 are +3. Phase 0 removes the directives that forbid planned work and marks the ones a later phase rewrites. Behavior rules are rewritten when the phase that changes the behavior lands, because docs describe current behavior (`AI_RULES.md:28`).
 
 | Phase | Lines and action |
 |---|---|

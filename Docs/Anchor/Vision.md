@@ -3,6 +3,8 @@ Phase: MVP
 
 # Vision
 
+The approved [modular teams plan](../Production/ModularTeams.md) replaces the fixed hub, the Tripoli default, and the per-team streams files in phases; where this file differs from the plan, the plan governs.
+
 ## Product
 
 Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a two-row 2×2 artwork grid on the two-thirds line. Cleveland Guardians and New England Patriots sit on the first row. Iowa State Cyclones sits under Guardians. YouTube TV launches `TV Location` from the cell under Patriots. Android and iPhone share all four modules.

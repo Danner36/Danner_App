@@ -3,7 +3,7 @@ Phase: Superseded by [ModularTeams.md](ModularTeams.md)
 
 # Iowa State Cyclones — agent brief
 
-Superseded by the approved [modular teams plan](ModularTeams.md). Its lock-ins against a parameterized engine, a shared pipeline, and a changed hub no longer apply. The fixed-design record is [../Archive/FixedTeams/Cyclones.md](../Archive/FixedTeams/Cyclones.md). This file stays until its NCAA facts move to the NCAA league adapter doc in Phase 3.
+Superseded by the approved [modular teams plan](ModularTeams.md). None of its lock-ins, `do not` rules, or out-of-scope items constrain plan work, including those against a parameterized engine, one shared pipeline, workflow, and secret, a second Worker or app key, and a changed hub. The fixed-design record is [../Archive/FixedTeams/Cyclones.md](../Archive/FixedTeams/Cyclones.md). This file stays until its NCAA facts move to the NCAA league adapter doc in Phase 3.
 
 This file keeps the implement lock-ins, listing-href unknowns, and owner ops. Cyclones source lives under `app/cyclones/`. Prefer this document over chat memory for pipeline needles and secrets.
 

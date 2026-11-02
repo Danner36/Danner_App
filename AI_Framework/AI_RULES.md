@@ -14,8 +14,8 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 - Prefer PowerShell for shell commands.
 - If a local preview server is added, prefer port 8108, then scan 8108 through 8127.
 - Physical iPhone install, SideStore, IPA sideload, and signing refresh follow [IPHONE_INSTALL.md](IPHONE_INSTALL.md). Windows has no iOS ADB and no Xcode.
-- Do not print Apple Account emails, passwords, 2FA codes, pairing files, device UDIDs, Google or YouTube TV account data, any listing-site URL including backup sources, or the app key (today's family PIN).
-- `main` has no required status checks or required pull requests, because the stream pipeline and team catalog bots commit to it directly. Force pushes and deletion of `main` are blocked.
+- Do not print Apple Account emails, passwords, 2FA codes, pairing files, device UDIDs, Google or YouTube TV account data, any listing-site URL including backup sources, the family PIN, or the app key.
+- `main` has no required status checks or required pull requests, because the stream pipeline bots commit to it directly. Do not force-push or delete `main`; the owner sets the ruleset that blocks both before the first team catalog run (`Docs/Production/ModularTeams.md`, Decided 19).
 
 ## Generated material
 
