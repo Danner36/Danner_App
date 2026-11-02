@@ -11,7 +11,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
 - `Production/` contains current capability, delivery, and validation status, plus the approved modular-teams plan.
-- `Archive/` contains records of replaced designs. `Archive/FixedTeams/` records the fixed three-team design at commit `823d2be`.
+- `Archive/` contains records of replaced designs. `Archive/FixedTeams/` records the fixed three-team design at commit `823d2be`. `Archive/IphoneSideStore/` records the SideStore iPhone distribution at commit `19740af`.
 
 ## Source of truth
 
@@ -28,6 +28,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Current test and build status | [Production/Validation.md](Production/Validation.md) |
 | Modular teams delivery plan | [Production/ModularTeams.md](Production/ModularTeams.md) |
 | Fixed three-team design (archived, `823d2be`) | [Archive/FixedTeams/README.md](Archive/FixedTeams/README.md) |
+| SideStore iPhone distribution (archived, `19740af`) | [Archive/IphoneSideStore/README.md](Archive/IphoneSideStore/README.md) |
 | Iowa State Cyclones implement notes (superseded by the modular teams plan) | [Production/Cyclones.md](Production/Cyclones.md) |
 | Physical iPhone install (Windows) | [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md) |
 | Family iPhone setup card | [../release/IPHONE_SETUP.md](../release/IPHONE_SETUP.md) |
