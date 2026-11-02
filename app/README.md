@@ -2,7 +2,7 @@
 
 Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 
-`App.tsx` is the thin shell: SafeArea, status bar, and a switch among the hub, Guardians, Patriots, Cyclones, and TV Location. Product screens live in sibling folders. `guardians_streams.json`, `patriots_streams.json`, and `cyclones_streams.json` stay at the repository root so phones keep fetching `.../main/` those files.
+`App.tsx` is the thin shell: SafeArea, status bar, and a switch among the hub, Guardians, Patriots, Cyclones, and TV Location. Product screens live in sibling folders. `guardians_streams.json`, `patriots_streams.json`, and `cyclones_streams.json` stay at the repository root so phones keep fetching `.../main/` those files. (Superseded by `Docs/Production/ModularTeams.md`, Phases 3, 4 and 6.)
 
 ## Folders
 
