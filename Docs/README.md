@@ -10,7 +10,8 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 - `Domain/` contains the Guardians, Patriots, and Cyclones dashboards, authorized playback rules, destination selection, and the four-step playback-area flow.
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
-- `Production/` contains current capability, delivery, and validation status.
+- `Production/` contains current capability, delivery, and validation status, plus the approved modular-teams plan.
+- `Archive/` contains records of replaced designs. `Archive/FixedTeams/` records the fixed three-team design at commit `823d2be`.
 
 ## Source of truth
 
@@ -25,7 +26,9 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Visual specification and launcher art | [Art/README.md](Art/README.md) |
 | Capability and delivery status | [Production/Roadmap.md](Production/Roadmap.md) |
 | Current test and build status | [Production/Validation.md](Production/Validation.md) |
-| Iowa State Cyclones implement notes | [Production/Cyclones.md](Production/Cyclones.md) |
+| Modular teams delivery plan | [Production/ModularTeams.md](Production/ModularTeams.md) |
+| Fixed three-team design (archived, `823d2be`) | [Archive/FixedTeams/README.md](Archive/FixedTeams/README.md) |
+| Iowa State Cyclones implement notes (superseded by the modular teams plan) | [Production/Cyclones.md](Production/Cyclones.md) |
 | Physical iPhone install (Windows) | [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md) |
 | Family iPhone setup card | [../release/IPHONE_SETUP.md](../release/IPHONE_SETUP.md) |
 | Legacy APK inventory | [../reference/Apk_Inventory.md](../reference/Apk_Inventory.md) |
