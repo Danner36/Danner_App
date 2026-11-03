@@ -79,6 +79,20 @@ const FLAGS_OFF: BasketballCapabilityFlags = {
   timeouts: false,
 };
 
+// Men's flags after the live capture of event 401909771 (tests/leagues/ncaa-mens-basketball/
+// captures/): the substitution replay matched ESPN's active players on every captured poll and
+// passed the lineup check on every play-array prefix. ESPN sent zeros for the header fouls and
+// timeouts fields and for the Core situation resource, so timeouts stay off; activeLineup stays
+// off until more live games pass its test.
+const NCAA_MENS_FLAGS: BasketballCapabilityFlags = {
+  ...FLAGS_OFF,
+  bonus: true,
+  lastFoul: true,
+  players: true,
+  rebounds: true,
+  teamFouls: true,
+};
+
 // NCAA: PersonalFoul (519) and Technical Foul (521).
 const NCAA_TEAM_FOUL_PLAYS: TeamFoulPlayMatch = {
   kind: 'typeIds',
@@ -102,7 +116,7 @@ const RULES: Readonly<Record<BasketballAdapterKey, BasketballRules>> = deepFreez
       bonusAt: 6,
       doubleBonusAt: 9,
     },
-    flags: FLAGS_OFF,
+    flags: NCAA_MENS_FLAGS,
     foulWindow: { overtime: 'continuesLastPeriod' },
     playerFoulLimit: 5,
     regulationPeriods: 2,

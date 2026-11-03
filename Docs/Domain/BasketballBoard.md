@@ -57,11 +57,11 @@ The check rejects inconsistent data; it cannot prove the lineup. A substitution 
 
 ## Capability flags and rules
 
-A flag that is off omits its row or cell instead of dashing it; with `players` off the board is the center panel only. A flag turns on only after a live capture for that adapter holds the paths it needs. Every flag is off in every row today, so the shipped board shows the team names, scores, clock, phase and period.
+A flag that is off omits its row or cell instead of dashing it; with `players` off the board is the center panel only. A flag turns on only after a live capture for that adapter holds the paths it needs. The men's row has `players`, `rebounds`, `teamFouls`, `bonus` and `lastFoul` on, from the live capture of event 401909771; every women's flag is off until a women's live capture, so a women's game shows the team names, scores, clock, phase and period.
 
 | Flag or rule | `ncaa/mens-basketball` | `ncaa/womens-basketball` |
 |---|---|---|
-| `players`, `rebounds`, `teamFouls`, `bonus`, `lastFoul` | Off | Off |
+| `players`, `rebounds`, `teamFouls`, `bonus`, `lastFoul` | On | Off |
 | `activeLineup`, `timeouts`, `possessionArrow` | Off | Off |
 | Foul window | Each half; overtime continues the second half | Each quarter; overtime continues the fourth |
 | Bonus | 6 opponent fouls `BONUS`, 9 `2× BONUS` | 4 `BONUS` |

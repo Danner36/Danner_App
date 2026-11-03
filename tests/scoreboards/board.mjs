@@ -1250,7 +1250,25 @@ check('flags off omit cells', () => {
   summary.header.competitions[0].possessionArrowAvailable = true;
   summary.header.competitions[0].competitors[0].possession = true;
   summary.situation = { awayTimeouts: 2, homeTimeouts: 3 };
-  const off = basketballBoardFromSummary(summary, basketballRulesFor('ncaa/mens-basketball'));
+  const off = basketballBoardFromSummary(
+    summary,
+    basketballRulesFor('ncaa/mens-basketball', {
+      bonus: false,
+      lastFoul: false,
+      players: false,
+      rebounds: false,
+      teamFouls: false,
+    }),
+  );
+  assert.deepEqual(basketballRulesFor('ncaa/womens-basketball').flags, off.flags);
+  assert.deepEqual(basketballRulesFor('ncaa/mens-basketball').flags, {
+    ...off.flags,
+    bonus: true,
+    lastFoul: true,
+    players: true,
+    rebounds: true,
+    teamFouls: true,
+  });
   assert.deepEqual(off.flags, {
     activeLineup: false,
     bonus: false,
@@ -1280,7 +1298,7 @@ check('flags off omit cells', () => {
 
   const noRebounds = basketballBoardFromSummary(
     summary,
-    basketballRulesFor('ncaa/mens-basketball', { players: true }),
+    basketballRulesFor('ncaa/mens-basketball', { players: true, rebounds: false }),
   );
   assert.equal(noRebounds.home.lineup, 'floor');
   assert.ok(noRebounds.home.players.every((player) => !('rebounds' in player)));
@@ -1470,5 +1488,42 @@ check('schedule builder: scores, clock and period only', () => {
   );
   assert.equal(basketballBoardFromScheduleEvent({ competitions: [] }, mensRules), undefined);
 });
+
+// Live captures committed by scripts/espn-capture/ under tests/leagues/<adapter>/captures/. With
+// the adapter's shipped rules, every captured poll labels both teams as on the floor, and each
+// table equals ESPN's active athletes.
+function liveCaptures() {
+  const out = [];
+  const leagues = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'leagues');
+  for (const adapter of BASKETBALL_ADAPTER_KEYS) {
+    const capturesDir = path.join(leagues, adapter.replace('/', '-'), 'captures');
+    if (!fs.existsSync(capturesDir)) continue;
+    for (const event of fs.readdirSync(capturesDir).sort()) {
+      const eventDir = path.join(capturesDir, event);
+      for (const file of fs.readdirSync(eventDir).filter((name) => name.endsWith('.json.gz')).sort()) {
+        const summary = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(eventDir, file))).toString('utf8'));
+        out.push({ adapter, event, file, summary });
+      }
+    }
+  }
+  return out;
+}
+
+for (const capture of liveCaptures()) {
+  check(`live capture ${capture.adapter} ${capture.event}/${capture.file}`, () => {
+    const rules = basketballRulesFor(capture.adapter);
+    const model = basketballBoardFromSummary(capture.summary, rules, { now: 0 });
+    assert.ok(model);
+    if (!rules.flags.players) return;
+    for (const side of [model.away, model.home]) {
+      assert.equal(side.lineup, 'floor', `${side.teamId} lineup`);
+      const active = boxAthletes(capture.summary, side.teamId)
+        .filter((entry) => entry.active === true)
+        .map((entry) => String(entry.athlete.id))
+        .sort();
+      assert.deepEqual(side.players.map((player) => String(player.athleteId)).sort(), active);
+    }
+  });
+}
 
 console.log(`board.mjs: ${cases} cases passed`);
