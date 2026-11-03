@@ -28,6 +28,8 @@ export const OUT_DIGIT = '#FFFFFF';
 // BONUS and 2× BONUS pill.
 export const BONUS_FILL = '#FFCF4A';
 export const BONUS_TEXT = '#05070A';
+// Stale note under the board, in the featured card's grey status text.
+export const NOTE_TEXT = '#5A6870';
 
 // An opponent color is drawn as its stripe at this contrast with BOARD_FRAME or above.
 export const STRIPE_MIN_CONTRAST = 3;

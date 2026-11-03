@@ -143,6 +143,18 @@ assert.equal(
 assert.equal(arenaLayout(612).s, 236 / 284);
 assert.equal(arenaLayout(2000).s, 1.25);
 
+// With the tables omitted (players flag off) the center panel spans W in every mode.
+const centerOnly = arenaLayout(arenaBoardWidth(720), { tables: false });
+assert.equal(arenaBoardWidth(720), 644);
+assert.equal(centerOnly.mode, 'arena');
+assert.equal(centerOnly.s, 1.25);
+assert.deepEqual(centerOnly.sizes.center.scoreWell, { digit: 50, height: 70, width: 102.5 });
+assert.equal(arenaLayout(644).s, 268 / 284);
+assert.equal(arenaLayout(612, { tables: false }).s, 1.25);
+assert.equal(arenaLayout(284, { tables: false }).s, 1);
+assert.equal(arenaLayout(284, { tables: true }).s, 1);
+assert.equal(arenaLayout(200, { tables: false }).s, 0.8);
+
 // Labels: the Phase 1c rule.
 assert.equal(boardTeamLabel(true, 'Kansas Jayhawks'), 'CYCLONES');
 assert.equal(boardTeamLabel(false, 'Kansas Jayhawks'), 'JAYHAWKS');
@@ -419,11 +431,7 @@ assert.equal(
     board({
       away: side({ score: 79, teamFouls: 3 }),
       clock: '0:48',
-      flags: basketballRulesFor('nba', {
-        bonus: true,
-        lastFoul: true,
-        teamFouls: true,
-      }).flags,
+      flags: flags({ bonus: true, lastFoul: true, teamFouls: true }),
       foulLimit: 6,
       home: side({ bonus: 'bonus', score: 81, teamFouls: 2 }),
       lastFoul: { athleteId: 'a15', fouls: 6, jersey: '15', side: 'away' },

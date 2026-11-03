@@ -38,7 +38,11 @@ import {
 } from '../guardians/webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from '../guardians/webPlayerUserAgent';
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
-import { CyclonesBasketballScoreboard } from './CyclonesBasketballScoreboard';
+import { BasketballArenaBoard } from '../scoreboards/basketball/BasketballArenaBoard';
+import type {
+  BasketballBoardModel,
+  BasketballCapabilityFlags,
+} from '../scoreboards/basketball/types';
 import { CyclonesFootballScoreboard } from './CyclonesFootballScoreboard';
 import {
   isGetVideoAvailable,
@@ -57,7 +61,6 @@ import {
   cyclonesGameFromHarness,
   emptyRecords,
   gameInterruption,
-  isCompletedGame,
   isVideoWindowOpen,
   localDateFromOfficialDate,
   playbackBlocked,
@@ -65,20 +68,23 @@ import {
   recordLabel,
   recordsFromGames,
   snapshotFromGames,
+  snapshotWithPreservedScoreboard,
   sportLabel,
   type CyclonesGame,
   type CyclonesSnapshot,
   type CyclonesSport,
   type GameInterruption,
+  type LiveBoardStamp,
   type SportRecord,
 } from './cyclonesSnapshot';
 import { fetchEspnCyclonesEvents } from './espnCyclones';
 import { useWinChance } from './espnWinChance';
 import { NextGameWinChance, WinChanceBar } from './WinChanceBar';
 import {
+  basketballBoardFromCyclonesEvent,
+  basketballBoardFromCyclonesSummary,
   fetchLiveCyclonesSummary,
-  liveBasketballScoreboardFromEspn,
-  liveBasketballScoreboardFromHarness,
+  liveBoardTotals,
   liveFootballScoreboardFromEspn,
   liveFootballScoreboardFromHarness,
   type LiveCyclonesSummary,
@@ -90,7 +96,6 @@ const SNAPSHOT_REFRESH_INTERVAL_MS = 10 * 60_000;
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
 const DELAYED_TICK_INTERVAL_MS = 30_000;
-const LIVE_BOARD_FRESH_MS = 30_000;
 const SOURCES_FETCH_TIMEOUT_MS = 8_000;
 const SNAPSHOT_ERROR_MESSAGE =
   'Cyclones information is temporarily unavailable.';
@@ -107,11 +112,6 @@ const ACCENT = '#AE192D';
 
 type PlayableStream = PlayableCyclonesStream;
 
-type LiveBoardStamp = {
-  appliedAt: number;
-  gamePk: number;
-};
-
 function recordFromUnknown(value: unknown): SportRecord | undefined {
   if (typeof value !== 'object' || value === null) {
     return undefined;
@@ -127,8 +127,11 @@ function recordFromUnknown(value: unknown): SportRecord | undefined {
   };
 }
 
+// A basketball fixture board is a trimmed ESPN summary, parsed by the live parser with the
+// fixture's capability flags; a game whose board does not parse is dropped.
 function withHarnessScoreboard(
   game: CyclonesGame | undefined,
+  boardFlags: Partial<BasketballCapabilityFlags> | undefined,
 ): CyclonesGame | undefined {
   if (!game) {
     return undefined;
@@ -139,63 +142,16 @@ function withHarnessScoreboard(
   const scoreboard =
     game.sport === 'football'
       ? liveFootballScoreboardFromHarness(game.scoreboard)
-      : liveBasketballScoreboardFromHarness(game.scoreboard);
+      : basketballBoardFromCyclonesSummary(
+          game.scoreboard,
+          game.sport,
+          { now: Date.now() },
+          boardFlags,
+        );
   if (!scoreboard) {
     return undefined;
   }
   return { ...game, scoreboard };
-}
-
-function snapshotWithPreservedScoreboard(
-  previous: CyclonesSnapshot | undefined,
-  next: CyclonesSnapshot,
-  liveBoard: LiveBoardStamp | undefined,
-): CyclonesSnapshot {
-  const previousGame = previous?.featuredGame;
-  const nextGame = next.featuredGame;
-  if (!previousGame || !nextGame || previousGame.gamePk !== nextGame.gamePk) {
-    return next;
-  }
-
-  // The five-second summary reports Live and Final before the schedule does; a schedule
-  // that still lags never moves the card backwards.
-  const scheduleLags =
-    (isCompletedGame(previousGame) && nextGame.abstractState !== 'Final') ||
-    (previousGame.abstractState === 'Live' &&
-      nextGame.abstractState !== 'Live' &&
-      nextGame.abstractState !== 'Final');
-  // A fresh summary board carries down, distance, and possession that the schedule board
-  // lacks, and is never older than the schedule.
-  const keepLiveBoard =
-    previousGame.abstractState === 'Live' &&
-    nextGame.abstractState === 'Live' &&
-    previousGame.scoreboard !== undefined &&
-    liveBoard?.gamePk === nextGame.gamePk &&
-    Date.now() - liveBoard.appliedAt < LIVE_BOARD_FRESH_MS;
-  if (scheduleLags || keepLiveBoard) {
-    return {
-      ...next,
-      featuredGame: {
-        ...nextGame,
-        abstractState: previousGame.abstractState,
-        cyclonesScore: previousGame.cyclonesScore,
-        opponentScore: previousGame.opponentScore,
-        scoreboard: previousGame.scoreboard,
-        status: previousGame.status,
-      },
-    };
-  }
-  if (!previousGame.scoreboard) {
-    return next;
-  }
-
-  return {
-    ...next,
-    featuredGame: {
-      ...nextGame,
-      scoreboard: nextGame.scoreboard ?? previousGame.scoreboard,
-    },
-  };
 }
 
 async function fetchCyclonesHarnessSnapshot(
@@ -209,6 +165,7 @@ async function fetchCyclonesHarnessSnapshot(
   }
 
   const value = (await response.json()) as {
+    boardFlags?: unknown;
     football?: unknown;
     liveGame?: unknown;
     losses?: unknown;
@@ -218,10 +175,19 @@ async function fetchCyclonesHarnessSnapshot(
     wins?: unknown;
     womensBasketball?: unknown;
   };
-  const liveGame = withHarnessScoreboard(cyclonesGameFromHarness(value.liveGame));
+  const boardFlags =
+    typeof value.boardFlags === 'object' && value.boardFlags !== null
+      ? (value.boardFlags as Partial<BasketballCapabilityFlags>)
+      : undefined;
+  const liveGame = withHarnessScoreboard(
+    cyclonesGameFromHarness(value.liveGame),
+    boardFlags,
+  );
   const upcomingGames = Array.isArray(value.upcomingGames)
     ? value.upcomingGames
-        .map((entry) => withHarnessScoreboard(cyclonesGameFromHarness(entry)))
+        .map((entry) =>
+          withHarnessScoreboard(cyclonesGameFromHarness(entry), boardFlags),
+        )
         .filter((game): game is CyclonesGame => Boolean(game))
     : [];
 
@@ -265,6 +231,7 @@ async function fetchCyclonesSnapshot(
 
   const now = new Date();
   const { events, failedSports } = await fetchEspnCyclonesEvents(now);
+  const fetchedAt = Date.now();
   const games = events
     .map(({ event, sport }) => {
       const game = cyclonesGameFromEspnEvent(event, sport);
@@ -274,7 +241,7 @@ async function fetchCyclonesSnapshot(
       const scoreboard =
         sport === 'football'
           ? liveFootballScoreboardFromEspn(event)
-          : liveBasketballScoreboardFromEspn(event);
+          : basketballBoardFromCyclonesEvent(event, sport, fetchedAt);
       return scoreboard ? { ...game, scoreboard } : game;
     })
     .filter((game): game is CyclonesGame => Boolean(game));
@@ -825,25 +792,20 @@ function interruptionMessage(interruption: GameInterruption): string {
   return 'The game has been suspended.';
 }
 
+// The basketball arena board of a live basketball game, which the card draws last, after the
+// Play/Listen row, the audio error and Get video; undefined for football.
+function arenaBoardOf(game: CyclonesGame): BasketballBoardModel | undefined {
+  return game.sport !== 'football' && game.scoreboard?.kind === 'basketball'
+    ? game.scoreboard
+    : undefined;
+}
+
 function LiveScoreboard({ game }: { game: CyclonesGame }) {
-  if (!game.scoreboard) {
-    return null;
-  }
-  if (game.sport === 'football' && game.scoreboard.kind === 'football') {
+  if (game.sport === 'football' && game.scoreboard?.kind === 'football') {
     return (
       <CyclonesFootballScoreboard
         isHome={game.isHome}
         opponentName={game.opponentName}
-        scoreboard={game.scoreboard}
-      />
-    );
-  }
-  if (game.scoreboard.kind === 'basketball') {
-    return (
-      <CyclonesBasketballScoreboard
-        isHome={game.isHome}
-        opponentName={game.opponentName}
-        regulationPeriods={game.sport === 'mens-basketball' ? 2 : 4}
         scoreboard={game.scoreboard}
       />
     );
@@ -884,6 +846,7 @@ function FeaturedGameCard({
   const interruption = gameInterruption(game.status);
   const isLive = game.abstractState === 'Live';
   const isFinal = game.abstractState === 'Final' && !interruption;
+  const arenaBoard = isLive ? arenaBoardOf(game) : undefined;
   const recap = isFinal ? recapResult(game) : undefined;
   const blocksVideo = playbackBlocked(game);
   const videoWindowOpen = isVideoWindowOpen(game, nowMs);
@@ -969,7 +932,7 @@ function FeaturedGameCard({
         />
       ) : null}
 
-      {isLive && game.scoreboard ? (
+      {arenaBoard ? null : isLive && game.scoreboard ? (
         <LiveScoreboard game={game} />
       ) : isLive || isFinal ? (
         <View style={styles.scoreBox}>
@@ -1127,6 +1090,15 @@ function FeaturedGameCard({
                 : 'Video is not ready yet. The app checks again automatically.'}
           </Text>
         </View>
+      ) : null}
+
+      {arenaBoard ? (
+        <BasketballArenaBoard
+          accentColor={ACCENT}
+          isHome={game.isHome}
+          model={arenaBoard}
+          opponentName={game.opponentName}
+        />
       ) : null}
     </View>
   );
@@ -1329,6 +1301,15 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
     let latestApplied = 0;
     const gamePk = featuredGamePk;
     const sport = featuredSport;
+    // The basketball board last applied from a summary of this game: its plays length and player
+    // cells let the parser hold those cells across a shorter plays array for up to 30 s.
+    const shownGame = snapshotRef.current?.featuredGame;
+    let appliedBoard: BasketballBoardModel | undefined =
+      shownGame?.gamePk === gamePk &&
+      shownGame.scoreboard?.kind === 'basketball' &&
+      shownGame.scoreboard.source === 'summary'
+        ? shownGame.scoreboard
+        : undefined;
 
     const refreshScoreboard = async () => {
       if (AppState.currentState !== 'active' || inFlight) {
@@ -1339,7 +1320,7 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
       const request = ++latestRequest;
       let summary: LiveCyclonesSummary | undefined;
       try {
-        summary = await fetchLiveCyclonesSummary(gamePk, sport);
+        summary = await fetchLiveCyclonesSummary(gamePk, sport, appliedBoard);
       } finally {
         inFlight = false;
       }
@@ -1350,6 +1331,10 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
 
       const { completed, scoreboard, state } = summary;
       const isFinal = completed || state === 'post';
+      if (scoreboard?.kind === 'basketball') {
+        appliedBoard = scoreboard;
+      }
+      const totals = scoreboard ? liveBoardTotals(scoreboard) : undefined;
       if (state === 'in' && scoreboard) {
         liveBoardRef.current = { appliedAt: Date.now(), gamePk };
       }
@@ -1375,20 +1360,15 @@ export function CyclonesScreen({ onBack }: { onBack: () => void }) {
           featuredGame: {
             ...currentFeatured,
             abstractState,
-            cyclonesScore: scoreboard
-              ? isHome
-                ? scoreboard.home.points
-                : scoreboard.away.points
-              : currentFeatured.cyclonesScore,
-            opponentScore: scoreboard
-              ? isHome
-                ? scoreboard.away.points
-                : scoreboard.home.points
-              : currentFeatured.opponentScore,
+            cyclonesScore:
+              (isHome ? totals?.home : totals?.away) ??
+              currentFeatured.cyclonesScore,
+            opponentScore:
+              (isHome ? totals?.away : totals?.home) ??
+              currentFeatured.opponentScore,
             scoreboard: scoreboard ?? currentFeatured.scoreboard,
             status:
-              scoreboard?.status ||
-              (completed ? 'Final' : currentFeatured.status),
+              totals?.status || (completed ? 'Final' : currentFeatured.status),
           },
         };
       });

@@ -105,8 +105,8 @@ export type BoardSide = {
   timeoutsLeft?: number;
 };
 
-// Poll bookkeeping. The parser sets playsLength; the caller sets both times in epoch
-// milliseconds.
+// Poll bookkeeping in epoch milliseconds. The parser sets playsLength, and playerCellsAppliedAt
+// from the poll time the caller passes; the caller sets polledAt.
 export type BoardStaleInfo = {
   // When the player tables, team fouls, bonus and last foul were applied.
   playerCellsAppliedAt?: number;

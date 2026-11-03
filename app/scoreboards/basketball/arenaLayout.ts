@@ -176,15 +176,22 @@ function tableSizes(tableWidth: number, showReb: boolean): ArenaTableSizes {
 
 // Layout for inner board width W (arenaBoardWidth). In split and stacked modes the center panel
 // spans W; in arena mode it gets W less two 180 dp tables and their 8 dp gaps, and s follows that
-// width.
-export function arenaLayout(boardWidth: number): ArenaLayout {
+// width. With tables false (the players flag off) the board is the center panel only, so it spans
+// W in every mode.
+export function arenaLayout(
+  boardWidth: number,
+  options: { tables?: boolean } = {},
+): ArenaLayout {
   const width = Number.isFinite(boardWidth) ? Math.max(0, boardWidth) : 0;
   const mode = arenaMode(width);
+  const tables = options.tables ?? true;
   let tableWidth: number;
   let centerWidth: number;
   if (mode === 'arena') {
     tableWidth = ARENA_SIDE_TABLE_WIDTH;
-    centerWidth = width - 2 * (ARENA_SIDE_TABLE_WIDTH + ARENA_TABLE_GAP);
+    centerWidth = tables
+      ? width - 2 * (ARENA_SIDE_TABLE_WIDTH + ARENA_TABLE_GAP)
+      : width;
   } else if (mode === 'split') {
     tableWidth = (width - ARENA_TABLE_GAP) / 2;
     centerWidth = width;

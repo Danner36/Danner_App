@@ -1,7 +1,5 @@
-import type {
-  LiveBasketballScoreboard,
-  LiveFootballScoreboard,
-} from './espnCyclonesScoreboard';
+import type { BasketballBoardModel } from '../scoreboards/basketball/types';
+import type { CyclonesLiveBoard } from './espnCyclonesScoreboard';
 
 export const CYCLONES_TEAM_ID = 66;
 
@@ -25,7 +23,7 @@ export type CyclonesGame = {
   officialDate: string;
   opponentName: string;
   opponentScore: number;
-  scoreboard?: LiveBasketballScoreboard | LiveFootballScoreboard;
+  scoreboard?: CyclonesLiveBoard;
   seasonType: number;
   sport: CyclonesSport;
   status: string;
@@ -161,6 +159,103 @@ export function gameInterruption(status: string): GameInterruption | undefined {
 
 export function isCompletedGame(game: CyclonesGame): boolean {
   return game.abstractState === 'Final' && !gameInterruption(game.status);
+}
+
+// The five-second summary board stays on the featured card this long after it was applied, while
+// a schedule refresh brings a board without the summary's cells.
+export const LIVE_BOARD_FRESH_MS = 30_000;
+
+// When the five-second summary last applied a Live board, and for which game.
+export type LiveBoardStamp = {
+  appliedAt: number;
+  gamePk: number;
+};
+
+// A basketball board built from a schedule event has no team colors; it takes the stripe colors
+// of the previous board of the same game.
+function withStripeColors(
+  next: BasketballBoardModel,
+  previous: CyclonesLiveBoard | undefined,
+): BasketballBoardModel {
+  if (
+    previous?.kind !== 'basketball' ||
+    (next.eventId !== undefined &&
+      previous.eventId !== undefined &&
+      next.eventId !== previous.eventId)
+  ) {
+    return next;
+  }
+  const side = (key: 'away' | 'home') => {
+    const filled = { ...next[key] };
+    if (filled.color === undefined && previous[key].color !== undefined) {
+      filled.color = previous[key].color;
+    }
+    if (
+      filled.alternateColor === undefined &&
+      previous[key].alternateColor !== undefined
+    ) {
+      filled.alternateColor = previous[key].alternateColor;
+    }
+    return filled;
+  };
+  return { ...next, away: side('away'), home: side('home') };
+}
+
+// Merges a refreshed schedule snapshot into the shown one for the same featured game.
+export function snapshotWithPreservedScoreboard(
+  previous: CyclonesSnapshot | undefined,
+  next: CyclonesSnapshot,
+  liveBoard: LiveBoardStamp | undefined,
+  nowMs = Date.now(),
+): CyclonesSnapshot {
+  const previousGame = previous?.featuredGame;
+  const nextGame = next.featuredGame;
+  if (!previousGame || !nextGame || previousGame.gamePk !== nextGame.gamePk) {
+    return next;
+  }
+
+  // The five-second summary reports Live and Final before the schedule does; a schedule
+  // that still lags never moves the card backwards.
+  const scheduleLags =
+    (isCompletedGame(previousGame) && nextGame.abstractState !== 'Final') ||
+    (previousGame.abstractState === 'Live' &&
+      nextGame.abstractState !== 'Live' &&
+      nextGame.abstractState !== 'Final');
+  // A fresh summary board carries cells that the schedule board lacks (down, distance and
+  // possession; basketball players and fouls), and is never older than the schedule.
+  const keepLiveBoard =
+    previousGame.abstractState === 'Live' &&
+    nextGame.abstractState === 'Live' &&
+    previousGame.scoreboard !== undefined &&
+    liveBoard?.gamePk === nextGame.gamePk &&
+    nowMs - liveBoard.appliedAt < LIVE_BOARD_FRESH_MS;
+  if (scheduleLags || keepLiveBoard) {
+    return {
+      ...next,
+      featuredGame: {
+        ...nextGame,
+        abstractState: previousGame.abstractState,
+        cyclonesScore: previousGame.cyclonesScore,
+        opponentScore: previousGame.opponentScore,
+        scoreboard: previousGame.scoreboard,
+        status: previousGame.status,
+      },
+    };
+  }
+  if (!previousGame.scoreboard) {
+    return next;
+  }
+
+  return {
+    ...next,
+    featuredGame: {
+      ...nextGame,
+      scoreboard:
+        nextGame.scoreboard?.kind === 'basketball'
+          ? withStripeColors(nextGame.scoreboard, previousGame.scoreboard)
+          : (nextGame.scoreboard ?? previousGame.scoreboard),
+    },
+  };
 }
 
 export function playbackBlocked(game: CyclonesGame): boolean {
@@ -701,9 +796,7 @@ export function cyclonesGameFromHarness(
     typeof game.scoreboard === 'object' &&
     game.scoreboard !== null
   ) {
-    parsed.scoreboard = game.scoreboard as
-      | LiveBasketballScoreboard
-      | LiveFootballScoreboard;
+    parsed.scoreboard = game.scoreboard as CyclonesLiveBoard;
   }
   return parsed;
 }

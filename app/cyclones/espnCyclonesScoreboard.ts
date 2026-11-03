@@ -1,3 +1,16 @@
+import {
+  basketballBoardFromScheduleEvent,
+  basketballBoardFromSummary,
+  type BasketballBoardPoll,
+} from '../leagues/espn/basketballBoard';
+import {
+  basketballRulesFor,
+  type BasketballAdapterKey,
+} from '../leagues/espn/basketballRules';
+import type {
+  BasketballBoardModel,
+  BasketballCapabilityFlags,
+} from '../scoreboards/basketball/types';
 import type { CyclonesSport } from './cyclonesSnapshot';
 
 export type PeriodSideScore = {
@@ -18,14 +31,9 @@ export type LiveFootballScoreboard = {
   status: string;
 };
 
-export type LiveBasketballScoreboard = {
-  away: PeriodSideScore;
-  clock: string;
-  home: PeriodSideScore;
-  kind: 'basketball';
-  period: number;
-  status: string;
-};
+export type CyclonesBasketballSport = Exclude<CyclonesSport, 'football'>;
+
+export type CyclonesLiveBoard = BasketballBoardModel | LiveFootballScoreboard;
 
 const SUMMARY_TIMEOUT_MS = 6_000;
 
@@ -33,6 +41,11 @@ const SUMMARY_PATHS: Record<CyclonesSport, string> = {
   football: 'football/college-football',
   'mens-basketball': 'basketball/mens-college-basketball',
   'womens-basketball': 'basketball/womens-college-basketball',
+};
+
+const BASKETBALL_ADAPTERS: Record<CyclonesBasketballSport, BasketballAdapterKey> = {
+  'mens-basketball': 'ncaa/mens-basketball',
+  'womens-basketball': 'ncaa/womens-basketball',
 };
 
 function finiteCount(value: unknown): number | undefined {
@@ -208,47 +221,36 @@ export function liveFootballScoreboardFromEspn(
   };
 }
 
-export function liveBasketballScoreboardFromEspn(
+// Arena board from an ESPN summary with the sport's NCAA rules row; flagOverrides replace that
+// row's capability flags (the development harness only). poll.now is stored as stale.polledAt.
+export function basketballBoardFromCyclonesSummary(
   value: unknown,
-): LiveBasketballScoreboard | undefined {
-  const competition = competitionFromDocument(value);
-  if (typeof competition !== 'object' || competition === null) {
-    return undefined;
-  }
+  sport: CyclonesBasketballSport,
+  poll: BasketballBoardPoll,
+  flagOverrides?: Partial<BasketballCapabilityFlags>,
+): BasketballBoardModel | undefined {
+  const board = basketballBoardFromSummary(
+    value,
+    basketballRulesFor(BASKETBALL_ADAPTERS[sport], flagOverrides),
+    poll,
+  );
+  return board
+    ? { ...board, stale: { ...board.stale, polledAt: poll.now } }
+    : undefined;
+}
 
-  const contest = competition as {
-    competitors?: unknown[];
-    status?: {
-      displayClock?: unknown;
-      period?: unknown;
-      type?: { detail?: unknown; shortDetail?: unknown };
-    };
-  };
-  const sides = sidesFromCompetition(contest);
-  if (!sides) {
-    return undefined;
-  }
-
-  const clock =
-    typeof contest.status?.displayClock === 'string'
-      ? contest.status.displayClock
-      : '';
-  const period = finiteCount(contest.status?.period) ?? 0;
-  const status =
-    (typeof contest.status?.type?.detail === 'string' &&
-      contest.status.type.detail) ||
-    (typeof contest.status?.type?.shortDetail === 'string' &&
-      contest.status.type.shortDetail) ||
-    'Live';
-
-  return {
-    away: sides.away,
-    clock,
-    home: sides.home,
-    kind: 'basketball',
-    period,
-    status,
-  };
+// Arena board from an ESPN schedule event: scores, clock and period, with the sport's regulation
+// periods. polledAt is stored as stale.polledAt.
+export function basketballBoardFromCyclonesEvent(
+  event: unknown,
+  sport: CyclonesBasketballSport,
+  polledAt: number,
+): BasketballBoardModel | undefined {
+  const board = basketballBoardFromScheduleEvent(
+    event,
+    basketballRulesFor(BASKETBALL_ADAPTERS[sport]),
+  );
+  return board ? { ...board, stale: { ...board.stale, polledAt } } : undefined;
 }
 
 export function liveFootballScoreboardFromHarness(
@@ -305,58 +307,39 @@ export function liveFootballScoreboardFromHarness(
   };
 }
 
-export function liveBasketballScoreboardFromHarness(
-  value: unknown,
-): LiveBasketballScoreboard | undefined {
-  if (typeof value !== 'object' || value === null) {
-    return undefined;
-  }
-
-  const board = value as Partial<LiveBasketballScoreboard> & {
-    away?: { points?: unknown; periods?: unknown };
-    home?: { points?: unknown; periods?: unknown };
-  };
-  if (
-    typeof board.status !== 'string' ||
-    typeof board.clock !== 'string' ||
-    typeof board.period !== 'number' ||
-    !Array.isArray(board.away?.periods) ||
-    !Array.isArray(board.home?.periods)
-  ) {
-    return undefined;
-  }
-
-  const awayPoints = finiteCount(board.away.points);
-  const homePoints = finiteCount(board.home.points);
-  if (awayPoints === undefined || homePoints === undefined) {
-    return undefined;
-  }
-
-  return {
-    away: {
-      periods: board.away.periods.map((period) => finiteCount(period)),
-      points: awayPoints,
-    },
-    clock: board.clock,
-    home: {
-      periods: board.home.periods.map((period) => finiteCount(period)),
-      points: homePoints,
-    },
-    kind: 'basketball',
-    period: Math.max(0, Math.trunc(board.period)),
-    status: board.status,
-  };
-}
-
 export type LiveCyclonesSummary = {
   completed: boolean;
-  scoreboard?: LiveBasketballScoreboard | LiveFootballScoreboard;
+  scoreboard?: CyclonesLiveBoard;
   state?: 'in' | 'post' | 'pre';
 };
 
+// Away and home points and the status line of a live board, for the featured card. Undefined
+// points leave the card's score as it is.
+export function liveBoardTotals(scoreboard: CyclonesLiveBoard): {
+  away?: number;
+  home?: number;
+  status?: string;
+} {
+  if (scoreboard.kind === 'football') {
+    return {
+      away: scoreboard.away.points,
+      home: scoreboard.home.points,
+      status: scoreboard.status,
+    };
+  }
+  return {
+    away: scoreboard.away.score,
+    home: scoreboard.home.score,
+    status: scoreboard.statusDetail,
+  };
+}
+
+// poll applies to basketball: its time stamps the board, and its previous board lets player cells
+// carry across a shorter plays array.
 export function liveCyclonesSummaryFromEspn(
   value: unknown,
   sport: CyclonesSport,
+  poll: BasketballBoardPoll = { now: Date.now() },
 ): LiveCyclonesSummary {
   const competition = competitionFromDocument(value);
   const statusType =
@@ -373,15 +356,17 @@ export function liveCyclonesSummaryFromEspn(
     scoreboard:
       sport === 'football'
         ? liveFootballScoreboardFromEspn(value)
-        : liveBasketballScoreboardFromEspn(value),
+        : basketballBoardFromCyclonesSummary(value, sport, poll),
     state:
       state === 'in' || state === 'post' || state === 'pre' ? state : undefined,
   };
 }
 
+// previousBoard is the basketball board last applied from a summary for this game.
 export async function fetchLiveCyclonesSummary(
   gamePk: number,
   sport: CyclonesSport,
+  previousBoard?: BasketballBoardModel,
 ): Promise<LiveCyclonesSummary | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
@@ -397,7 +382,11 @@ export async function fetchLiveCyclonesSummary(
     if (!response.ok) {
       return undefined;
     }
-    return liveCyclonesSummaryFromEspn(await response.json(), sport);
+    const document: unknown = await response.json();
+    return liveCyclonesSummaryFromEspn(document, sport, {
+      now: Date.now(),
+      previous: previousBoard,
+    });
   } catch {
     return undefined;
   } finally {

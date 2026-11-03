@@ -182,7 +182,9 @@ function clockSeconds(value: unknown): number | undefined {
 
 function hexColor(value: unknown): string | undefined {
   const raw = nonEmptyText(value)?.trim().replace(/^#/, '');
-  return raw && /^[0-9a-f]{6}$/i.test(raw) ? `#${raw.toUpperCase()}` : undefined;
+  return raw && /^[0-9a-f]{6}$/i.test(raw)
+    ? `#${raw.toUpperCase()}`
+    : undefined;
 }
 
 // Drops own properties whose value is undefined, so absent cells are absent keys.
@@ -275,10 +277,11 @@ function sideIdentity(
   };
 }
 
-// ESPN format.regulation.periods when it is 2 or 4.
-function formatRegulationPeriods(root: JsonRecord | undefined): number | undefined {
-  const periods = finiteCount(record(record(root?.format)?.regulation)?.periods);
-  return periods === 2 || periods === 4 ? periods : undefined;
+// ESPN format.regulation.periods when it is a positive count.
+function formatRegulationPeriods(
+  root: JsonRecord | undefined,
+): number | undefined {
+  return positiveCount(record(record(root?.format)?.regulation)?.periods);
 }
 
 function playView(value: unknown): PlayView {
@@ -394,6 +397,13 @@ function rosterFromBox(
   return roster;
 }
 
+function rosterEntry(
+  roster: Roster,
+  athleteId: string | undefined,
+): RosterEntry | undefined {
+  return athleteId === undefined ? undefined : roster.byId.get(athleteId);
+}
+
 function isSubstitution(play: PlayView): boolean {
   return play.typeId === SUBSTITUTION_TYPE_ID;
 }
@@ -401,7 +411,8 @@ function isSubstitution(play: PlayView): boolean {
 // Last foul matcher: type.text with foul or charge and neither turnover nor free throw.
 function isFoulPlay(play: PlayView): boolean {
   return (
-    /foul|charge/.test(play.typeText) && !/turnover|free throw/.test(play.typeText)
+    /foul|charge/.test(play.typeText) &&
+    !/turnover|free throw/.test(play.typeText)
   );
 }
 
@@ -415,9 +426,14 @@ function isTeamFoulPlay(play: PlayView, match: TeamFoulPlayMatch): boolean {
   );
 }
 
-// Technical fouls and ejections can name a player on the bench.
-function mayNameBenchPlayer(play: PlayView): boolean {
-  return play.typeId === EJECTION_TYPE_ID || play.typeText.includes('technical');
+// Technical fouls and ejections can name a player on the bench. The lineup check skips these
+// plays only where technicals do not count toward the foul limit (NBA and WNBA rules), where
+// archived games log technicals on bench players (401866759 play 441, 401871327 play 235).
+function mayNameBenchPlayer(play: PlayView, rules: BasketballRules): boolean {
+  return (
+    !rules.technicalsCountTowardFoulLimit &&
+    (play.typeId === EJECTION_TYPE_ID || play.typeText.includes('technical'))
+  );
 }
 
 // Play index at which each player is out: the foul play that reaches the foul limit (counted
@@ -475,10 +491,12 @@ function clockRunPast(anchor: PlayView, play: PlayView): boolean {
 // 5 starters; a swap that adds a player already in, removes one not in, names an id off the
 // roster, or has no subbing in or subbing out text; a set other than 5 at a non-substitution
 // play; a team's player in a non-substitution play who is not in the set (late inserts, whose
-// wallclock precedes the previous play's, and technical and ejection plays are skipped); a
-// player who is out still in the set at a non-substitution play after the game clock has run
-// past the play that put him out. The
-// shown set is the set after the last play, or while a pending substitution group leaves other
+// wallclock precedes the previous play's, and, under rules where technicals do not count toward
+// the foul limit, technical and ejection plays are skipped); a player who is out still in the
+// set at a non-substitution play after the game clock has run past the play that put that player
+// out. A non-substitution play that names an id off the roster fails the play's team when the id
+// is participants[0] (always a player of team.id in the archived games), else both teams. The
+// shown set is the set after the last play, or, while a pending substitution group leaves other
 // than 5, the set as of the last non-substitution play.
 function replayLineups(
   plays: readonly PlayView[],
@@ -500,10 +518,17 @@ function replayLineups(
       settled: new Set(starters),
     };
   }
+  const failBothTeams = () => {
+    for (const side of SIDES) {
+      state[side].failed = true;
+    }
+  };
   const failPlayTeam = (play: PlayView) => {
     const side = sideForTeam(teamIds, play.teamId);
-    for (const key of side ? [side] : SIDES) {
-      state[key].failed = true;
+    if (side) {
+      state[side].failed = true;
+    } else {
+      failBothTeams();
     }
   };
   const anchors = outAnchors(plays, rules);
@@ -512,14 +537,17 @@ function replayLineups(
     if (isSubstitution(play)) {
       const [first, second] = play.participants;
       if (play.participants.length === 2) {
-        const entering = first === undefined ? undefined : roster.byId.get(first);
-        const leaving = second === undefined ? undefined : roster.byId.get(second);
+        const entering = rosterEntry(roster, first);
+        const leaving = rosterEntry(roster, second);
         if (!entering || !leaving || entering.side !== leaving.side) {
           failPlayTeam(play);
           return;
         }
         const team = state[entering.side];
-        if (team.set.has(entering.athleteId) || !team.set.has(leaving.athleteId)) {
+        if (
+          team.set.has(entering.athleteId) ||
+          !team.set.has(leaving.athleteId)
+        ) {
           team.failed = true;
         }
         team.set.delete(leaving.athleteId);
@@ -527,9 +555,7 @@ function replayLineups(
         return;
       }
       const player =
-        play.participants.length === 1 && first !== undefined
-          ? roster.byId.get(first)
-          : undefined;
+        play.participants.length === 1 ? rosterEntry(roster, first) : undefined;
       if (!player) {
         failPlayTeam(play);
         return;
@@ -561,13 +587,24 @@ function replayLineups(
       play.wallclockMs !== undefined &&
       previousWallclock !== undefined &&
       play.wallclockMs < previousWallclock;
-    if (!lateInsert && !mayNameBenchPlayer(play)) {
-      for (const athleteId of play.participants) {
-        const player = athleteId === undefined ? undefined : roster.byId.get(athleteId);
-        if (player && !state[player.side].set.has(player.athleteId)) {
+    if (!lateInsert && !mayNameBenchPlayer(play, rules)) {
+      play.participants.forEach((athleteId, slot) => {
+        if (athleteId === undefined) {
+          return;
+        }
+        const player = roster.byId.get(athleteId);
+        if (!player) {
+          if (slot === 0) {
+            failPlayTeam(play);
+          } else {
+            failBothTeams();
+          }
+          return;
+        }
+        if (!state[player.side].set.has(player.athleteId)) {
           state[player.side].failed = true;
         }
-      }
+      });
     }
     for (const [athleteId, anchorIndex] of anchors) {
       const player = roster.byId.get(athleteId);
@@ -619,9 +656,8 @@ function activeFive(
     if (!isSubstitution(play)) {
       return;
     }
-    const first = play.participants[0];
     const playSide =
-      (first === undefined ? undefined : roster.byId.get(first)?.side) ??
+      rosterEntry(roster, play.participants[0])?.side ??
       sideForTeam(teamIds, play.teamId);
     if (playSide === side) {
       lastSubstitution = index;
@@ -629,7 +665,7 @@ function activeFive(
   });
   for (const play of plays.slice(lastSubstitution + 1)) {
     for (const athleteId of play.participants) {
-      const player = athleteId === undefined ? undefined : roster.byId.get(athleteId);
+      const player = rosterEntry(roster, athleteId);
       if (player?.side === side && !active.has(player.athleteId)) {
         return undefined;
       }
@@ -638,6 +674,7 @@ function activeFive(
   return active;
 }
 
+// The five most points (ties to box order), listed in box order.
 function topScorers(entries: readonly RosterEntry[]): RosterEntry[] {
   return entries
     .map((entry, order) => ({ entry, order }))
@@ -647,6 +684,7 @@ function topScorers(entries: readonly RosterEntry[]): RosterEntry[] {
         left.order - right.order,
     )
     .slice(0, LINEUP_SIZE)
+    .sort((left, right) => left.order - right.order)
     .map(({ entry }) => entry);
 }
 
@@ -694,6 +732,7 @@ function boardPlayer(
 function sideTable(
   side: BoardSideKey,
   input: {
+    beforeFirstPlay: boolean;
     ejected: ReadonlySet<string>;
     flags: BasketballCapabilityFlags;
     plays: readonly PlayView[];
@@ -703,7 +742,16 @@ function sideTable(
     teamIds: Record<BoardSideKey, string | undefined>;
   },
 ): Pick<BoardSide, 'lineup' | 'players'> {
-  const { ejected, flags, plays, replay, roster, rules, teamIds } = input;
+  const {
+    beforeFirstPlay,
+    ejected,
+    flags,
+    plays,
+    replay,
+    roster,
+    rules,
+    teamIds,
+  } = input;
   const entries = roster.bySide[side];
   if (!flags.players || !entries) {
     return { lineup: 'unavailable', players: [] };
@@ -714,11 +762,14 @@ function sideTable(
   });
   const inBoxOrder = (ids: ReadonlySet<string>) =>
     entries.filter((entry) => ids.has(entry.athleteId));
-  if (plays.length === 0) {
+  if (beforeFirstPlay) {
     const starters = entries.filter((entry) => entry.starter);
     return starters.length === LINEUP_SIZE
       ? table('starters', starters)
       : table('topScorers', topScorers(entries));
+  }
+  if (plays.length === 0) {
+    return table('topScorers', topScorers(entries));
   }
   const replayed = replay?.[side];
   if (replayed?.passed) {
@@ -751,7 +802,10 @@ function teamFoulCounts(
   const late = { away: 0, home: 0 };
   const lateSpan = rules.bonus.lateFouls?.secondsLeft;
   for (const play of plays) {
-    if (play.period === undefined || !isTeamFoulPlay(play, rules.teamFoulPlays)) {
+    if (
+      play.period === undefined ||
+      !isTeamFoulPlay(play, rules.teamFoulPlays)
+    ) {
       continue;
     }
     const side = sideForTeam(teamIds, play.teamId);
@@ -859,7 +913,8 @@ function timeoutsLeft(
   side: BoardSideKey,
 ): number | undefined {
   const field = side === 'home' ? 'homeTimeouts' : 'awayTimeouts';
-  for (const situation of [record(root?.situation), record(competition.situation)]) {
+  const situations = [record(root?.situation), record(competition.situation)];
+  for (const situation of situations) {
     const value = finiteCount(situation?.[field]);
     if (value !== undefined) {
       return value;
@@ -874,7 +929,9 @@ function possessionArrowSide(view: CompetitionView): BoardSideKey | undefined {
   if (view.competition.possessionArrowAvailable !== true) {
     return undefined;
   }
-  const holders = SIDES.filter((side) => view.competitors[side].possession === true);
+  const holders = SIDES.filter(
+    (side) => view.competitors[side].possession === true,
+  );
   return holders.length === 1 ? holders[0] : undefined;
 }
 
@@ -945,18 +1002,31 @@ export function basketballBoardFromSummary(
   const root = record(summary);
   const flags: BasketballCapabilityFlags = { ...rules.flags };
   const formatPeriods = formatRegulationPeriods(root);
-  const regulationPeriods = formatPeriods ?? rules.regulationPeriods;
-  const plays = Array.isArray(root?.plays) ? root.plays.map(playView) : undefined;
+  const regulationPeriods =
+    formatPeriods === 2 || formatPeriods === 4
+      ? formatPeriods
+      : rules.regulationPeriods;
+  const plays = Array.isArray(root?.plays)
+    ? root.plays.map(playView)
+    : undefined;
   const allPlays = plays ?? [];
   const status = statusView(view.competition);
   const period = status.period ?? allPlays[allPlays.length - 1]?.period;
   const phase = boardPhase(status, plays, regulationPeriods);
-  const eventId = idText(record(root?.header)?.id) ?? idText(view.competition.id);
+  const eventId =
+    idText(record(root?.header)?.id) ?? idText(view.competition.id);
   const teamIds = {
     away: teamIdOf(view.competitors.away),
     home: teamIdOf(view.competitors.home),
   };
   const roster = rosterFromBox(root, teamIds);
+  // Before the tip: pregame, or the first period with no play and no points. A response with no
+  // plays after that shows top scorers and no team fouls.
+  const beforeFirstPlay =
+    allPlays.length === 0 &&
+    (phase === 'pregame' ||
+      (period === 1 &&
+        SIDES.every((key) => !finiteCount(view.competitors[key].score))));
 
   const carried = carriedCells(poll, eventId, allPlays.length, roster);
   let cells: PlayerCells;
@@ -970,8 +1040,23 @@ export function basketballBoardFromSummary(
       flags.players && allPlays.length > 0
         ? replayLineups(allPlays, roster, rules, teamIds)
         : undefined;
-    const fouls = teamFoulCounts(plays, period, regulationPeriods, rules, teamIds);
-    const tableInput = { ejected, flags, plays: allPlays, replay, roster, rules, teamIds };
+    const fouls = teamFoulCounts(
+      allPlays.length > 0 || beforeFirstPlay ? plays : undefined,
+      period,
+      regulationPeriods,
+      rules,
+      teamIds,
+    );
+    const tableInput = {
+      beforeFirstPlay,
+      ejected,
+      flags,
+      plays: allPlays,
+      replay,
+      roster,
+      rules,
+      teamIds,
+    };
     const sideCells = (side: BoardSideKey): SideCells =>
       compact({
         ...sideTable(side, tableInput),
@@ -994,7 +1079,10 @@ export function basketballBoardFromSummary(
         ? lastFoulFrom(allPlays, roster, ejected, rules, teamIds)
         : undefined,
     });
-    stale = compact({ playerCellsAppliedAt: poll?.now, playsLength: plays?.length });
+    stale = compact({
+      playerCellsAppliedAt: poll?.now,
+      playsLength: plays?.length,
+    });
   }
 
   const side = (key: BoardSideKey): BoardSide => {
@@ -1020,7 +1108,9 @@ export function basketballBoardFromSummary(
     lastFoul: cells.lastFoul,
     period,
     phase,
-    possessionArrow: flags.possessionArrow ? possessionArrowSide(view) : undefined,
+    possessionArrow: flags.possessionArrow
+      ? possessionArrowSide(view)
+      : undefined,
     regulationPeriods,
     source: 'summary' as const,
     stale,

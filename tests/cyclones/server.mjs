@@ -3,13 +3,28 @@ import { createServer } from 'node:http';
 
 const port = Number.parseInt(process.env.CYCLONES_HARNESS_PORT ?? '8108', 10);
 const fixtureUrl = new URL('./live-game.fixture.json', import.meta.url);
+// Live women's basketball game whose board is a trimmed ESPN summary with the capability flags the
+// board needs turned on.
+const basketballFixtureUrl = new URL(
+  './live-basketball.fixture.json',
+  import.meta.url,
+);
 const appleMediaRoot = new URL(
   'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/',
 );
-const validScenarios = new Set(['delayed', 'final', 'live', 'ready', 'today']);
+const validScenarios = new Set([
+  'delayed',
+  'final',
+  'live',
+  'live-basketball',
+  'ready',
+  'today',
+]);
 
-async function readFixtureDocument() {
-  return JSON.parse(await readFile(fixtureUrl, 'utf8'));
+async function readFixtureDocument(scenario) {
+  const url =
+    scenario === 'live-basketball' ? basketballFixtureUrl : fixtureUrl;
+  return JSON.parse(await readFile(url, 'utf8'));
 }
 
 function chicagoDateString(date) {
@@ -54,9 +69,10 @@ function snapshotForScenario(fixture, scenario) {
     };
   }
 
-  if (scenario === 'live') {
+  if (scenario === 'live' || scenario === 'live-basketball') {
     const gameDate = new Date(now - 90 * 60_000);
     return {
+      boardFlags: fixture.boardFlags,
       liveGame: {
         ...fixture.liveGame,
         gameDate: gameDate.toISOString(),
@@ -110,7 +126,7 @@ const server = createServer(async (request, response) => {
         response.end('Unknown Cyclones scenario');
         return;
       }
-      const fixture = await readFixtureDocument();
+      const fixture = await readFixtureDocument(scenario);
       response.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
       });
@@ -127,7 +143,9 @@ const server = createServer(async (request, response) => {
     requestUrl.pathname === '/cyclones-sources.json'
   ) {
     try {
-      const fixture = await readFixtureDocument();
+      const fixture = await readFixtureDocument(
+        requestUrl.searchParams.get('scenario'),
+      );
       const gameDate = chicagoDateString(new Date());
       const streams = fixture.streams.map((stream) => ({
         allowInsecureHttp: stream.allowInsecureHttp ?? false,

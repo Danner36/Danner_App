@@ -4,15 +4,13 @@ import type {
 } from '../../scoreboards/basketball/types';
 
 // Capability flags and foul rules per basketball adapter, passed to basketballBoardFromSummary.
-// Foul limits, windows and bonus thresholds are rule-book values that ESPN data does not confirm.
-// A flag turns on only after a live capture for that adapter holds the paths it needs; no row
-// has one yet, so every flag is off.
+// Rows exist for the two NCAA adapters. Foul limits, windows and bonus thresholds are rule-book
+// values that ESPN data does not confirm. A flag turns on only after a live capture for that
+// adapter holds the paths it needs; no row has one yet, so every flag is off.
 
 export const BASKETBALL_ADAPTER_KEYS = [
   'ncaa/mens-basketball',
   'ncaa/womens-basketball',
-  'nba',
-  'wnba',
 ] as const;
 
 export type BasketballAdapterKey = (typeof BASKETBALL_ADAPTER_KEYS)[number];
@@ -58,8 +56,6 @@ export type BasketballRules = {
   bonus: BonusRule;
   flags: BasketballCapabilityFlags;
   foulWindow: FoulWindowRule;
-  // Delivery phase of Docs/Production/ModularTeams.md that ships this row on the arena board.
-  phase: '1c' | '7';
   // A player at this many fouls is out; one below is foul trouble.
   playerFoulLimit: number;
   // Regulation periods the row's foul window and bonus assume; bonus pills stay hidden when
@@ -67,7 +63,8 @@ export type BasketballRules = {
   regulationPeriods: 2 | 4;
   teamFoulPlays: TeamFoulPlayMatch;
   // Technical fouls count toward playerFoulLimit (NCAA box PF includes them; NBA and WNBA box
-  // PF does not).
+  // PF does not). When false, the lineup check also skips technical and ejection plays, which
+  // can name a player on the bench.
   technicalsCountTowardFoulLimit: boolean;
 };
 
@@ -86,21 +83,6 @@ const FLAGS_OFF: BasketballCapabilityFlags = {
 const NCAA_TEAM_FOUL_PLAYS: TeamFoulPlayMatch = {
   kind: 'typeIds',
   typeIds: ['519', '521'],
-};
-
-const PRO_TEAM_FOUL_PLAYS: TeamFoulPlayMatch = {
-  excludes: ['offensive', 'technical', 'double', 'turnover', 'free throw'],
-  includes: 'foul',
-  kind: 'text',
-};
-
-const PRO_BONUS: BonusRule = {
-  bonusAt: 4,
-  lateFouls: {
-    foulsInSpan: 1,
-    secondsLeft: 120,
-  },
-  overtimeBonusAt: 3,
 };
 
 function deepFreeze<T>(value: T): T {
@@ -122,7 +104,6 @@ const RULES: Readonly<Record<BasketballAdapterKey, BasketballRules>> = deepFreez
     },
     flags: FLAGS_OFF,
     foulWindow: { overtime: 'continuesLastPeriod' },
-    phase: '1c',
     playerFoulLimit: 5,
     regulationPeriods: 2,
     teamFoulPlays: NCAA_TEAM_FOUL_PLAYS,
@@ -133,44 +114,12 @@ const RULES: Readonly<Record<BasketballAdapterKey, BasketballRules>> = deepFreez
     bonus: { bonusAt: 4 },
     flags: FLAGS_OFF,
     foulWindow: { overtime: 'continuesLastPeriod' },
-    phase: '1c',
     playerFoulLimit: 5,
     regulationPeriods: 4,
     teamFoulPlays: NCAA_TEAM_FOUL_PLAYS,
     technicalsCountTowardFoulLimit: true,
   },
-  nba: {
-    adapter: 'nba',
-    bonus: PRO_BONUS,
-    flags: FLAGS_OFF,
-    foulWindow: { overtime: 'eachPeriod' },
-    phase: '7',
-    playerFoulLimit: 6,
-    regulationPeriods: 4,
-    teamFoulPlays: PRO_TEAM_FOUL_PLAYS,
-    technicalsCountTowardFoulLimit: false,
-  },
-  wnba: {
-    adapter: 'wnba',
-    bonus: PRO_BONUS,
-    flags: FLAGS_OFF,
-    foulWindow: { overtime: 'eachPeriod' },
-    phase: '7',
-    playerFoulLimit: 6,
-    regulationPeriods: 4,
-    teamFoulPlays: PRO_TEAM_FOUL_PLAYS,
-    technicalsCountTowardFoulLimit: false,
-  },
 });
-
-export function isBasketballAdapterKey(
-  value: unknown,
-): value is BasketballAdapterKey {
-  return (
-    typeof value === 'string' &&
-    (BASKETBALL_ADAPTER_KEYS as readonly string[]).includes(value)
-  );
-}
 
 // The adapter's rules with a fresh flags object. Boolean entries in flagOverrides replace the
 // row's flags; other entries are ignored. The nested rule objects are frozen and shared.

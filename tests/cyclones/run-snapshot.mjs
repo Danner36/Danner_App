@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { registerHooks } from 'node:module';
 
 import {
+  LIVE_BOARD_FRESH_MS,
   basketballSeasonYear,
   chicagoDateString,
   cyclonesGameFromEspnEvent,
@@ -12,6 +15,7 @@ import {
   recordLabel,
   recordsFromGames,
   snapshotFromGames,
+  snapshotWithPreservedScoreboard,
   sportStatus,
   statusesFromGames,
 } from '../../app/cyclones/cyclonesSnapshot.ts';
@@ -19,10 +23,32 @@ import {
   authorizedStreamsForGame,
   cyclonesStreamsFromDocument,
 } from '../../app/cyclones/cyclonesSources.ts';
-import {
+import { basketballBoardFromScheduleEvent } from '../../app/leagues/espn/basketballBoard.ts';
+import { basketballRulesFor } from '../../app/leagues/espn/basketballRules.ts';
+import { lineupCaptions } from '../../app/scoreboards/basketball/arenaText.ts';
+
+// espnCyclonesScoreboard.ts imports the basketball board modules at run time with extensionless
+// relative specifiers, as Metro resolves them; this hook lets Node load them as .ts files.
+const APP_ROOT = new URL('../../app/', import.meta.url).href;
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (
+      specifier.startsWith('.') &&
+      !/\.[cm]?[jt]sx?$/.test(specifier) &&
+      context.parentURL?.startsWith(APP_ROOT)
+    ) {
+      return nextResolve(`${specifier}.ts`, context);
+    }
+    return nextResolve(specifier, context);
+  },
+});
+const {
+  basketballBoardFromCyclonesEvent,
+  basketballBoardFromCyclonesSummary,
+  liveBoardTotals,
   liveCyclonesSummaryFromEspn,
   liveFootballScoreboardFromEspn,
-} from '../../app/cyclones/espnCyclonesScoreboard.ts';
+} = await import('../../app/cyclones/espnCyclonesScoreboard.ts');
 
 // Featuring and day checks use the phone's local calendar, so fixture times are built in the
 // machine's local time zone and the assertions hold in any zone.
@@ -789,6 +815,326 @@ assert.equal(liveSummary.scoreboard?.kind, 'basketball');
 assert.equal(
   liveCyclonesSummaryFromEspn({}, 'football').state,
   undefined,
+);
+
+// Basketball arena board on the live-basketball harness fixture: a trimmed ESPN summary of
+// women's game 401827429 at 1:17 of the third quarter.
+const basketballFixture = JSON.parse(
+  readFileSync(new URL('./live-basketball.fixture.json', import.meta.url), 'utf8'),
+);
+const basketballSummary = basketballFixture.liveGame.scoreboard;
+const boardPolledAt = Date.UTC(2026, 2, 1, 20, 30);
+const sides = ['away', 'home'];
+
+// The shipped NCAA rows have every capability flag off: the board is the center panel only.
+const liveBasketball = liveCyclonesSummaryFromEspn(
+  basketballSummary,
+  'womens-basketball',
+  { now: boardPolledAt },
+);
+assert.equal(liveBasketball.state, 'in');
+assert.equal(liveBasketball.completed, false);
+const centerBoard = liveBasketball.scoreboard;
+assert.equal(centerBoard?.kind, 'basketball');
+assert.equal(centerBoard.source, 'summary');
+assert.equal(centerBoard.eventId, '401827429');
+assert.equal(centerBoard.clock, '1:17');
+assert.equal(centerBoard.period, 3);
+assert.equal(centerBoard.phase, 'inPlay');
+assert.equal(centerBoard.regulationPeriods, 4);
+assert.equal(centerBoard.statusDetail, '1:17 - 3rd Quarter');
+assert.equal(centerBoard.away.score, 61);
+assert.equal(centerBoard.home.score, 62);
+assert.equal(centerBoard.away.teamId, '66');
+assert.equal(centerBoard.away.color, '#AE192D');
+assert.equal(centerBoard.home.color, '#330A57');
+assert.equal(centerBoard.home.alternateColor, '#E2E3E4');
+assert.equal(Object.values(centerBoard.flags).some(Boolean), false);
+for (const side of sides) {
+  assert.equal(centerBoard[side].lineup, 'unavailable');
+  assert.deepEqual(centerBoard[side].players, []);
+  assert.equal(centerBoard[side].bonus, 'none');
+  assert.equal(centerBoard[side].teamFouls, undefined);
+  assert.equal(centerBoard[side].timeoutsLeft, undefined);
+}
+assert.equal(centerBoard.lastFoul, undefined);
+assert.deepEqual(centerBoard.stale, {
+  playerCellsAppliedAt: boardPolledAt,
+  playsLength: basketballSummary.plays.length,
+  polledAt: boardPolledAt,
+});
+assert.deepEqual(liveBoardTotals(centerBoard), {
+  away: 61,
+  home: 62,
+  status: '1:17 - 3rd Quarter',
+});
+assert.deepEqual(liveBoardTotals(finalSummary.scoreboard), {
+  away: 17,
+  home: 31,
+  status: 'Final',
+});
+
+// The harness path: the fixture's flags turn the player-derived cells on, and the real parser
+// replays the substitutions.
+const harnessBoard = basketballBoardFromCyclonesSummary(
+  basketballSummary,
+  'womens-basketball',
+  { now: boardPolledAt },
+  basketballFixture.boardFlags,
+);
+const activeIds = (teamId) =>
+  basketballSummary.boxscore.players
+    .find((team) => team.team.id === teamId)
+    .statistics[0].athletes.filter((line) => line.active)
+    .map((line) => line.athlete.id)
+    .sort();
+for (const side of sides) {
+  assert.equal(harnessBoard[side].lineup, 'floor');
+  assert.equal(harnessBoard[side].players.length, 5);
+  assert.deepEqual(
+    harnessBoard[side].players.map((player) => player.athleteId).sort(),
+    activeIds(harnessBoard[side].teamId),
+  );
+}
+assert.equal(harnessBoard.away.teamFouls, 3);
+assert.equal(harnessBoard.home.teamFouls, 4);
+assert.equal(harnessBoard.away.bonus, 'bonus');
+assert.equal(harnessBoard.home.bonus, 'none');
+assert.equal(harnessBoard.lastFoul?.side, 'home');
+assert.equal(harnessBoard.lastFoul?.jersey, '4');
+assert.equal(harnessBoard.lastFoul?.fouls, 2);
+assert.equal(
+  basketballBoardFromCyclonesSummary(
+    { header: { competitions: [{ competitors: [] }] } },
+    'womens-basketball',
+    { now: boardPolledAt },
+    basketballFixture.boardFlags,
+  ),
+  undefined,
+);
+
+// A shorter plays array keeps the previous player cells for 30 s, then applies.
+const shorterSummary = {
+  ...basketballSummary,
+  plays: basketballSummary.plays.slice(0, -3),
+};
+const carriedBoard = basketballBoardFromCyclonesSummary(
+  shorterSummary,
+  'womens-basketball',
+  { now: boardPolledAt + 29_999, previous: harnessBoard },
+  basketballFixture.boardFlags,
+);
+for (const side of sides) {
+  assert.deepEqual(carriedBoard[side].players, harnessBoard[side].players);
+  assert.equal(carriedBoard[side].teamFouls, harnessBoard[side].teamFouls);
+}
+assert.deepEqual(carriedBoard.lastFoul, harnessBoard.lastFoul);
+assert.deepEqual(carriedBoard.stale, {
+  playerCellsAppliedAt: boardPolledAt,
+  playsLength: basketballSummary.plays.length,
+  polledAt: boardPolledAt + 29_999,
+});
+const appliedBoard = basketballBoardFromCyclonesSummary(
+  shorterSummary,
+  'womens-basketball',
+  { now: boardPolledAt + 30_000, previous: harnessBoard },
+  basketballFixture.boardFlags,
+);
+assert.deepEqual(appliedBoard.stale, {
+  playerCellsAppliedAt: boardPolledAt + 30_000,
+  playsLength: shorterSummary.plays.length,
+  polledAt: boardPolledAt + 30_000,
+});
+
+// A Final with fewer plays than the last live poll still moves the card to Final with its score.
+const finalHeader = structuredClone(basketballSummary.header);
+const finalCompetition = finalHeader.competitions[0];
+finalCompetition.status = {
+  displayClock: '0:00',
+  period: 4,
+  type: { completed: true, detail: 'Final', name: 'STATUS_FINAL', state: 'post' },
+};
+for (const competitor of finalCompetition.competitors) {
+  competitor.score = competitor.homeAway === 'home' ? '79' : '93';
+}
+const finalBasketball = liveCyclonesSummaryFromEspn(
+  { ...shorterSummary, header: finalHeader },
+  'womens-basketball',
+  { now: boardPolledAt + 5_000, previous: harnessBoard },
+);
+assert.equal(finalBasketball.state, 'post');
+assert.equal(finalBasketball.completed, true);
+assert.equal(finalBasketball.scoreboard?.phase, 'final');
+assert.deepEqual(liveBoardTotals(finalBasketball.scoreboard), {
+  away: 93,
+  home: 79,
+  status: 'Final',
+});
+
+// The schedule path: scores, clock and period only, regulation periods from the sport.
+function liveScheduleEvent() {
+  const event = espnEvent({
+    completed: false,
+    detail: '12:34 - 2nd Half',
+    name: 'STATUS_SECOND_HALF',
+    shortDetail: '12:34 - 2nd',
+    state: 'in',
+  });
+  const competition = event.competitions[0];
+  competition.status = { ...competition.status, displayClock: '12:34', period: 2 };
+  competition.competitors[0].score = { displayValue: '40', value: 40 };
+  competition.competitors[1].score = { displayValue: '35', value: 35 };
+  return event;
+}
+const scheduleBoard = basketballBoardFromCyclonesEvent(
+  liveScheduleEvent(),
+  'mens-basketball',
+  boardPolledAt,
+);
+assert.equal(scheduleBoard?.kind, 'basketball');
+assert.equal(scheduleBoard.source, 'schedule');
+assert.equal(scheduleBoard.eventId, '401856779');
+assert.equal(scheduleBoard.regulationPeriods, 2);
+assert.equal(scheduleBoard.clock, '12:34');
+assert.equal(scheduleBoard.period, 2);
+assert.equal(scheduleBoard.phase, 'inPlay');
+assert.equal(scheduleBoard.home.score, 40);
+assert.equal(scheduleBoard.away.score, 35);
+assert.deepEqual(scheduleBoard.stale, { polledAt: boardPolledAt });
+assert.equal(scheduleBoard.lastFoul, undefined);
+for (const side of sides) {
+  assert.equal(scheduleBoard[side].lineup, 'unavailable');
+  assert.deepEqual(scheduleBoard[side].players, []);
+  assert.equal(scheduleBoard[side].bonus, 'none');
+  assert.equal(scheduleBoard[side].color, undefined);
+}
+assert.equal(
+  basketballBoardFromCyclonesEvent(
+    liveScheduleEvent(),
+    'womens-basketball',
+    boardPolledAt,
+  )?.regulationPeriods,
+  4,
+);
+assert.equal(
+  basketballBoardFromCyclonesEvent({}, 'mens-basketball', boardPolledAt),
+  undefined,
+);
+
+// The merge keeps the polled board under 30 s; after that the schedule board applies with the
+// previous stripe colors, and the tables show PLAYER STATS NOT AVAILABLE.
+assert.equal(LIVE_BOARD_FRESH_MS, 30_000);
+function liveBasketballCard(scoreboard, overrides = {}) {
+  return game({
+    abstractState: 'Live',
+    cyclonesScore: 61,
+    gamePk: 401827429,
+    isHome: false,
+    opponentName: 'Kansas State Wildcats',
+    opponentScore: 62,
+    scoreboard,
+    sport: 'womens-basketball',
+    status: '1:17 - 3rd Quarter',
+    ...overrides,
+  });
+}
+function snapshotWith(featuredGame) {
+  return {
+    featuredGame,
+    records: recordsFromGames([]),
+    statuses: {},
+    upcomingGames: [],
+  };
+}
+const scheduleEventForFixture = {
+  competitions: [
+    {
+      ...basketballSummary.header.competitions[0],
+      competitors: basketballSummary.header.competitions[0].competitors.map(
+        (competitor) => ({
+          ...competitor,
+          score: competitor.homeAway === 'home' ? '62' : '63',
+        }),
+      ),
+    },
+  ],
+  id: '401827429',
+};
+const flaggedScheduleBoard = {
+  ...basketballBoardFromScheduleEvent(
+    scheduleEventForFixture,
+    basketballRulesFor('ncaa/womens-basketball', basketballFixture.boardFlags),
+  ),
+  stale: { polledAt: boardPolledAt + 40_000 },
+};
+const shownBasketball = snapshotWith(liveBasketballCard(harnessBoard));
+const refreshedBasketball = snapshotWith(
+  liveBasketballCard(flaggedScheduleBoard, { cyclonesScore: 63 }),
+);
+const liveStamp = { appliedAt: boardPolledAt, gamePk: 401827429 };
+const keptBoard = snapshotWithPreservedScoreboard(
+  shownBasketball,
+  refreshedBasketball,
+  liveStamp,
+  boardPolledAt + 29_999,
+).featuredGame;
+assert.equal(keptBoard.scoreboard, harnessBoard);
+assert.equal(keptBoard.cyclonesScore, 61);
+const stalledGame = snapshotWithPreservedScoreboard(
+  shownBasketball,
+  refreshedBasketball,
+  liveStamp,
+  boardPolledAt + 30_000,
+).featuredGame;
+const stalledBoard = stalledGame.scoreboard;
+assert.equal(stalledGame.cyclonesScore, 63);
+assert.equal(stalledBoard.source, 'schedule');
+assert.equal(stalledBoard.away.score, 63);
+assert.equal(stalledBoard.away.color, '#AE192D');
+assert.equal(stalledBoard.away.alternateColor, '#FFC72A');
+assert.equal(stalledBoard.home.color, '#330A57');
+assert.equal(stalledBoard.home.alternateColor, '#E2E3E4');
+assert.deepEqual(stalledBoard.stale, { polledAt: boardPolledAt + 40_000 });
+assert.deepEqual(
+  lineupCaptions('split', stalledBoard.away.lineup, stalledBoard.home.lineup),
+  { shared: 'PLAYER STATS NOT AVAILABLE' },
+);
+assert.equal(flaggedScheduleBoard.away.color, undefined);
+// A color the schedule board already has, or a board of another event, is left alone.
+const coloredSchedule = snapshotWith(
+  liveBasketballCard({
+    ...flaggedScheduleBoard,
+    home: { ...flaggedScheduleBoard.home, color: '#FFFFFF' },
+  }),
+);
+const coloredBoard = snapshotWithPreservedScoreboard(
+  shownBasketball,
+  coloredSchedule,
+  undefined,
+  boardPolledAt,
+).featuredGame.scoreboard;
+assert.equal(coloredBoard.home.color, '#FFFFFF');
+assert.equal(coloredBoard.home.alternateColor, '#E2E3E4');
+const otherEventBoard = snapshotWithPreservedScoreboard(
+  snapshotWith(liveBasketballCard({ ...harnessBoard, eventId: '1' })),
+  refreshedBasketball,
+  undefined,
+  boardPolledAt,
+).featuredGame.scoreboard;
+assert.equal(otherEventBoard, flaggedScheduleBoard);
+// Football boards merge as before: a fresh schedule board replaces a stale summary board.
+const footballBoard = liveFootballScoreboardFromEspn(
+  summaryDocument({ completed: false, detail: '2nd Quarter', state: 'in' }),
+);
+const nextFootballBoard = { ...footballBoard, clock: '4:00' };
+assert.equal(
+  snapshotWithPreservedScoreboard(
+    snapshotWith(game({ abstractState: 'Live', scoreboard: footballBoard })),
+    snapshotWith(game({ abstractState: 'Live', scoreboard: nextFootballBoard })),
+    { appliedAt: boardPolledAt, gamePk: 1 },
+    boardPolledAt + LIVE_BOARD_FRESH_MS,
+  ).featuredGame.scoreboard,
+  nextFootballBoard,
 );
 
 // The streams list keeps its newest 200 entries instead of rejecting the file.

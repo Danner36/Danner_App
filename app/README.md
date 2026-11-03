@@ -10,6 +10,8 @@ Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 - `guardians/` is the Cleveland Guardians dashboard and authorized players.
 - `patriots/` is the New England Patriots dashboard and authorized players.
 - `cyclones/` is the Iowa State Cyclones dashboard and authorized players.
+- `scoreboards/basketball/` is the basketball arena board: `BasketballArenaBoard.tsx` plus pure layout, text, color, and model-type modules.
+- `leagues/espn/` holds the pure ESPN basketball board parser and each basketball adapter's capability flags and foul rules.
 - `tvLocation/` is the four-step YouTube TV location flow and bundled map.
 - `modules/` holds native Expo modules only, not product screens.
 - `assets/` holds shared logos, splash art, and the generated offline map HTML.
@@ -49,12 +51,14 @@ npm run test:cyclones:android:ready
 npm run test:cyclones:android:delayed
 npm run test:cyclones:android:final
 npm run test:cyclones:android:live
+npm run test:cyclones:android:live-basketball
 npm run test:cyclones:snapshot
 npm run test:cyclones:android:get-video
 npm run test:cyclones:server
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map
+npm run test:scoreboards
 cd android
 .\gradlew.bat app:assembleRelease
 ```

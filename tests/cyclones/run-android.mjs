@@ -8,11 +8,15 @@ const expoCliPath = fileURLToPath(
 );
 const serverPath = fileURLToPath(new URL('./server.mjs', import.meta.url));
 const scenario = process.argv[2] ?? 'today';
-if (!new Set(['delayed', 'final', 'live', 'ready', 'today']).has(scenario)) {
+if (
+  !new Set(['delayed', 'final', 'live', 'live-basketball', 'ready', 'today']).has(
+    scenario,
+  )
+) {
   throw new Error(`Unknown Cyclones harness scenario: ${scenario}`);
 }
 const harnessUrl = `http://10.0.2.2:8108/cyclones?scenario=${scenario}`;
-const sourcesUrl = 'http://10.0.2.2:8108/cyclones-sources.json';
+const sourcesUrl = `http://10.0.2.2:8108/cyclones-sources.json?scenario=${scenario}`;
 
 const server = spawn(process.execPath, [serverPath], {
   cwd: harnessDirectory,

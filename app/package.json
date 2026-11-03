@@ -33,6 +33,7 @@
     "test:cyclones:android:final": "node ../tests/cyclones/run-android.mjs final",
     "test:cyclones:android:get-video": "node ../tests/cyclones/run-get-video.mjs",
     "test:cyclones:android:live": "node ../tests/cyclones/run-android.mjs live",
+    "test:cyclones:android:live-basketball": "node ../tests/cyclones/run-android.mjs live-basketball",
     "test:cyclones:android:ready": "node ../tests/cyclones/run-android.mjs ready",
     "test:cyclones:snapshot": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/cyclones/run-snapshot.mjs",
     "test:cyclones:server": "node ../tests/cyclones/server.mjs",
