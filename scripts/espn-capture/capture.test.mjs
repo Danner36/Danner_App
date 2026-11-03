@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { gunzipSync } from 'node:zlib';
 import {
   adapterDirName,
   adaptersFor,
@@ -18,6 +27,8 @@ import {
   pickEvent,
   pollMeta,
   pollStats,
+  runCapture,
+  runFind,
   scheduleUrl,
   selectPolls,
   situationUrl,
@@ -112,6 +123,11 @@ test('event pick takes the in-progress event, a dispatched event, and skips capt
     '',
   );
   assert.equal(pickEvent({ events: [{ ...scheduleEvent(401800004, 'in') }] }), '401800004');
+  assert.equal(
+    pickEvent({ events: [scheduleEvent('x1', 'in'), scheduleEvent('401800005', 'in')] }),
+    '401800005',
+  );
+  assert.equal(pickEvent({ events: { id: '1' } }), '');
 });
 
 test('captured events are the digit-named directories under the adapter captures folder', () => {
@@ -241,6 +257,28 @@ test('poll selection caps at 30 and thins every-10th polls evenly first', () => 
   assert.equal(new Set(cappedChanges).size, 30);
 });
 
+test('default cap of 30 keeps every status change and thins only every-10th polls', () => {
+  // 241 polls (240 min): status changes at polls 15, 35, ..., 195 (10 changes) and the final
+  // poll; with the first live poll that is 12 fixed or change polls plus 24 every-10th polls.
+  const polls = [];
+  let phase = 0;
+  for (let i = 1; i <= 240; i += 1) {
+    if (i % 20 === 15 && i <= 195) phase += 1;
+    polls.push(poll(i, 'in', 'STATUS_IN_PROGRESS', `P${phase}`, phase));
+  }
+  polls.push(poll(241, 'post', 'STATUS_FINAL', 'Final', phase));
+  const changes = [15, 35, 55, 75, 95, 115, 135, 155, 175, 195];
+  const selected = selectPolls(polls);
+  assert.equal(selected.length, 30);
+  for (const required of [1, ...changes, 241]) {
+    assert.ok(selected.includes(required), `poll ${required} kept`);
+  }
+  const keptTenths = selected.filter((index) => index % 10 === 0);
+  assert.equal(keptTenths.length, 18);
+  assert.equal(keptTenths[0], 10);
+  assert.equal(keptTenths[keptTenths.length - 1], 240);
+});
+
 test('trim keeps the board keys and adds capture fields', () => {
   const summary = {
     article: { body: 'x' },
@@ -348,6 +386,27 @@ function liveSummary() {
     timeouts: [{ team: '66', remaining: 3 }],
   };
 }
+
+test('poll stats count each athlete once across statistics groups', () => {
+  const entry = (id, active, starter) => ({ active, athlete: { id }, starter });
+  const stats = pollStats({
+    boxscore: {
+      players: [
+        {
+          statistics: [
+            { athletes: [entry('1', true, true), entry('2', true, false)] },
+            { athletes: [entry('1', true, true), entry('2', true, false)] },
+          ],
+          team: { id: '66' },
+        },
+      ],
+    },
+    plays: { not: 'an array' },
+  });
+  assert.equal(stats.plays, 0);
+  assert.deepEqual(stats.teams, [{ active: 2, fouls: 0, label: '66', starters: 1, timeouts: 0 }]);
+  assert.deepEqual(pollStats({ boxscore: { players: { bad: true } } }).teams, []);
+});
 
 test('poll stats count plays, substitutions, fouls, active and starters per team', () => {
   const stats = pollStats(liveSummary());
@@ -457,4 +516,288 @@ test('report lists keys and per-poll facts', () => {
     lines.includes('Core situation: HTTP (none), error `ETIMEDOUT`; top-level keys: (no JSON object)'),
   );
   assert.equal(report.split('## Poll 012')[1].includes('Top-level `situation`'), false);
+});
+
+function tempRoot() {
+  return mkdtempSync(path.join(os.tmpdir(), 'espn-capture-run-'));
+}
+
+function fakeClock(startIso = '2026-11-04T01:00:00.000Z') {
+  let t = Date.parse(startIso);
+  return {
+    now: () => t,
+    sleep: async (ms) => {
+      t += ms;
+    },
+  };
+}
+
+// Answers summary and Core situation requests from per-poll lists; the last entry repeats.
+function fakeEspn({ summaries, situations = [] }) {
+  const calls = { situation: 0, summary: 0 };
+  const fetchJson = async (url) => {
+    if (url.includes('/summary?event=')) {
+      const index = Math.min(calls.summary, summaries.length - 1);
+      calls.summary += 1;
+      return summaries[index];
+    }
+    if (url.endsWith('/situation')) {
+      const index = Math.min(calls.situation, Math.max(0, situations.length - 1));
+      calls.situation += 1;
+      return situations[index] ?? { body: { $ref: 'x', homeTimeouts: 3 }, ok: true, status: 200 };
+    }
+    throw new Error(`unexpected url ${url}`);
+  };
+  return { calls, fetchJson };
+}
+
+function okSummary(fields) {
+  return { body: { ...summaryAt(fields), news: { text: 'BODY_MARKER' } }, ok: true, status: 200 };
+}
+
+const FAILED = { body: null, error: 'ECONNRESET', ok: false, status: null };
+
+function readPoll(dir, name) {
+  return JSON.parse(gunzipSync(readFileSync(path.join(dir, name))).toString('utf8'));
+}
+
+test('capture keeps polling through halftime, stops after the final poll, and writes gzipped polls', async () => {
+  const root = tempRoot();
+  try {
+    const clock = fakeClock();
+    const espn = fakeEspn({
+      situations: [
+        { body: { $ref: 'x', awayTimeouts: 4 }, ok: true, status: 200 },
+        FAILED,
+        { body: { error: 'not found' }, error: 'HTTP 404', ok: false, status: 404 },
+        { body: { $ref: 'x', awayTimeouts: 2 }, ok: true, status: 200 },
+      ],
+      summaries: [
+        okSummary({ clock: '12:00', detail: '12:00 - 1st Half', name: 'STATUS_IN_PROGRESS', period: 1, plays: 10, state: 'in' }),
+        okSummary({ clock: '11:00', detail: '11:00 - 1st Half', name: 'STATUS_IN_PROGRESS', period: 1, plays: 12, state: 'in' }),
+        okSummary({ clock: '0:00', detail: 'Halftime', name: 'STATUS_HALFTIME', period: 1, plays: 40, state: 'in' }),
+        okSummary({ clock: '19:30', detail: '19:30 - 2nd Half', name: 'STATUS_IN_PROGRESS', period: 2, plays: 42, state: 'in' }),
+        okSummary({ clock: '0:00', detail: 'Final', name: 'STATUS_FINAL', period: 2, plays: 80, state: 'post' }),
+        okSummary({ clock: '0:00', detail: 'Final', name: 'STATUS_FINAL', period: 2, plays: 80, state: 'post' }),
+      ],
+    });
+    const lines = [];
+    const code = await runCapture({
+      env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800002', RUNNER_TEMP: path.join(root, 'tmp') },
+      fetchJson: espn.fetchJson,
+      log: (line) => lines.push(line),
+      now: clock.now,
+      root,
+      sleep: clock.sleep,
+    });
+    assert.equal(code, 0);
+    assert.equal(espn.calls.summary, 5);
+    assert.equal(espn.calls.situation, 5);
+
+    const dir = captureDir(root, 'ncaa/mens-basketball', '401800002');
+    assert.deepEqual(readdirSync(dir).sort(), [
+      '001.json.gz',
+      '003.json.gz',
+      '004.json.gz',
+      '005.json.gz',
+      'REPORT.md',
+    ]);
+    assert.equal(existsSync(`${dir}.partial`), false);
+    const rawDir = path.join(root, 'tmp', 'espn-capture-raw', 'ncaa-mens-basketball', '401800002');
+    assert.equal(readdirSync(rawDir).filter((name) => name.endsWith('.json.gz')).length, 5);
+    assert.ok(existsSync(path.join(rawDir, 'REPORT.md')));
+    assert.equal(readPoll(rawDir, '002.json.gz').coreSituation.error, 'ECONNRESET');
+
+    const halftime = readPoll(dir, '003.json.gz');
+    assert.deepEqual(Object.keys(halftime), ['header', 'plays', 'capturedAt', 'pollIndex', 'coreSituation']);
+    assert.equal(halftime.pollIndex, 3);
+    assert.equal(halftime.capturedAt, '2026-11-04T01:02:00.000Z');
+    assert.deepEqual(halftime.coreSituation, { body: { error: 'not found' }, status: 404, error: 'HTTP 404' });
+    assert.equal(readPoll(dir, '005.json.gz').header.competitions[0].status.type.state, 'post');
+
+    const report = readFileSync(path.join(dir, 'REPORT.md'), 'utf8');
+    assert.ok(report.includes('- Polls: 5 (summary failures: 0)'));
+    assert.ok(report.includes('- Committed polls: 4 (001, 003, 004, 005)'));
+    assert.ok(report.includes('- Summary top level: `header`, `news`, `plays`'));
+    assert.ok(report.includes('- `awayTimeouts`: `2`'));
+
+    assert.equal(lines.some((line) => line.includes('BODY_MARKER')), false);
+    assert.ok(lines.every((line) => line.length <= 120 && !line.includes('\n')));
+    assert.ok(lines.includes('poll 003 state=in period=1 clock=0:00 plays=40'));
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('capture exits at once when the event is already captured', async () => {
+  const root = tempRoot();
+  try {
+    mkdirSync(captureDir(root, 'ncaa/womens-basketball', '401800002'), { recursive: true });
+    const espn = fakeEspn({ summaries: [FAILED] });
+    const lines = [];
+    const code = await runCapture({
+      env: { ADAPTER: 'ncaa/womens-basketball', EVENT: '401800002', RUNNER_TEMP: path.join(root, 'tmp') },
+      fetchJson: espn.fetchJson,
+      log: (line) => lines.push(line),
+      root,
+      sleep: async () => {},
+    });
+    assert.equal(code, 0);
+    assert.equal(espn.calls.summary, 0);
+    assert.deepEqual(lines, ['capture: tests/leagues/ncaa-womens-basketball/captures/401800002 already exists']);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('capture stops after 10 consecutive summary failures and at MAX_MINUTES', async () => {
+  const root = tempRoot();
+  try {
+    const env = { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800002', RUNNER_TEMP: path.join(root, 'tmp') };
+    const quiet = () => {};
+
+    const failing = fakeEspn({ summaries: [FAILED] });
+    let clock = fakeClock();
+    assert.equal(
+      await runCapture({ env, fetchJson: failing.fetchJson, log: quiet, now: clock.now, root, sleep: clock.sleep }),
+      1,
+    );
+    assert.equal(failing.calls.summary, 10);
+    assert.equal(existsSync(captureDir(root, 'ncaa/mens-basketball', '401800002')), false);
+
+    const live = okSummary({ clock: '5:00', detail: '5:00 - 1st Half', name: 'STATUS_IN_PROGRESS', period: 1, state: 'in' });
+    const flaky = fakeEspn({ summaries: [live, ...Array(10).fill(FAILED)] });
+    clock = fakeClock();
+    assert.equal(
+      await runCapture({ env, fetchJson: flaky.fetchJson, log: quiet, now: clock.now, root, sleep: clock.sleep }),
+      0,
+    );
+    assert.equal(flaky.calls.summary, 11);
+    const dir = captureDir(root, 'ncaa/mens-basketball', '401800002');
+    assert.deepEqual(readdirSync(dir).sort(), ['001.json.gz', 'REPORT.md']);
+    rmSync(dir, { force: true, recursive: true });
+
+    const endless = fakeEspn({ summaries: [live] });
+    clock = fakeClock();
+    const start = clock.now();
+    assert.equal(
+      await runCapture({
+        env: { ...env, MAX_MINUTES: '5' },
+        fetchJson: endless.fetchJson,
+        log: quiet,
+        now: clock.now,
+        root,
+        sleep: clock.sleep,
+      }),
+      0,
+    );
+    // MAX_MINUTES 5 is raised to 10: polls at minutes 0 through 10.
+    assert.equal(endless.calls.summary, 11);
+    assert.equal(clock.now() - start, 10 * 60_000);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('capture rejects an unknown adapter or a bad event id', async () => {
+  const espn = fakeEspn({ summaries: [FAILED] });
+  for (const env of [
+    { ADAPTER: 'nba', EVENT: '1' },
+    { ADAPTER: 'ncaa/mens-basketball', EVENT: '1;ls' },
+    { ADAPTER: 'ncaa/mens-basketball' },
+  ]) {
+    assert.equal(await runCapture({ env, fetchJson: espn.fetchJson, log: () => {}, root: '/nonexistent' }), 1);
+  }
+  assert.equal(espn.calls.summary, 0);
+});
+
+function readOutputs(file) {
+  return readFileSync(file, 'utf8');
+}
+
+test('find logs one line, writes empty outputs and exits 0 when ESPN cannot be reached', async () => {
+  const root = tempRoot();
+  try {
+    const output = path.join(root, 'out');
+    writeFileSync(output, '');
+    const urls = [];
+    const lines = [];
+    const code = await runFind({
+      env: { ADAPTER: 'auto', GITHUB_OUTPUT: output },
+      fetchJson: async (url) => {
+        urls.push(url);
+        return { body: null, error: 'ENOTFOUND', ok: false, status: null };
+      },
+      log: (line) => lines.push(line),
+      now: () => Date.parse('2026-11-04T01:00:00Z'),
+      root,
+    });
+    assert.equal(code, 0);
+    assert.equal(lines.length, 1);
+    assert.match(lines[0], /^find: nothing to capture; /);
+    assert.equal(readOutputs(output), 'adapter=\nevent=\n');
+    assert.deepEqual(urls, [
+      scheduleUrl('ncaa/mens-basketball', 2027),
+      scheduleUrl('ncaa/womens-basketball', 2027),
+    ]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('find skips an adapter with 2 captures and picks the other adapter live event', async () => {
+  const root = tempRoot();
+  try {
+    for (const id of ['401700001', '401700002']) {
+      mkdirSync(captureDir(root, 'ncaa/mens-basketball', id), { recursive: true });
+    }
+    const output = path.join(root, 'out');
+    const urls = [];
+    const code = await runFind({
+      env: { GITHUB_OUTPUT: output },
+      fetchJson: async (url) => {
+        urls.push(url);
+        return { body: SCHEDULE, ok: true, status: 200 };
+      },
+      log: () => {},
+      now: () => Date.parse('2027-02-10T02:00:00Z'),
+      root,
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(urls, [scheduleUrl('ncaa/womens-basketball', 2027)]);
+    assert.equal(readOutputs(output), 'adapter=ncaa/womens-basketball\nevent=401800002\n');
+
+    // A dispatched event passes the 2-capture limit but must be in the schedule.
+    const dispatched = path.join(root, 'out-dispatched');
+    await runFind({
+      env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800003', GITHUB_OUTPUT: dispatched },
+      fetchJson: async () => ({ body: SCHEDULE, ok: true, status: 200 }),
+      log: () => {},
+      root,
+    });
+    assert.equal(readOutputs(dispatched), 'adapter=ncaa/mens-basketball\nevent=401800003\n');
+
+    const missing = path.join(root, 'out-missing');
+    await runFind({
+      env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401899999', GITHUB_OUTPUT: missing },
+      fetchJson: async () => ({ body: SCHEDULE, ok: true, status: 200 }),
+      log: () => {},
+      root,
+    });
+    assert.equal(readOutputs(missing), 'adapter=\nevent=\n');
+
+    const invalid = path.join(root, 'out-invalid');
+    assert.equal(
+      await runFind({
+        env: { ADAPTER: 'auto', EVENT: '40180;ls', GITHUB_OUTPUT: invalid },
+        fetchJson: async () => assert.fail('no request for an invalid event'),
+        log: () => {},
+        root,
+      }),
+      1,
+    );
+    assert.equal(readOutputs(invalid), 'adapter=\nevent=\n');
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });

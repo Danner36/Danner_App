@@ -1,6 +1,7 @@
 // Live ESPN capture of Iowa State college basketball games for the basketball arena board.
-// `find` picks a live (or dispatched) event; `capture` polls it every 60 s and commits a
-// trimmed selection of the polls under tests/leagues/<adapter>/captures/<event>/.
+// `find` picks a live (or dispatched) event; `capture` polls it every 60 s and writes a
+// trimmed selection of the polls under tests/leagues/<adapter>/captures/<event>/, which the
+// `ESPN live capture` workflow commits.
 import {
   appendFileSync,
   existsSync,
@@ -35,6 +36,10 @@ const SUBSTITUTION_TYPE_ID = '584';
 const REPORT_FIELD_PATTERN = /timeout|foul|bonus|possession/i;
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
 
 // Basketball seasons are named by the year they end: July through December belong to the
 // next year. The month is read in America/Chicago, independent of the process time zone.
@@ -112,15 +117,16 @@ function eventState(event) {
 // schedule and may be in any state; otherwise the first in-progress event is taken. Captured
 // events are skipped in both cases.
 export function pickEvent(schedule, { event = '', captured = new Set() } = {}) {
-  const events = Array.isArray(schedule?.events) ? schedule.events : [];
+  const events = asArray(schedule?.events);
   if (event) {
     const match = events.find((entry) => String(entry?.id) === event);
     return match && !captured.has(event) ? event : '';
   }
-  const live = events.find(
-    (entry) => eventState(entry) === 'in' && !captured.has(String(entry?.id)),
-  );
-  return live && validEventId(String(live.id)) ? String(live.id) : '';
+  const live = events.find((entry) => {
+    const id = String(entry?.id);
+    return eventState(entry) === 'in' && validEventId(id) && !captured.has(id);
+  });
+  return live ? String(live.id) : '';
 }
 
 // The phase text of status.type.detail with clock values removed ("12:34 - 1st Half" and
@@ -266,12 +272,12 @@ export function collectKeys(summary, sets) {
   const competition = summary?.header?.competitions?.[0];
   addKeys(sets.status, competition?.status);
   addKeys(sets.statusType, competition?.status?.type);
-  for (const competitor of competition?.competitors ?? []) {
+  for (const competitor of asArray(competition?.competitors)) {
     addKeys(sets.competitor, competitor);
   }
-  for (const team of summary?.boxscore?.players ?? []) {
-    for (const group of team?.statistics ?? []) {
-      for (const entry of group?.athletes ?? []) {
+  for (const team of asArray(summary?.boxscore?.players)) {
+    for (const group of asArray(team?.statistics)) {
+      for (const entry of asArray(group?.athletes)) {
         addKeys(sets.athleteEntry, entry);
         addKeys(sets.athleteObject, entry?.athlete);
       }
@@ -321,10 +327,29 @@ function playTypeText(play) {
   return typeof play?.type?.text === 'string' ? play.type.text : '';
 }
 
+// Athlete entries of one team across its statistics groups, each athlete id counted once.
+function teamAthletes(team) {
+  const seen = new Set();
+  const athletes = [];
+  for (const group of asArray(team?.statistics)) {
+    for (const entry of asArray(group?.athletes)) {
+      const id = entry?.athlete?.id;
+      if (id !== undefined && id !== null) {
+        if (seen.has(String(id))) {
+          continue;
+        }
+        seen.add(String(id));
+      }
+      athletes.push(entry);
+    }
+  }
+  return athletes;
+}
+
 export function pollStats(trimmed) {
-  const plays = Array.isArray(trimmed?.plays) ? trimmed.plays : [];
-  const teams = (trimmed?.boxscore?.players ?? []).map((team) => {
-    const athletes = (team?.statistics ?? []).flatMap((group) => group?.athletes ?? []);
+  const plays = asArray(trimmed?.plays);
+  const teams = asArray(trimmed?.boxscore?.players).map((team) => {
+    const athletes = teamAthletes(team);
     const teamId = team?.team?.id === undefined ? undefined : String(team.team.id);
     const teamPlays = plays.filter(
       (play) => teamId !== undefined && String(play?.team?.id) === teamId,
@@ -402,7 +427,7 @@ export function buildReport({ adapter, event, pollCount, failedSummaryPolls = 0,
         `- \`header.competitions[0].possessionArrowAvailable\`: ${code(JSON.stringify(competition.possessionArrowAvailable))}`,
       );
     }
-    for (const [index, competitor] of (competition?.competitors ?? []).entries()) {
+    for (const [index, competitor] of asArray(competition?.competitors).entries()) {
       if (competitor && Object.hasOwn(competitor, 'possession')) {
         lines.push(
           `- \`header.competitions[0].competitors[${index}].possession\` (${teamLabel(competitor.team)}): ${code(JSON.stringify(competitor.possession))}`,
@@ -455,52 +480,64 @@ async function fetchJson(url) {
         status: response.status,
       };
     } catch {
-      return { body: text, error: 'invalid JSON', ok: false, status: response.status };
+      return {
+        body: text,
+        error: response.ok ? 'invalid JSON' : `HTTP ${response.status}`,
+        ok: false,
+        status: response.status,
+      };
     }
   } catch (error) {
     return { body: null, error: shortError(error), ok: false, status: null };
   }
 }
 
-function writeOutputs(adapter, event) {
-  const file = process.env.GITHUB_OUTPUT;
+function writeOutputs(file, adapter, event) {
   if (file) {
     appendFileSync(file, `adapter=${adapter}\nevent=${event}\n`);
   }
 }
 
-async function runFind() {
-  const adapterInput = process.env.ADAPTER || 'auto';
-  const event = (process.env.EVENT ?? '').trim();
+// Writes outputs adapter and event to GITHUB_OUTPUT; an empty event means nothing to capture.
+// Request and parse failures are logged on the single summary line and return 0.
+export async function runFind({
+  env = process.env,
+  fetchJson: getJson = fetchJson,
+  log = console.log,
+  now = Date.now,
+  root = REPO_ROOT,
+} = {}) {
+  const adapterInput = env.ADAPTER || 'auto';
+  const event = (env.EVENT ?? '').trim();
   const adapters = adaptersFor(adapterInput);
   if (adapters.length === 0) {
-    console.log('find: ADAPTER must be auto, ncaa/mens-basketball or ncaa/womens-basketball');
-    writeOutputs('', '');
+    log('find: ADAPTER must be auto, ncaa/mens-basketball or ncaa/womens-basketball');
+    writeOutputs(env.GITHUB_OUTPUT, '', '');
     return 1;
   }
   if (event && !validEventId(event)) {
-    console.log('find: EVENT must be 1 to 12 digits');
-    writeOutputs('', '');
+    log('find: EVENT must be 1 to 12 digits');
+    writeOutputs(env.GITHUB_OUTPUT, '', '');
     return 1;
   }
 
-  const season = basketballSeasonYear();
+  const season = basketballSeasonYear(new Date(now()));
   const notes = [];
   for (const adapter of adapters) {
-    const captured = capturedEvents(REPO_ROOT, adapter);
+    const captured = capturedEvents(root, adapter);
     if (!event && captured.size >= MAX_CAPTURED_EVENTS) {
       notes.push(`${adapter} has ${captured.size} captures`);
       continue;
     }
-    const response = await fetchJson(scheduleUrl(adapter, season));
+    const response = await getJson(scheduleUrl(adapter, season));
     if (!response.ok || !response.body || typeof response.body !== 'object') {
       notes.push(`${adapter} schedule ${season} failed (${response.error ?? 'no body'})`);
       continue;
     }
     const picked = pickEvent(response.body, { captured, event });
     if (picked) {
-      console.log(`find: capture ${adapter} event ${picked}`);
-      writeOutputs(adapter, picked);
+      log(`find: capture ${adapter} event ${picked}`);
+      writeOutputs(env.GITHUB_OUTPUT, adapter, picked);
       return 0;
     }
     if (event && captured.has(event)) {
@@ -509,8 +546,8 @@ async function runFind() {
       notes.push(event ? `${adapter} has no event ${event}` : `${adapter} has no live event`);
     }
   }
-  console.log(`find: nothing to capture; ${notes.join('; ')}`);
-  writeOutputs('', '');
+  log(`find: nothing to capture; ${notes.join('; ')}`);
+  writeOutputs(env.GITHUB_OUTPUT, '', '');
   return 0;
 }
 
@@ -522,31 +559,49 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runCapture() {
-  const adapter = process.env.ADAPTER ?? '';
-  const event = (process.env.EVENT ?? '').trim();
+function readRawPoll(rawDir, pollIndex) {
+  return JSON.parse(
+    gunzipSync(readFileSync(path.join(rawDir, `${pad(pollIndex)}.json.gz`))).toString('utf8'),
+  );
+}
+
+// Polls the summary and the Core situation every POLL_INTERVAL_MS. Every poll is stored gzipped
+// under RUNNER_TEMP/espn-capture-raw/<adapter>/<event>/. The loop stops after the first poll in
+// state "post", once MAX_MINUTES have passed, or after MAX_SUMMARY_FAILURES summary failures in
+// a row; a Core situation failure is recorded and never stops it. The selected polls, trimmed,
+// and REPORT.md are written to a staging directory that is renamed into the captures folder.
+export async function runCapture({
+  env = process.env,
+  fetchJson: getJson = fetchJson,
+  log = console.log,
+  now = Date.now,
+  root = REPO_ROOT,
+  sleep: wait = sleep,
+} = {}) {
+  const adapter = env.ADAPTER ?? '';
+  const event = (env.EVENT ?? '').trim();
   if (!Object.hasOwn(ADAPTER_LEAGUES, adapter) || !validEventId(event)) {
-    console.log('capture: ADAPTER must name one NCAA basketball adapter and EVENT must be 1 to 12 digits');
+    log('capture: ADAPTER must name one NCAA basketball adapter and EVENT must be 1 to 12 digits');
     return 1;
   }
-  const maxMinutes = clampMinutes(process.env.MAX_MINUTES);
-  const finalDir = captureDir(REPO_ROOT, adapter, event);
-  const relativeDir = path.relative(REPO_ROOT, finalDir).split(path.sep).join('/');
+  const maxMinutes = clampMinutes(env.MAX_MINUTES);
+  const finalDir = captureDir(root, adapter, event);
+  const relativeDir = path.relative(root, finalDir).split(path.sep).join('/');
   if (existsSync(finalDir)) {
-    console.log(`capture: ${relativeDir} already exists`);
+    log(`capture: ${relativeDir} already exists`);
     return 0;
   }
 
   const rawDir = path.join(
-    process.env.RUNNER_TEMP || os.tmpdir(),
+    env.RUNNER_TEMP || os.tmpdir(),
     'espn-capture-raw',
     adapterDirName(adapter),
     event,
   );
   mkdirSync(rawDir, { recursive: true });
-  console.log(`capture: ${adapter} event ${event}, up to ${maxMinutes} min`);
+  log(`capture: ${adapter} event ${event}, up to ${maxMinutes} min`);
 
-  const start = Date.now();
+  const start = now();
   const deadline = start + maxMinutes * 60_000;
   const keys = emptyKeySets();
   const polls = [];
@@ -554,21 +609,25 @@ async function runCapture() {
   let failedSummaryPolls = 0;
 
   for (let pollIndex = 1; ; pollIndex += 1) {
-    const capturedAt = new Date().toISOString();
+    const capturedAt = new Date(now()).toISOString();
     const [summary, coreSituation] = await Promise.all([
-      fetchJson(summaryUrl(adapter, event)),
-      fetchJson(situationUrl(adapter, event)),
+      getJson(summaryUrl(adapter, event)),
+      getJson(situationUrl(adapter, event)),
     ]);
     const record = { capturedAt, coreSituation, pollIndex, summary };
     writeFileSync(path.join(rawDir, `${pad(pollIndex)}.json.gz`), gzipSync(JSON.stringify(record)));
 
-    const summaryOk = summary.ok && summary.body && typeof summary.body === 'object';
+    const summaryOk =
+      summary?.ok === true &&
+      summary.body !== null &&
+      typeof summary.body === 'object' &&
+      !Array.isArray(summary.body);
     if (summaryOk) {
       consecutiveFailures = 0;
       collectKeys(summary.body, keys);
       const meta = pollMeta(summary.body);
       polls.push({ ...meta, capturedAt, ok: true, pollIndex });
-      console.log(
+      log(
         `poll ${pad(pollIndex)} state=${meta.state || '-'} period=${meta.period ?? '-'} clock=${meta.clock || '-'} plays=${meta.playsCount}`,
       );
       if (meta.state === 'post') {
@@ -578,24 +637,24 @@ async function runCapture() {
       consecutiveFailures += 1;
       failedSummaryPolls += 1;
       polls.push({ ok: false, pollIndex });
-      console.log(`poll ${pad(pollIndex)} summary failed (${summary.error ?? 'no body'})`);
+      log(`poll ${pad(pollIndex)} summary failed (${summary?.error ?? 'no body'})`);
       if (consecutiveFailures >= MAX_SUMMARY_FAILURES) {
-        console.log(`capture: stopping after ${MAX_SUMMARY_FAILURES} consecutive summary failures`);
+        log(`capture: stopping after ${MAX_SUMMARY_FAILURES} consecutive summary failures`);
         break;
       }
     }
 
     const nextAt = start + pollIndex * POLL_INTERVAL_MS;
     if (nextAt > deadline) {
-      console.log(`capture: ${maxMinutes} min reached`);
+      log(`capture: ${maxMinutes} min reached`);
       break;
     }
-    await sleep(Math.max(0, nextAt - Date.now()));
+    await wait(Math.max(0, nextAt - now()));
   }
 
   const selected = selectPolls(polls);
   if (selected.length === 0) {
-    console.log('capture: no summary received; nothing committed');
+    log('capture: no summary received; nothing committed');
     return 1;
   }
 
@@ -604,9 +663,7 @@ async function runCapture() {
   mkdirSync(stagingDir, { recursive: true });
   const committed = [];
   for (const pollIndex of selected) {
-    const record = JSON.parse(
-      gunzipSync(readFileSync(path.join(rawDir, `${pad(pollIndex)}.json.gz`))).toString('utf8'),
-    );
+    const record = readRawPoll(rawDir, pollIndex);
     const trimmed = trimSummary(record.summary.body, {
       capturedAt: record.capturedAt,
       coreSituation: record.coreSituation,
@@ -615,18 +672,25 @@ async function runCapture() {
     writeFileSync(path.join(stagingDir, `${pad(pollIndex)}.json.gz`), gzipSync(JSON.stringify(trimmed)));
     committed.push(trimmed);
   }
-  const report = buildReport({
-    adapter,
-    committed,
-    event,
-    failedSummaryPolls,
-    keys,
-    pollCount: polls.length,
-  });
+  let report;
+  try {
+    report = buildReport({
+      adapter,
+      committed,
+      event,
+      failedSummaryPolls,
+      keys,
+      pollCount: polls.length,
+    });
+  } catch (error) {
+    // The trimmed polls are kept even when the report cannot be built.
+    report = `# ESPN live capture ${adapterDirName(adapter)} ${event}\n\nReport not built: ${String(error?.name ?? 'error')}\n`;
+    log(`capture: report not built (${String(error?.name ?? 'error')})`);
+  }
   writeFileSync(path.join(stagingDir, 'REPORT.md'), report);
   writeFileSync(path.join(rawDir, 'REPORT.md'), report);
   renameSync(stagingDir, finalDir);
-  console.log(`capture: ${polls.length} polls, ${committed.length} written to ${relativeDir}`);
+  log(`capture: ${polls.length} polls, ${committed.length} written to ${relativeDir}`);
   return 0;
 }
 
@@ -636,7 +700,7 @@ async function main(command) {
       return await runFind();
     } catch (error) {
       console.log(`find: nothing to capture; ${shortError(error)}`);
-      writeOutputs('', '');
+      writeOutputs(process.env.GITHUB_OUTPUT, '', '');
       return 0;
     }
   }
