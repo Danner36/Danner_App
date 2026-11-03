@@ -2,6 +2,7 @@
 
 Repository tools that do not run on the phone.
 
+- `espn-capture/` captures live Iowa State college basketball games from ESPN on a schedule (`ESPN live capture` workflow) and commits trimmed polls and `REPORT.md` under `tests/leagues/<adapter>/captures/<event>/`, at most 2 games per adapter.
 - `guardians-stream-pipeline/` extracts an approved player URL for the current Guardians, Patriots, or Cyclones game and publishes the matching root streams file. An MLB game with `startTimeTBD` stays outside that window until MLB publishes a start time or the game is live.
 - Game selection matches the app's featured card and does not depend on the runner's time zone: a game in progress (never a canceled, postponed, or suspended one), else the first unfinished game starting inside `[now − postStartGraceMinutes, now + leadMinutes]`, else today's game on the module's official calendar (America/New_York for Guardians and Patriots, America/Chicago for Cyclones), including a pre-game delay carried past midnight. Each workflow also sets `TZ` to that zone. A Cyclones `Time TBA` game uses the America/New_York date of ESPN's placeholder time, as the app does.
 - The listing link must contain every href needle. When more than one link matches, the opponent's name narrows them; `extract.requireOpponent: true` also demands it on a single match. A choice that stays ambiguous fails as `ambiguous_link` instead of guessing. URLs from the listing page itself are discarded once the game page loads.

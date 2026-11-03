@@ -10,3 +10,7 @@ Repository-only validation harnesses. Files under this directory are not importe
 - `offline-map/` checks pin coordinates, city labels (including suburbs next to major cities), and offline city search against the bundled Census place list, and checks that the selection code shipped inside `app/assets/offline-us-map.html` agrees with `offlineMapSelection.ts`, without opening YouTube.
 - `provisioning-warning/` verifies the hidden, 48-hour, hourly, final-hour, and expired iPhone signing-warning text without adding a test control to the app.
 - `app-update/` verifies the strict release-tag parser, version compare, the `app.config.js` version bake, the release workflow's tag regex, manifest parse, trusted download URLs, signing-warning suppression, SideStore install URL encoding, and the release manifest writer.
+
+## Captures
+
+- `leagues/<adapter>/captures/<event>/` (`ncaa-mens-basketball`, `ncaa-womens-basketball`) holds live ESPN basketball polls committed by `scripts/espn-capture/`: gzipped trimmed summaries, each with the Core situation body, plus `REPORT.md`.
