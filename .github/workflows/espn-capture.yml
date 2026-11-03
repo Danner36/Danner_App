@@ -35,8 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      adapter: ${{ steps.find.outputs.adapter }}
-      event: ${{ steps.find.outputs.event }}
+      targets: ${{ steps.find.outputs.targets }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -58,17 +57,23 @@ jobs:
   capture:
     name: Capture and commit
     needs: find
-    if: needs.find.outputs.event != ''
+    # One matrix job per live game, so overlapping men's and women's games are both captured.
+    if: needs.find.outputs.targets != '' && needs.find.outputs.targets != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 250
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.find.outputs.targets) }}
     concurrency:
-      group: espn-capture-${{ needs.find.outputs.event }}
+      group: espn-capture-${{ matrix.event }}
       cancel-in-progress: false
     env:
-      ADAPTER: ${{ needs.find.outputs.adapter }}
-      EVENT: ${{ needs.find.outputs.event }}
+      ADAPTER: ${{ matrix.adapter }}
+      EVENT: ${{ matrix.event }}
     steps:
       # Credentials stay persisted in this job only, for the push of the capture commit.
       - name: Check out main
@@ -91,7 +96,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: espn-capture-${{ github.run_id }}
+          name: espn-capture-${{ github.run_id }}-${{ matrix.event }}
           path: ${{ runner.temp }}/espn-capture-raw
           retention-days: 14
           if-no-files-found: ignore

@@ -24,8 +24,11 @@ on:
 permissions:
   contents: write
 
+# One running plus one queued run per sport, so a men's and a women's Get video run side by
+# side. Both write cyclones_streams.json through the SHA-checked publish, which re-reads and
+# retries on a conflict.
 concurrency:
-  group: cyclones-stream-pipeline
+  group: cyclones-stream-pipeline-${{ github.event.client_payload.sport || inputs.sport || 'football' }}
   cancel-in-progress: false
 
 jobs:

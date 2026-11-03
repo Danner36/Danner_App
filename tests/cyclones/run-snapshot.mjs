@@ -130,7 +130,7 @@ const preseasonFootball = game({
 
 assert.equal(
   snapshotFromGames([footballWin, tomorrowFootball], undefined, recapNow)
-    .featuredGame?.gamePk,
+    .featuredGames[0]?.gamePk,
   20,
 );
 assert.deepEqual(
@@ -140,14 +140,15 @@ assert.deepEqual(
 );
 assert.equal(
   snapshotFromGames([footballWin, tomorrowFootball], undefined, now)
-    .featuredGame?.gamePk,
+    .featuredGames[0]?.gamePk,
   undefined,
 );
 
-assert.equal(
-  snapshotFromGames([liveFootball, laterHoops], undefined, gameDay).featuredGame
-    ?.gamePk,
-  30,
+// Every game today gets its own card: the live game first, then today's later game.
+assert.deepEqual(
+  snapshotFromGames([liveFootball, laterHoops], undefined, gameDay)
+    .featuredGames.map((entry) => entry.gamePk),
+  [30, 21],
 );
 assert.deepEqual(
   snapshotFromGames(
@@ -155,12 +156,12 @@ assert.deepEqual(
     undefined,
     gameDay,
   ).upcomingGames.map((entry) => entry.gamePk),
-  [21],
+  [],
 );
 
 assert.equal(
   snapshotFromGames([laterHoops, tomorrowFootball], undefined, gameDay)
-    .featuredGame?.sport,
+    .featuredGames[0]?.sport,
   'mens-basketball',
 );
 
@@ -684,24 +685,24 @@ const nov1Snapshot = snapshotFromGames(
   undefined,
   new Date(2026, 10, 1, 12),
 );
-assert.equal(nov1Snapshot.featuredGame?.gamePk, 51);
+assert.equal(nov1Snapshot.featuredGames[0]?.gamePk, 51);
 assert.deepEqual(
   nov1Snapshot.upcomingGames.map((entry) => entry.gamePk),
   [50],
 );
 assert.equal(
   snapshotFromGames([tbaHoops], undefined, new Date(2026, 10, 1, 23, 30))
-    .featuredGame,
+    .featuredGames[0],
   undefined,
 );
 assert.equal(
   snapshotFromGames([tbaHoops], undefined, new Date(2026, 10, 2, 0, 30))
-    .featuredGame?.gamePk,
+    .featuredGames[0]?.gamePk,
   50,
 );
 assert.equal(
   snapshotFromGames([tbaHoops], undefined, new Date(2026, 10, 2, 23, 30))
-    .featuredGame?.gamePk,
+    .featuredGames[0]?.gamePk,
   50,
 );
 const nov3Snapshot = snapshotFromGames(
@@ -709,7 +710,7 @@ const nov3Snapshot = snapshotFromGames(
   undefined,
   new Date(2026, 10, 3, 9),
 );
-assert.equal(nov3Snapshot.featuredGame, undefined);
+assert.deepEqual(nov3Snapshot.featuredGames, []);
 assert.equal(nov3Snapshot.upcomingGames.length, 0);
 assert.equal(
   sportStatus(
@@ -1040,7 +1041,7 @@ function liveBasketballCard(scoreboard, overrides = {}) {
 }
 function snapshotWith(featuredGame) {
   return {
-    featuredGame,
+    featuredGames: featuredGame ? [featuredGame] : [],
     records: recordsFromGames([]),
     statuses: {},
     upcomingGames: [],
@@ -1077,7 +1078,7 @@ const keptBoard = snapshotWithPreservedScoreboard(
   refreshedBasketball,
   liveStamp,
   boardPolledAt + 29_999,
-).featuredGame;
+).featuredGames[0];
 assert.equal(keptBoard.scoreboard, harnessBoard);
 assert.equal(keptBoard.cyclonesScore, 61);
 const stalledGame = snapshotWithPreservedScoreboard(
@@ -1085,7 +1086,7 @@ const stalledGame = snapshotWithPreservedScoreboard(
   refreshedBasketball,
   liveStamp,
   boardPolledAt + 30_000,
-).featuredGame;
+).featuredGames[0];
 const stalledBoard = stalledGame.scoreboard;
 assert.equal(stalledGame.cyclonesScore, 63);
 assert.equal(stalledBoard.source, 'schedule');
@@ -1112,7 +1113,7 @@ const coloredBoard = snapshotWithPreservedScoreboard(
   coloredSchedule,
   undefined,
   boardPolledAt,
-).featuredGame.scoreboard;
+).featuredGames[0].scoreboard;
 assert.equal(coloredBoard.home.color, '#FFFFFF');
 assert.equal(coloredBoard.home.alternateColor, '#E2E3E4');
 const otherEventBoard = snapshotWithPreservedScoreboard(
@@ -1120,7 +1121,7 @@ const otherEventBoard = snapshotWithPreservedScoreboard(
   refreshedBasketball,
   undefined,
   boardPolledAt,
-).featuredGame.scoreboard;
+).featuredGames[0].scoreboard;
 assert.equal(otherEventBoard, flaggedScheduleBoard);
 // Football boards merge as before: a fresh schedule board replaces a stale summary board.
 const footballBoard = liveFootballScoreboardFromEspn(
@@ -1133,7 +1134,7 @@ assert.equal(
     snapshotWith(game({ abstractState: 'Live', scoreboard: nextFootballBoard })),
     { appliedAt: boardPolledAt, gamePk: 1 },
     boardPolledAt + LIVE_BOARD_FRESH_MS,
-  ).featuredGame.scoreboard,
+  ).featuredGames[0].scoreboard,
   nextFootballBoard,
 );
 
@@ -1183,5 +1184,103 @@ assert.equal(
   false,
 );
 assert.equal(oversized?.[0]?.url, 'https://example.com/game-50');
+
+// One card per game today. Men's and women's basketball the same evening: both live, one live
+// and one final, and both final. Each keeps its own card; neither final disappears.
+{
+  const evening = new Date(2026, 10, 2, 20, 30);
+  const mens = (overrides) =>
+    game({
+      gameDate: localIso(2026, 10, 2, 19),
+      gamePk: 401909771,
+      officialDate: '2026-11-02',
+      sport: 'mens-basketball',
+      ...overrides,
+    });
+  const womens = (overrides) =>
+    game({
+      gameDate: localIso(2026, 10, 2, 19, 30),
+      gamePk: 401909900,
+      officialDate: '2026-11-02',
+      sport: 'womens-basketball',
+      ...overrides,
+    });
+  const keys = (snapshot) =>
+    snapshot.featuredGames.map((entry) => `${entry.sport}:${entry.abstractState}`);
+
+  const bothLive = snapshotFromGames(
+    [womens({ abstractState: 'Live' }), mens({ abstractState: 'Live' })],
+    undefined,
+    evening,
+  );
+  assert.deepEqual(keys(bothLive), ['mens-basketball:Live', 'womens-basketball:Live']);
+  assert.deepEqual(bothLive.upcomingGames, []);
+
+  const liveAndFinal = snapshotFromGames(
+    [
+      mens({ abstractState: 'Final', cyclonesScore: 66, opponentScore: 72, status: 'Final' }),
+      womens({ abstractState: 'Live' }),
+    ],
+    undefined,
+    evening,
+  );
+  assert.deepEqual(keys(liveAndFinal), ['womens-basketball:Live', 'mens-basketball:Final']);
+
+  const bothFinal = snapshotFromGames(
+    [
+      mens({ abstractState: 'Final', cyclonesScore: 66, opponentScore: 72, status: 'Final' }),
+      womens({ abstractState: 'Final', cyclonesScore: 80, opponentScore: 61, status: 'Final' }),
+    ],
+    undefined,
+    new Date(2026, 10, 2, 23, 30),
+  );
+  assert.deepEqual(keys(bothFinal), ['mens-basketball:Final', 'womens-basketball:Final']);
+  assert.deepEqual(
+    snapshotFromGames(
+      [
+        mens({ abstractState: 'Final', status: 'Final' }),
+        womens({ abstractState: 'Final', status: 'Final' }),
+      ],
+      undefined,
+      new Date(2026, 10, 3, 0, 30),
+    ).featuredGames,
+    [],
+  );
+
+  const laterToday = snapshotFromGames(
+    [
+      mens({ abstractState: 'Live' }),
+      womens({ gameDate: localIso(2026, 10, 2, 21) }),
+      game({ gameDate: localIso(2026, 10, 5, 18), gamePk: 7, officialDate: '2026-11-05' }),
+    ],
+    undefined,
+    evening,
+  );
+  assert.deepEqual(keys(laterToday), ['mens-basketball:Live', 'womens-basketball:Preview']);
+  assert.deepEqual(laterToday.upcomingGames.map((entry) => entry.gamePk), [7]);
+
+  // A schedule refresh keeps each card's five-second board on its own game only.
+  const mensBoard = { kind: 'basketball', source: 'summary', marker: 'mens' };
+  const womensBoard = { kind: 'basketball', source: 'summary', marker: 'womens' };
+  const shown = {
+    ...bothLive,
+    featuredGames: [
+      { ...bothLive.featuredGames[0], scoreboard: mensBoard },
+      { ...bothLive.featuredGames[1], scoreboard: womensBoard },
+    ],
+  };
+  const merged = snapshotWithPreservedScoreboard(
+    shown,
+    bothLive,
+    [{ appliedAt: 1_000, gamePk: 401909771 }],
+    5_000,
+  );
+  assert.equal(merged.featuredGames[0].scoreboard, mensBoard);
+  assert.equal(merged.featuredGames[1].scoreboard, womensBoard);
+  assert.equal(
+    snapshotWithPreservedScoreboard(shown, bothLive, [], 5_000).featuredGames[0].scoreboard,
+    mensBoard,
+  );
+}
 
 process.stdout.write('Cyclones snapshot assertions passed.\n');

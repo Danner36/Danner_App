@@ -48,7 +48,9 @@ export type SportStatus = {
 };
 
 export type CyclonesSnapshot = {
-  featuredGame?: CyclonesGame;
+  // One card per game: Live games, then today's games that have not finished, then today's
+  // finals, each group in start order.
+  featuredGames: CyclonesGame[];
   records: Record<CyclonesSport, SportRecord>;
   statuses: Partial<Record<CyclonesSport, SportStatus>>;
   unavailableSports?: CyclonesSport[];
@@ -201,19 +203,13 @@ function withStripeColors(
   return { ...next, away: side('away'), home: side('home') };
 }
 
-// Merges a refreshed schedule snapshot into the shown one for the same featured game.
-export function snapshotWithPreservedScoreboard(
-  previous: CyclonesSnapshot | undefined,
-  next: CyclonesSnapshot,
+// Merges one refreshed featured game into the shown copy of the same game.
+function mergeFeaturedGame(
+  previousGame: CyclonesGame,
+  nextGame: CyclonesGame,
   liveBoard: LiveBoardStamp | undefined,
-  nowMs = Date.now(),
-): CyclonesSnapshot {
-  const previousGame = previous?.featuredGame;
-  const nextGame = next.featuredGame;
-  if (!previousGame || !nextGame || previousGame.gamePk !== nextGame.gamePk) {
-    return next;
-  }
-
+  nowMs: number,
+): CyclonesGame {
   // The five-second summary reports Live and Final before the schedule does; a schedule
   // that still lags never moves the card backwards.
   const scheduleLags =
@@ -231,31 +227,68 @@ export function snapshotWithPreservedScoreboard(
     nowMs - liveBoard.appliedAt < LIVE_BOARD_FRESH_MS;
   if (scheduleLags || keepLiveBoard) {
     return {
-      ...next,
-      featuredGame: {
-        ...nextGame,
-        abstractState: previousGame.abstractState,
-        cyclonesScore: previousGame.cyclonesScore,
-        opponentScore: previousGame.opponentScore,
-        scoreboard: previousGame.scoreboard,
-        status: previousGame.status,
-      },
+      ...nextGame,
+      abstractState: previousGame.abstractState,
+      cyclonesScore: previousGame.cyclonesScore,
+      opponentScore: previousGame.opponentScore,
+      scoreboard: previousGame.scoreboard,
+      status: previousGame.status,
     };
   }
   if (!previousGame.scoreboard) {
+    return nextGame;
+  }
+  return {
+    ...nextGame,
+    scoreboard:
+      nextGame.scoreboard?.kind === 'basketball'
+        ? withStripeColors(nextGame.scoreboard, previousGame.scoreboard)
+        : (nextGame.scoreboard ?? previousGame.scoreboard),
+  };
+}
+
+export function featuredGameKey(game: CyclonesGame): string {
+  return `${game.sport}:${game.gamePk}`;
+}
+
+// Merges a refreshed schedule snapshot into the shown one, card by card: each featured game
+// that was already shown keeps what the five-second summary applied to it.
+export function snapshotWithPreservedScoreboard(
+  previous: CyclonesSnapshot | undefined,
+  next: CyclonesSnapshot,
+  liveBoards: LiveBoardStamp | readonly LiveBoardStamp[] | undefined,
+  nowMs = Date.now(),
+): CyclonesSnapshot {
+  if (!previous || previous.featuredGames.length === 0) {
     return next;
   }
-
-  return {
-    ...next,
-    featuredGame: {
-      ...nextGame,
-      scoreboard:
-        nextGame.scoreboard?.kind === 'basketball'
-          ? withStripeColors(nextGame.scoreboard, previousGame.scoreboard)
-          : (nextGame.scoreboard ?? previousGame.scoreboard),
-    },
-  };
+  const stamps =
+    liveBoards === undefined
+      ? []
+      : Array.isArray(liveBoards)
+        ? (liveBoards as readonly LiveBoardStamp[])
+        : [liveBoards as LiveBoardStamp];
+  const shown = new Map(
+    previous.featuredGames.map((game) => [featuredGameKey(game), game]),
+  );
+  let changed = false;
+  const featuredGames = next.featuredGames.map((nextGame) => {
+    const previousGame = shown.get(featuredGameKey(nextGame));
+    if (!previousGame) {
+      return nextGame;
+    }
+    const merged = mergeFeaturedGame(
+      previousGame,
+      nextGame,
+      stamps.find((stamp) => stamp.gamePk === nextGame.gamePk),
+      nowMs,
+    );
+    if (merged !== nextGame) {
+      changed = true;
+    }
+    return merged;
+  });
+  return changed ? { ...next, featuredGames } : next;
 }
 
 export function playbackBlocked(game: CyclonesGame): boolean {
@@ -510,24 +543,28 @@ export function snapshotFromGames(
       );
     })
     .sort(compareGames);
-  const todayRecap = games
+  const todayFinals = games
     .filter(
       (game) => isCompletedGame(game) && game.officialDate === todayOfficial,
     )
-    .sort(compareGames)
-    .at(-1);
-  const featuredGame =
-    remainingGames.find((game) => game.abstractState === 'Live') ??
-    remainingGames.find((game) => gameDay(game) === todayOfficial) ??
-    todayRecap;
+    .sort(compareGames);
+  const featuredGames = [
+    ...remainingGames.filter((game) => game.abstractState === 'Live'),
+    ...remainingGames.filter(
+      (game) =>
+        game.abstractState !== 'Live' && gameDay(game) === todayOfficial,
+    ),
+    ...todayFinals,
+  ];
+  const featuredKeys = new Set(featuredGames.map(featuredGameKey));
 
   return {
-    featuredGame,
+    featuredGames,
     records,
     statuses: statusesFromGames(games, now),
-    upcomingGames: featuredGame
-      ? remainingGames.filter((game) => game.gamePk !== featuredGame.gamePk)
-      : remainingGames,
+    upcomingGames: remainingGames.filter(
+      (game) => !featuredKeys.has(featuredGameKey(game)),
+    ),
   };
 }
 

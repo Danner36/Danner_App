@@ -19,11 +19,14 @@ const validScenarios = new Set([
   'live-basketball',
   'ready',
   'today',
+  'two-games',
 ]);
 
 async function readFixtureDocument(scenario) {
   const url =
-    scenario === 'live-basketball' ? basketballFixtureUrl : fixtureUrl;
+    scenario === 'live-basketball' || scenario === 'two-games'
+      ? basketballFixtureUrl
+      : fixtureUrl;
   return JSON.parse(await readFile(url, 'utf8'));
 }
 
@@ -65,6 +68,39 @@ function snapshotForScenario(fixture, scenario) {
       losses: fixture.losses,
       ties: fixture.ties ?? 0,
       upcomingGames: futureGames,
+      wins: fixture.wins,
+    };
+  }
+
+  // The live basketball game plus a men's basketball final from earlier the same day: two cards.
+  if (scenario === 'two-games') {
+    const liveDate = new Date(now - 60 * 60_000);
+    const finalDate = new Date(now - 3 * 60 * 60_000);
+    const today = chicagoDateString(new Date());
+    return {
+      boardFlags: fixture.boardFlags,
+      liveGame: {
+        ...fixture.liveGame,
+        gameDate: liveDate.toISOString(),
+        officialDate: chicagoDateString(liveDate),
+      },
+      losses: fixture.losses,
+      ties: fixture.ties ?? 0,
+      upcomingGames: [
+        {
+          ...fixture.liveGame,
+          abstractState: 'Final',
+          cyclonesScore: 72,
+          gameDate: finalDate.toISOString(),
+          gamePk: fixture.liveGame.gamePk + 1,
+          officialDate: today,
+          opponentScore: 66,
+          scoreboard: undefined,
+          sport: 'mens-basketball',
+          status: 'Final',
+        },
+        ...futureGames,
+      ],
       wins: fixture.wins,
     };
   }

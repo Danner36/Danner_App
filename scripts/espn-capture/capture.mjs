@@ -492,13 +492,18 @@ async function fetchJson(url) {
   }
 }
 
-function writeOutputs(file, adapter, event) {
+function writeOutputs(file, adapter, event, targets = []) {
   if (file) {
-    appendFileSync(file, `adapter=${adapter}\nevent=${event}\n`);
+    appendFileSync(
+      file,
+      `adapter=${adapter}\nevent=${event}\ntargets=${JSON.stringify(targets)}\n`,
+    );
   }
 }
 
-// Writes outputs adapter and event to GITHUB_OUTPUT; an empty event means nothing to capture.
+// Writes outputs targets (a JSON array of {adapter, event}, one per adapter with a live game, so
+// overlapping men's and women's games are both captured) plus adapter and event of the first
+// target to GITHUB_OUTPUT; an empty array means nothing to capture.
 // Request and parse failures are logged on the single summary line and return 0.
 export async function runFind({
   env = process.env,
@@ -523,6 +528,7 @@ export async function runFind({
 
   const season = basketballSeasonYear(new Date(now()));
   const notes = [];
+  const targets = [];
   for (const adapter of adapters) {
     const captured = capturedEvents(root, adapter);
     if (!event && captured.size >= MAX_CAPTURED_EVENTS) {
@@ -537,14 +543,18 @@ export async function runFind({
     const picked = pickEvent(response.body, { captured, event });
     if (picked) {
       log(`find: capture ${adapter} event ${picked}`);
-      writeOutputs(env.GITHUB_OUTPUT, adapter, picked);
-      return 0;
+      targets.push({ adapter, event: picked });
+      continue;
     }
     if (event && captured.has(event)) {
       notes.push(`${adapter} event ${event} already captured`);
     } else {
       notes.push(event ? `${adapter} has no event ${event}` : `${adapter} has no live event`);
     }
+  }
+  if (targets.length > 0) {
+    writeOutputs(env.GITHUB_OUTPUT, targets[0].adapter, targets[0].event, targets);
+    return 0;
   }
   log(`find: nothing to capture; ${notes.join('; ')}`);
   writeOutputs(env.GITHUB_OUTPUT, '', '');

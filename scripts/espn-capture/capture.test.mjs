@@ -735,7 +735,7 @@ test('find logs one line, writes empty outputs and exits 0 when ESPN cannot be r
     assert.equal(code, 0);
     assert.equal(lines.length, 1);
     assert.match(lines[0], /^find: nothing to capture; /);
-    assert.equal(readOutputs(output), 'adapter=\nevent=\n');
+    assert.equal(readOutputs(output), 'adapter=\nevent=\ntargets=[]\n');
     assert.deepEqual(urls, [
       scheduleUrl('ncaa/mens-basketball', 2027),
       scheduleUrl('ncaa/womens-basketball', 2027),
@@ -765,7 +765,11 @@ test('find skips an adapter with 2 captures and picks the other adapter live eve
     });
     assert.equal(code, 0);
     assert.deepEqual(urls, [scheduleUrl('ncaa/womens-basketball', 2027)]);
-    assert.equal(readOutputs(output), 'adapter=ncaa/womens-basketball\nevent=401800002\n');
+    assert.equal(
+      readOutputs(output),
+      'adapter=ncaa/womens-basketball\nevent=401800002\n' +
+        'targets=[{"adapter":"ncaa/womens-basketball","event":"401800002"}]\n',
+    );
 
     // A dispatched event passes the 2-capture limit but must be in the schedule.
     const dispatched = path.join(root, 'out-dispatched');
@@ -775,7 +779,11 @@ test('find skips an adapter with 2 captures and picks the other adapter live eve
       log: () => {},
       root,
     });
-    assert.equal(readOutputs(dispatched), 'adapter=ncaa/mens-basketball\nevent=401800003\n');
+    assert.equal(
+      readOutputs(dispatched),
+      'adapter=ncaa/mens-basketball\nevent=401800003\n' +
+        'targets=[{"adapter":"ncaa/mens-basketball","event":"401800003"}]\n',
+    );
 
     const missing = path.join(root, 'out-missing');
     await runFind({
@@ -784,7 +792,7 @@ test('find skips an adapter with 2 captures and picks the other adapter live eve
       log: () => {},
       root,
     });
-    assert.equal(readOutputs(missing), 'adapter=\nevent=\n');
+    assert.equal(readOutputs(missing), 'adapter=\nevent=\ntargets=[]\n');
 
     const invalid = path.join(root, 'out-invalid');
     assert.equal(
@@ -796,7 +804,53 @@ test('find skips an adapter with 2 captures and picks the other adapter live eve
       }),
       1,
     );
-    assert.equal(readOutputs(invalid), 'adapter=\nevent=\n');
+    assert.equal(readOutputs(invalid), 'adapter=\nevent=\ntargets=[]\n');
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('find outputs both games when the men and the women are live at the same time', async () => {
+  const root = tempRoot();
+  try {
+    const output = path.join(root, 'out');
+    const mens = { events: [scheduleEvent('401910001', 'in')] };
+    const womens = { events: [scheduleEvent('401910002', 'in')] };
+    const code = await runFind({
+      env: { ADAPTER: 'auto', GITHUB_OUTPUT: output },
+      fetchJson: async (url) => ({
+        body: url.includes('womens-college-basketball') ? womens : mens,
+        ok: true,
+        status: 200,
+      }),
+      log: () => {},
+      now: () => Date.parse('2026-11-03T02:00:00Z'),
+      root,
+    });
+    assert.equal(code, 0);
+    const lines = readOutputs(output).trim().split('\n');
+    assert.equal(lines[0], 'adapter=ncaa/mens-basketball');
+    assert.equal(lines[1], 'event=401910001');
+    assert.deepEqual(JSON.parse(lines[2].slice('targets='.length)), [
+      { adapter: 'ncaa/mens-basketball', event: '401910001' },
+      { adapter: 'ncaa/womens-basketball', event: '401910002' },
+    ]);
+
+    // Once the men's game is committed, only the women's game remains.
+    mkdirSync(captureDir(root, 'ncaa/mens-basketball', '401910001'), { recursive: true });
+    const second = path.join(root, 'out-second');
+    await runFind({
+      env: { ADAPTER: 'auto', GITHUB_OUTPUT: second },
+      fetchJson: async (url) => ({
+        body: url.includes('womens-college-basketball') ? womens : mens,
+        ok: true,
+        status: 200,
+      }),
+      log: () => {},
+      now: () => Date.parse('2026-11-03T02:10:00Z'),
+      root,
+    });
+    assert.match(readOutputs(second), /targets=\[\{"adapter":"ncaa\/womens-basketball","event":"401910002"\}\]/);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

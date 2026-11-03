@@ -35,6 +35,7 @@
     "test:cyclones:android:live": "node ../tests/cyclones/run-android.mjs live",
     "test:cyclones:android:live-basketball": "node ../tests/cyclones/run-android.mjs live-basketball",
     "test:cyclones:android:ready": "node ../tests/cyclones/run-android.mjs ready",
+    "test:cyclones:android:two-games": "node ../tests/cyclones/run-android.mjs two-games",
     "test:cyclones:snapshot": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/cyclones/run-snapshot.mjs",
     "test:cyclones:server": "node ../tests/cyclones/server.mjs",
     "test:offline-map": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/offline-map/run.mjs",

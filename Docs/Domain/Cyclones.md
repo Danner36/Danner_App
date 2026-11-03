@@ -7,7 +7,7 @@ Phase: MVP
 
 Opening the Iowa State Cyclones tile requests leftover preseason, regular-season, and postseason games from ESPN's public NCAA site JSON for team 66 in college football, men's basketball, and women's basketball. The screen fetches that snapshot again every ten minutes and on pull-to-refresh. A live featured game also refreshes its sport-specific scoreboard every five seconds while the screen is open.
 
-One featured card is shown. An in-progress game in any sport wins. If none is live, today's next kickoff across any sport uses that card. If none remains, today's last completed game is the recap. The card names the sport. Other same-day games stay in the upcoming schedule.
+Each game today gets its own featured card, and each card names the sport. In-progress games come first, then today's games that have not started, then today's finals, each group in start order. A Final card stays as that game's recap through local midnight of its official date. Each Live card polls its own five-second board, and each card has its own countdown, Play window and Get video. Games on later days stay in the upcoming schedule.
 
 Today's scheduled game shows the opponent, phone-local start time, a one-second countdown when the start time is known, and `Video starts 15 minutes before game time.` If ESPN marks the time invalid, the card says `Time TBA` and does not count down.
 

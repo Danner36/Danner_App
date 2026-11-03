@@ -18,7 +18,9 @@
 
 - Logo-only two-row hub: Cleveland Guardians and New England Patriots on row 1, Iowa State Cyclones under Guardians, YouTube TV under Patriots
 - Patriots hub tile uses the Flying Elvis on Patriots navy
-- Iowa State Cyclones leftover football, men's basketball, and women's basketball, three regular-season records, one featured card, sport-named schedule rows, and the same Play, Listen, Get video, and TV send controls
+- Iowa State Cyclones leftover football, men's basketball, and women's basketball, three regular-season records, a featured card for every game today (live, then upcoming, then finals until midnight), sport-named schedule rows, and the same Play, Listen, Get video, and TV send controls on each card
+- Cyclones basketball arena board while live: clock, period, scores, team fouls with bonus, the last foul, and each team's players on the floor with number, fouls, and points; women's games show the clock, period, and scores until a live capture confirms the rest
+- Cyclones men's and women's Get video searches run at the same time
 - Cyclones and Patriots Final recaps read ESPN `{value, displayValue}` scores so a completed game shows the real score instead of `TIE 0-0`
 - Cyclones Get video POSTs `{ pin, module: "cyclones", sport }` to the shared Worker
 - Cleveland Guardians record, current game, countdown, remaining schedule, and approved playback

@@ -9,7 +9,7 @@ const expoCliPath = fileURLToPath(
 const serverPath = fileURLToPath(new URL('./server.mjs', import.meta.url));
 const scenario = process.argv[2] ?? 'today';
 if (
-  !new Set(['delayed', 'final', 'live', 'live-basketball', 'ready', 'today']).has(
+  !new Set(['delayed', 'final', 'live', 'live-basketball', 'ready', 'today', 'two-games']).has(
     scenario,
   )
 ) {
