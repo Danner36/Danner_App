@@ -33,19 +33,6 @@
     },
     {
       "gameDates": [
-        "2026-10-24"
-      ],
-      "gameNumbers": [
-        1
-      ],
-      "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/58568?ad=111",
-      "allowInsecureHttp": false,
-      "trustedHosts": [],
-      "sport": "football"
-    },
-    {
-      "gameDates": [
         "2026-10-31"
       ],
       "gameNumbers": [
@@ -56,6 +43,19 @@
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "sport": "football"
+    },
+    {
+      "gameDates": [
+        "2026-11-02"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/59129?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "sport": "mens-basketball"
     }
   ]
 }
