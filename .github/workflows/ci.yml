@@ -55,8 +55,9 @@ jobs:
       - name: Run tests
         run: npm run test:all
 
+      # A release call always runs this step, so a tag without the suite fails.
       - name: Import pure modules
-        if: hashFiles('tests/imports/run.mjs') != ''
+        if: inputs.ref != '' || hashFiles('tests/imports/run.mjs') != ''
         run: node ../tests/imports/run.mjs
 
   pipeline:
@@ -129,8 +130,9 @@ jobs:
       - name: Run catalog tests
         run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/team-catalog/test/*.test.mjs"
 
+      # A release call always runs this step, so a tag without the catalog fails.
       - name: Validate committed catalog
-        if: hashFiles('catalog/**') != ''
+        if: inputs.ref != '' || hashFiles('catalog/**') != ''
         run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/validate.mjs
 
   hygiene:

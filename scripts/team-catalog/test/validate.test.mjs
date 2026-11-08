@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { LEAGUE_ROWS } from '../leagues.mjs';
-import { appendOnlyErrors, overrideResolutionErrors, runValidate, validateLeagues, validateOverrides, validateReport, validateTeam, validateTeamsDocument } from '../validate.mjs';
+import { appendOnlyErrors, overrideResolutionErrors, runValidate, streamsFileErrors, validateLeagues, validateOverrides, validateReport, validateTeam, validateTeamsDocument } from '../validate.mjs';
 
 function goodPro() {
   return {
@@ -188,6 +188,99 @@ test('runValidate passes a complete catalog and runs the preset guards', async (
 
     writeCatalog(catalogDir, { nfl: [{ ...goodPro(), key: 'nfl-18', espnId: '18', nickname: 'Other' }] });
     assert.deepEqual(await runValidate({ catalogDir, flagsReport: AGREEING_FLAGS, root }), ['preset nfl-17 is missing']);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+function goodStreams(key = 'nfl-17') {
+  return { HOW_TO_GUIDE: {}, schemaVersion: 2, streams: ['marker', { kind: 'direct' }], team: { key, name: 'A team' } };
+}
+
+function writeStreamsFile(streamsDir, relative, content) {
+  const file = path.join(streamsDir, relative);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, typeof content === 'string' ? content : JSON.stringify(content));
+}
+
+const STREAM_TEAMS = { mlb: [goodMlb()], ncaa: [goodSchool()], nfl: [goodPro(), { key: 'nfl-2', retired: true }] };
+
+test('streams files: no folder passes, and valid files for current and retired teams pass', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-streams-'));
+  try {
+    const streamsDir = path.join(root, 'streams');
+    assert.deepEqual(streamsFileErrors(streamsDir, STREAM_TEAMS), []);
+    writeStreamsFile(streamsDir, 'nfl/17.json', goodStreams());
+    writeStreamsFile(streamsDir, 'nfl/2.json', goodStreams('nfl-2'));
+    writeStreamsFile(streamsDir, 'mlb/5.json', { schemaVersion: 2, streams: [], team: { key: 'mlb-5', name: 'A team' } });
+    writeStreamsFile(streamsDir, 'ncaa/66.json', goodStreams('ncaa-66'));
+    assert.deepEqual(streamsFileErrors(streamsDir, STREAM_TEAMS), []);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('streams files: each broken document or path is reported by path', () => {
+  const cases = [
+    ['nfl/17.json', { ...goodStreams(), schemaVersion: 1 }, 'streams/nfl/17.json: schemaVersion is not 2'],
+    ['nfl/17.json', { ...goodStreams(), team: { key: 'nfl-18', name: 'A team' } }, 'streams/nfl/17.json: team.key does not equal nfl-17'],
+    ['nfl/17.json', { ...goodStreams(), team: { key: 'nfl-17' } }, 'streams/nfl/17.json: team.name is missing'],
+    ['nfl/17.json', { ...goodStreams(), streams: {} }, 'streams/nfl/17.json: streams is not a list'],
+    ['nfl/17.json', { ...goodStreams(), streams: [1] }, 'streams/nfl/17.json: streams holds an item that is neither a marker string nor an object'],
+    ['nfl/17.json', [], 'streams/nfl/17.json: is not a JSON object'],
+    ['nfl/18.json', goodStreams('nfl-18'), 'streams/nfl/18.json: nfl-18 is not in the catalog'],
+    ['nhl/1.json', goodStreams('nhl-1'), 'streams/nhl/1.json: nhl-1 is not in the catalog'],
+    ['17.json', goodStreams(), 'streams/17.json: path is not streams/<league>/<espnId>.json'],
+    ['nfl/x.json', goodStreams(), 'streams/nfl/x.json: path is not streams/<league>/<espnId>.json'],
+    ['nfl/17.txt', goodStreams(), 'streams/nfl/17.txt: path is not streams/<league>/<espnId>.json'],
+    ['nfl/a/17.json', goodStreams(), 'streams/nfl/a/17.json: path is not streams/<league>/<espnId>.json'],
+  ];
+  for (const [relative, content, expected] of cases) {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-streams-'));
+    try {
+      const streamsDir = path.join(root, 'streams');
+      writeStreamsFile(streamsDir, relative, content);
+      assert.deepEqual(streamsFileErrors(streamsDir, STREAM_TEAMS), [expected]);
+    } finally {
+      rmSync(root, { force: true, recursive: true });
+    }
+  }
+});
+
+test('streams files: a document with no team reports both team fields', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-streams-'));
+  try {
+    const streamsDir = path.join(root, 'streams');
+    writeStreamsFile(streamsDir, 'nfl/17.json', { schemaVersion: 2, streams: [] });
+    assert.deepEqual(streamsFileErrors(streamsDir, STREAM_TEAMS), [
+      'streams/nfl/17.json: team.key does not equal nfl-17',
+      'streams/nfl/17.json: team.name is missing',
+    ]);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('streams files: invalid JSON is reported without any of its text', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-streams-'));
+  try {
+    const streamsDir = path.join(root, 'streams');
+    writeStreamsFile(streamsDir, 'nfl/17.json', 'https://listing-one.test/live');
+    assert.deepEqual(streamsFileErrors(streamsDir, STREAM_TEAMS), ['streams/nfl/17.json: is not readable JSON']);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('runValidate reports a streams file for a team outside the catalog', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-validate-'));
+  try {
+    const catalogDir = path.join(root, 'catalog');
+    writeCatalog(catalogDir);
+    writeStreamsFile(path.join(root, 'streams'), 'nfl/17.json', goodStreams());
+    assert.deepEqual(await runValidate({ catalogDir, flagsReport: AGREEING_FLAGS, root }), []);
+    writeStreamsFile(path.join(root, 'streams'), 'nfl/18.json', goodStreams('nfl-18'));
+    assert.deepEqual(await runValidate({ catalogDir, flagsReport: AGREEING_FLAGS, root }), ['streams/nfl/18.json: nfl-18 is not in the catalog']);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

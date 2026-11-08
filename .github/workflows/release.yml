@@ -34,6 +34,24 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Check out the tag's release folder
+        if: needs.ci.result == 'skipped'
+        uses: actions/checkout@v5
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          persist-credentials: false
+          sparse-checkout: release
+
+      # Real v0 and v1 source predates this file, so a v0 or v1 tag whose tree holds it was cut from
+      # main and would ship unfinished work past the checks that its name skips.
+      - name: Refuse a v0 or v1 tag that holds v2 source
+        if: needs.ci.result == 'skipped'
+        run: |
+          if [ -f release/android-signing-cert.sha256 ]; then
+            echo "::error::$RELEASE_TAG holds release/android-signing-cert.sha256, so it was cut from main. A v1 tag comes only from a release/v1.* branch."
+            exit 1
+          fi
+
       - name: Check Worker health
         if: needs.ci.result == 'success'
         env:
@@ -289,12 +307,12 @@ jobs:
           # A new major version stays a draft until the owner has installed it and publishes it by
           # hand. A failed lookup stops the job, so it cannot publish such a release by accident.
           published_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
-          published_major="${published_tag#v}"
-          published_major="${published_major%%.*}"
-          if [[ ! "$published_major" =~ ^[0-9]+$ ]]; then
+          if ! printf '%s\n' "$published_tag" | grep -E '^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$' > /dev/null; then
             echo "::error::The latest published release has an unexpected tag."
             exit 1
           fi
+          published_major="${published_tag#v}"
+          published_major="${published_major%%.*}"
           tag_major="${RELEASE_TAG#v}"
           tag_major="${tag_major%%.*}"
           if [ "$tag_major" -gt "$published_major" ]; then
@@ -304,12 +322,9 @@ jobs:
             exit 0
           fi
           echo "draft=false" >> "$GITHUB_OUTPUT"
-          # Tag names come from the remote, so the shallow checkout does not limit them.
-          highest="$(git ls-remote --tags --refs origin \
-            | sed 's#^.*refs/tags/##' \
-            | grep -E '^v(0|[1-9][0-9]{0,4})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)$' \
-            | sort -V \
-            | tail -n 1)"
+          # Phones read releases/latest, so only a published release can hold Latest back from a
+          # hotfix; a draft or a tag whose run failed cannot.
+          highest="$(printf '%s\n' "$published_tag" "$RELEASE_TAG" | sort -V | tail -n 1)"
           if [ "$highest" = "$RELEASE_TAG" ]; then
             echo "flag=--latest" >> "$GITHUB_OUTPUT"
           else
