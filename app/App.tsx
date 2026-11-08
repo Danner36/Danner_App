@@ -5,45 +5,54 @@ import {
   SafeAreaProvider,
   SafeAreaView,
 } from 'react-native-safe-area-context';
-import { CyclonesScreen } from './cyclones/CyclonesScreen';
-import { GuardiansScreen } from './guardians/GuardiansScreen';
 import { HubScreen } from './hub/HubScreen';
-import { PatriotsScreen } from './patriots/PatriotsScreen';
+import {
+  CYCLONES_TILE,
+  GUARDIANS_TILE,
+  PATRIOTS_TILE,
+  PRESET_TILES,
+} from './selection/presets.ts';
+import { TeamScreen } from './team/TeamScreen';
 import { TvLocationScreen } from './tvLocation/TvLocationScreen';
 
-type AppScreen =
-  | 'cyclones'
-  | 'guardians'
-  | 'menu'
-  | 'patriots'
-  | 'tv-location';
+type Route =
+  | { name: 'hub' }
+  | { name: 'team'; tileKey: string }
+  | { name: 'tv-location' };
 
 export default function App() {
-  const [appScreen, setAppScreen] = useState<AppScreen>('menu');
+  const [route, setRoute] = useState<Route>({ name: 'hub' });
 
-  const openMenu = useCallback(() => {
-    setAppScreen('menu');
+  const openHub = useCallback(() => {
+    setRoute({ name: 'hub' });
   }, []);
+
+  const tile =
+    route.name === 'team'
+      ? PRESET_TILES.find((candidate) => candidate.key === route.tileKey)
+      : undefined;
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView edges={['top', 'bottom']} style={styles.systemSafeArea}>
-        {appScreen === 'menu' ? (
-          <HubScreen
-            onOpenCyclones={() => setAppScreen('cyclones')}
-            onOpenGuardians={() => setAppScreen('guardians')}
-            onOpenPatriots={() => setAppScreen('patriots')}
-            onOpenTvLocation={() => setAppScreen('tv-location')}
-          />
-        ) : appScreen === 'guardians' ? (
-          <GuardiansScreen onBack={openMenu} />
-        ) : appScreen === 'patriots' ? (
-          <PatriotsScreen onBack={openMenu} />
-        ) : appScreen === 'cyclones' ? (
-          <CyclonesScreen onBack={openMenu} />
+        {tile ? (
+          <TeamScreen key={tile.key} onBack={openHub} tile={tile} />
+        ) : route.name === 'tv-location' ? (
+          <TvLocationScreen onBackToMenu={openHub} />
         ) : (
-          <TvLocationScreen onBackToMenu={openMenu} />
+          <HubScreen
+            onOpenCyclones={() =>
+              setRoute({ name: 'team', tileKey: CYCLONES_TILE.key })
+            }
+            onOpenGuardians={() =>
+              setRoute({ name: 'team', tileKey: GUARDIANS_TILE.key })
+            }
+            onOpenPatriots={() =>
+              setRoute({ name: 'team', tileKey: PATRIOTS_TILE.key })
+            }
+            onOpenTvLocation={() => setRoute({ name: 'tv-location' })}
+          />
         )}
       </SafeAreaView>
     </SafeAreaProvider>

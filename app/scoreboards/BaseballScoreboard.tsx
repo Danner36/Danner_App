@@ -1,12 +1,9 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { LiveScoreboard } from './mlbLinescore';
+import type { BaseballBoard } from './types';
 
 const MAX_INNINGS = 30;
 
-function teamLabel(isGuardians: boolean, opponentName: string): string {
-  if (isGuardians) {
-    return 'GUARDIANS';
-  }
+function opponentLabel(opponentName: string): string {
   const parts = opponentName.trim().split(/\s+/);
   return (parts[parts.length - 1] ?? opponentName).toUpperCase();
 }
@@ -56,14 +53,19 @@ function CountLamps({
   );
 }
 
-export function GuardiansScoreboard({
+export function BaseballScoreboard({
+  accentColor,
   isHome,
   opponentName,
   scoreboard,
+  teamLabel,
 }: {
+  // The followed team's label color.
+  accentColor: string;
   isHome: boolean;
   opponentName: string;
-  scoreboard: LiveScoreboard;
+  scoreboard: BaseballBoard;
+  teamLabel: string;
 }) {
   // inning.num comes straight from statsapi and is only floored at 1 upstream, so a
   // malformed response would otherwise size this array arbitrarily and render a View per
@@ -80,8 +82,8 @@ export function GuardiansScoreboard({
       scoreboard.innings.find((inning) => inning.num === num) ?? { num }
     );
   });
-  const awayLabel = teamLabel(!isHome, opponentName);
-  const homeLabel = teamLabel(isHome, opponentName);
+  const awayLabel = !isHome ? teamLabel : opponentLabel(opponentName);
+  const homeLabel = isHome ? teamLabel : opponentLabel(opponentName);
   const summary = [
     `${awayLabel} ${scoreboard.away.runs}`,
     `${homeLabel} ${scoreboard.home.runs}`,
@@ -123,7 +125,7 @@ export function GuardiansScoreboard({
               numberOfLines={1}
               style={[
                 styles.teamLabel,
-                !isHome && styles.guardiansLabel,
+                !isHome && { color: accentColor },
               ]}
             >
               {awayLabel}
@@ -139,7 +141,7 @@ export function GuardiansScoreboard({
           <View style={styles.gridRow}>
             <Text
               numberOfLines={1}
-              style={[styles.teamLabel, isHome && styles.guardiansLabel]}
+              style={[styles.teamLabel, isHome && { color: accentColor }]}
             >
               {homeLabel}
             </Text>
@@ -222,9 +224,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     paddingRight: 4,
     width: TEAM_WIDTH,
-  },
-  guardiansLabel: {
-    color: '#E31937',
   },
   led: {
     alignItems: 'center',

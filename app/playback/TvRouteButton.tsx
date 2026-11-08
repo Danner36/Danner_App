@@ -19,9 +19,9 @@ import {
   type LiveRelay,
 } from '../modules/danner-live-hls/src';
 import {
-  GuardiansCastButton,
+  CastButton,
   castStreamTypeForRelay,
-} from './GuardiansCastButton';
+} from './CastButton';
 import {
   HLS_CONTENT_TYPE,
   TV_PLAYBACK_FAILED_MESSAGE,
@@ -97,7 +97,7 @@ function pageReferer(pageUrl: string): string {
   }
 }
 
-export function GuardiansTvRouteButton({
+export function TvRouteButton({
   media,
   onFailed,
   onPhoneHeld,
@@ -357,7 +357,7 @@ export function GuardiansTvRouteButton({
   return (
     <View style={styles.slot}>
       <View style={styles.castHost} pointerEvents="none">
-        <GuardiansCastButton
+        <CastButton
           contentType={relay?.contentType ?? HLS_CONTENT_TYPE}
           hlsSegmentFormat={relay?.kind === 'hls' ? relay.segmentFormat : undefined}
           onFailed={onFailed}

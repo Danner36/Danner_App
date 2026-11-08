@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import {
-  CastButton,
+  CastButton as NativeCastButton,
   MediaHlsSegmentFormat,
   MediaHlsVideoSegmentFormat,
   MediaStreamType,
@@ -51,7 +51,7 @@ function hlsSegmentHints(segmentFormat: 'ts' | 'fmp4' | undefined) {
   return {};
 }
 
-export function GuardiansCastButton({
+export function CastButton({
   contentType,
   hlsSegmentFormat,
   onFailed,
@@ -237,7 +237,7 @@ export function GuardiansCastButton({
   }
 
   return (
-    <CastButton
+    <NativeCastButton
       accessibilityLabel="Cast"
       accessibilityRole="button"
       hitSlop={12}

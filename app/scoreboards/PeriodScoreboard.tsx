@@ -1,13 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { LiveFootballScoreboard } from './espnScoreboard';
-import { PATRIOTS_TEAM_ID } from './patriotsSnapshot';
+import type { PeriodBoard } from './types';
 
 const MAX_QUARTERS = 10;
 
-function teamLabel(isPatriots: boolean, opponentName: string): string {
-  if (isPatriots) {
-    return 'PATRIOTS';
-  }
+function opponentLabel(opponentName: string): string {
   const parts = opponentName.trim().split(/\s+/);
   return (parts[parts.length - 1] ?? opponentName).toUpperCase();
 }
@@ -35,37 +31,45 @@ function LedCell({ value }: { value?: number | string }) {
   );
 }
 
-export function PatriotsScoreboard({
+export function PeriodScoreboard({
+  accentColor,
   isHome,
   opponentName,
   scoreboard,
+  teamId,
+  teamLabel,
 }: {
+  // The followed team's label color.
+  accentColor: string;
   isHome: boolean;
   opponentName: string;
-  scoreboard: LiveFootballScoreboard;
+  scoreboard: PeriodBoard;
+  // ESPN id of the followed team, for the possession mark.
+  teamId: number;
+  teamLabel: string;
 }) {
-  // period comes straight from ESPN and is only floored at 0 upstream, so a malformed
-  // response would otherwise size this array arbitrarily and render a View per column.
+  // period comes straight from ESPN and is only floored at 0 upstream, so a malformed response
+  // would otherwise size this array arbitrarily and render a View per column.
   const quarterCount = Math.min(
     MAX_QUARTERS,
     Math.max(
       4,
-      scoreboard.away.quarters.length,
-      scoreboard.home.quarters.length,
+      scoreboard.away.periods.length,
+      scoreboard.home.periods.length,
       scoreboard.period,
     ),
   );
   const headers = Array.from({ length: quarterCount }, (_, index) =>
     index < 4 ? String(index + 1) : index === 4 ? 'OT' : `${index - 3}OT`,
   );
-  const awayLabel = teamLabel(!isHome, opponentName);
-  const homeLabel = teamLabel(isHome, opponentName);
+  const awayLabel = !isHome ? teamLabel : opponentLabel(opponentName);
+  const homeLabel = isHome ? teamLabel : opponentLabel(opponentName);
   const possessionIsHome =
     scoreboard.possessionTeamId === undefined
       ? undefined
       : isHome
-        ? scoreboard.possessionTeamId === PATRIOTS_TEAM_ID
-        : scoreboard.possessionTeamId !== PATRIOTS_TEAM_ID;
+        ? scoreboard.possessionTeamId === teamId
+        : scoreboard.possessionTeamId !== teamId;
   const clockLine = [periodLabel(scoreboard.period), scoreboard.clock]
     .filter(Boolean)
     .join(' ');
@@ -98,7 +102,7 @@ export function PatriotsScoreboard({
       <View style={styles.gridRow}>
         <Text
           numberOfLines={1}
-          style={[styles.teamLabel, !isHome && styles.patriotsLabel]}
+          style={[styles.teamLabel, !isHome && { color: accentColor }]}
         >
           {possessionIsHome === false ? '▸ ' : ''}
           {awayLabel}
@@ -106,7 +110,7 @@ export function PatriotsScoreboard({
         {headers.map((_, index) => (
           <LedCell
             key={`a-${index}`}
-            value={scoreboard.away.quarters[index]}
+            value={scoreboard.away.periods[index]}
           />
         ))}
         <LedCell value={scoreboard.away.points} />
@@ -115,7 +119,7 @@ export function PatriotsScoreboard({
       <View style={styles.gridRow}>
         <Text
           numberOfLines={1}
-          style={[styles.teamLabel, isHome && styles.patriotsLabel]}
+          style={[styles.teamLabel, isHome && { color: accentColor }]}
         >
           {possessionIsHome === true ? '▸ ' : ''}
           {homeLabel}
@@ -123,7 +127,7 @@ export function PatriotsScoreboard({
         {headers.map((_, index) => (
           <LedCell
             key={`h-${index}`}
-            value={scoreboard.home.quarters[index]}
+            value={scoreboard.home.periods[index]}
           />
         ))}
         <LedCell value={scoreboard.home.points} />
@@ -185,9 +189,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     paddingRight: 4,
     width: TEAM_WIDTH,
-  },
-  patriotsLabel: {
-    color: '#E31937',
   },
   led: {
     alignItems: 'center',

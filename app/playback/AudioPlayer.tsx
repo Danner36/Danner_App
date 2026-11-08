@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import type { PlayableGuardiansStream } from './guardiansSources';
+import type { PlayableStream } from '../streams/sources.ts';
 
 function contentTypeForUrl(playbackUrl: string): 'hls' | 'dash' | 'auto' {
   const path = playbackUrl.split('?')[0]?.toLowerCase() ?? '';
@@ -14,7 +14,7 @@ function contentTypeForUrl(playbackUrl: string): 'hls' | 'dash' | 'auto' {
   return 'auto';
 }
 
-export function GuardiansAudioPlayer({
+export function AudioPlayer({
   artist,
   onFailed,
   stream,
@@ -23,7 +23,7 @@ export function GuardiansAudioPlayer({
   /** Lock-screen and notification artist line, such as the team name. */
   artist: string;
   onFailed: () => void;
-  stream: PlayableGuardiansStream;
+  stream: PlayableStream;
   /** Lock-screen and notification title line. */
   title: string;
 }) {
