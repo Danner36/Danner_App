@@ -3,7 +3,6 @@ import { Directory, File, Paths } from 'expo-file-system';
 import type { TeamKey } from '../leagues/types.ts';
 import type { Tile } from '../selection/types.ts';
 import { logoFileName, logosToFetch, type LogoIndex } from './logoPlan.ts';
-import { presetLogoFor } from './presetLogos';
 
 const INDEX_KEY = 'danner.logos.v1';
 const CONCURRENT_DOWNLOADS = 2;
@@ -65,12 +64,7 @@ export async function backfillLogos(tiles: readonly Tile[]): Promise<void> {
   backfilling = true;
   try {
     const index = await readIndex();
-    const queue = logosToFetch(
-      tiles,
-      index,
-      (key) => cachedLogoUri(key) !== undefined,
-      (key) => presetLogoFor(key) !== undefined,
-    );
+    const queue = logosToFetch(tiles, index, (key) => cachedLogoUri(key) !== undefined);
     if (queue.length === 0) {
       return;
     }

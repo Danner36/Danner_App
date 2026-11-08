@@ -7,7 +7,7 @@
 - Heading navy: `#15354A`
 - Logo-only main menu with the Danner script logo centered one-third down the usable screen, 210dp unless height requires 180, 150, or 120dp
 - Tile grid: the selected teams, then YouTube TV, then `+`. Columns are the rounded-up square root of the tile count, at least 2. Tiles are 101.2dp at most with gaps of 28/101.2 of the tile, rows fill from the left, and the block is centered on the two-thirds line. The grid scrolls rather than go below 64dp, and landscape puts the logo in the left 35%. The values live in `app/hub/hubGrid.ts`
-- Tiles keep a 2dp `#A9CEBB` border, radius 14, and the soft shadow. A preset tile fills with its bundled JPG. A catalog team shows its PNG contained with 12% padding on white, else its abbreviation in bold on the accent color, in white or black by contrast
+- Tiles keep a 2dp `#A9CEBB` border, radius 14, and the soft shadow. Every team shows its downloaded ESPN PNG contained with 12% padding on white, else its abbreviation in bold on the accent color, in white or black by contrast
 - The `+` tile is white with a `#1F6F55` glyph
 - No tile titles or descriptions
 - White cards with an emphasized green border around the current step
@@ -25,8 +25,5 @@ The Guardians dashboard uses its navy and red palette, a prominent today/live/re
 
 - `media/ic_launcher_danner.jpg` is the canonical 1079 by 1079 Danner green and white launcher image.
 - `app/assets/youtube-tv-logo-vecteezy.jpg` is the requested [YouTube TV artwork by Sagor Roy on Vecteezy](https://www.vecteezy.com/vector-art/72969349-youtube-tv-logo-icon-high-resolution). Its source page marks the asset as attribution-required and editorial-use-only.
-- `app/assets/cleveland-guardians-logo.jpg` is the requested winged-baseball mark sourced from the [official Cleveland Guardians page](https://www.mlb.com/guardians/fans/cleteamname).
-- `app/assets/new-england-patriots-logo.jpg` is the bundled Flying Elvis mark on the owner-supplied Patriots navy field (`#091932`).
-- `app/assets/iowa-state-cyclones-logo.jpg` is the bundled Iowa State mark from ESPN NCAA team 66 artwork.
 
 The Danner image is copied into `app/assets/` for Android and iOS launcher and splash builds. The preset marks are packaged locally and do not require menu-time network access. Other teams' marks are ESPN PNGs downloaded once to the phone. The legacy APK's visual inventory is isolated in [../../reference/Apk_Inventory.md](../../reference/Apk_Inventory.md) and is not part of the current interface specification.

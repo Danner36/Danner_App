@@ -3,13 +3,12 @@ import { Image, StyleSheet, Text, View } from 'react-native';
 import type { TeamKey, TeamRef } from '../leagues/types.ts';
 import { teamAccent, textColorOn } from '../team/theme';
 import { cachedLogoUri, getLogoVersion, subscribeToLogos } from './logoStore';
-import { presetLogoFor } from './presetLogos';
 
 const LOGO_PADDING_RATIO = 0.12;
 const FALLBACK_FONT_RATIO = 0.3;
 
-// The bundled preset art, else the cached file, else the abbreviation on the accent color. Fills
-// its parent, which sets the size and the rounding.
+// The cached file, else the abbreviation on the accent color. Fills its parent, which sets the
+// size and the rounding.
 export function TeamLogo({
   size,
   team,
@@ -20,11 +19,6 @@ export function TeamLogo({
   tileKey: TeamKey;
 }) {
   useSyncExternalStore(subscribeToLogos, getLogoVersion);
-
-  const preset = presetLogoFor(tileKey);
-  if (preset !== undefined) {
-    return <Image resizeMode="cover" source={preset} style={styles.fill} />;
-  }
 
   const uri = cachedLogoUri(tileKey);
   if (uri) {

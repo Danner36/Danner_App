@@ -708,15 +708,16 @@ await test('the backfill plan fetches a missing file or a changed logo only', ()
     withLogo(2, href),
     withLogo(3, 'https://a.espncdn.com/i/new.png'),
     withLogo(4, 'https://example.org/x.png'),
-    { ...withLogo(5, href), key: 'mlb-5' },
+    { ...proTile(5), key: 'mlb-5' },
     proTile(6),
   ];
   const index = {
     'nfl-1': { href, name: 'logos/nfl-1.png' },
     'nfl-3': { href, name: 'logos/nfl-3.png' },
   };
-  const fetched = logosToFetch(tiles, index, (key) => key === 'nfl-1' || key === 'nfl-3', (key) => key === 'mlb-5');
-  assert.deepEqual(fetched.map((entry) => entry.key), ['nfl-2', 'nfl-3']);
+  const fetched = logosToFetch(tiles, index, (key) => key === 'nfl-1' || key === 'nfl-3');
+  assert.deepEqual(fetched.map((entry) => entry.key), ['nfl-2', 'nfl-3', 'mlb-5']);
+  assert.equal(fetched[2].href, 'https://a.espncdn.com/i/teamlogos/mlb/500/cle.png');
 });
 
 process.stdout.write(`Selection tests passed: ${cases} cases.\n`);
