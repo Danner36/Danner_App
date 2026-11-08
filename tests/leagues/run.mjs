@@ -3,9 +3,13 @@
 // Usage: node run.mjs [--league <adapter folder or key>]
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 
+import { fixturesExist } from '../../scripts/team-catalog/build.mjs';
 import { ADAPTERS as CATALOG_ADAPTERS } from '../../scripts/team-catalog/leagues.mjs';
+import { missingPaths } from '../../scripts/team-catalog/probe.mjs';
+import { gamesFromFixtures } from './fixture-games.mjs';
 import { basketballBoardFromSummary } from '../../app/leagues/espn/basketballBoard.ts';
 import { basketballRulesFor } from '../../app/leagues/espn/basketballRules.ts';
 import { teamGameFromEspnEvent } from '../../app/leagues/espn/game.ts';
@@ -37,6 +41,11 @@ const folderOf = (key) => key.replace('/', '-');
 function readFixture(folder, name) {
   return JSON.parse(readFileSync(new URL(`./${folder}/${name}`, import.meta.url), 'utf8'));
 }
+
+const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const REQUIRED_PATHS = JSON.parse(
+  readFileSync(new URL('../../scripts/team-catalog/required-paths.json', import.meta.url), 'utf8'),
+);
 
 function inTimeZone(timeZone, run) {
   const original = process.env.TZ;
@@ -168,6 +177,31 @@ if (includes('mlb')) {
   }
 }
 
+// Probe fixtures: the catalog's own check, the probe's required paths, and the expected games.
+let probeCases = 0;
+for (const adapter of Object.keys(CATALOG_ADAPTERS)) {
+  const folder = folderOf(adapter);
+  if (!includes(folder)) {
+    continue;
+  }
+  assert.ok(fixturesExist(REPO_ROOT, adapter), `${folder} holds probe fixtures`);
+  assert.deepEqual(missingPaths(readFixture(folder, 'teams.json'), REQUIRED_PATHS.teams), [], `${folder} teams`);
+  assert.deepEqual(missingPaths(readFixture(folder, 'summary.json'), REQUIRED_PATHS.summary), [], `${folder} summary`);
+  const expected = readFixture(folder, 'expected-games.json');
+  assert.ok(expected.length > 0, `${folder} expected games`);
+  for (const name of readdirSync(new URL(`./${folder}/`, import.meta.url))) {
+    if (/^schedule-\d{4}-\d+\.json$/.test(name)) {
+      assert.deepEqual(missingPaths(readFixture(folder, name), REQUIRED_PATHS.schedule), [], `${folder} ${name}`);
+    }
+  }
+  for (const timeZone of PHONE_TIME_ZONES) {
+    inTimeZone(timeZone, () => {
+      assert.deepEqual(gamesFromFixtures(adapter), expected, `${folder} expected games in ${timeZone}`);
+      probeCases += 1;
+    });
+  }
+}
+
 function localDate(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -216,5 +250,5 @@ for (const adapter of ['ncaa/mens-basketball', 'ncaa/womens-basketball']) {
 }
 
 process.stdout.write(
-  `League assertions passed: ${adapterCases} adapter-zone cases, ${boardCases} board captures.\n`,
+  `League assertions passed: ${adapterCases} adapter-zone cases, ${probeCases} probe-fixture cases, ${boardCases} board captures.\n`,
 );
