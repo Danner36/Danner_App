@@ -9,6 +9,8 @@ export const expoCliPath = fileURLToPath(
   new URL('../../app/node_modules/expo/bin/cli', import.meta.url),
 );
 export const packageName = 'com.example.location_helper';
+// Seeds the hub of a fresh development install so the drivers can find the preset tiles.
+export const TEST_SELECTION = 'mlb-5,nfl-17,ncaa-66';
 export const metroPort = 8081;
 const sdkRoot =
   process.env.ANDROID_HOME ??
@@ -147,6 +149,7 @@ export const parseNodes = (xml) =>
             top: Number(boundsMatch[2]),
           }
         : undefined,
+      className: attribute('class'),
       desc: attribute('content-desc'),
       text: attribute('text'),
     };
@@ -227,6 +230,11 @@ export const buildAndroid = async (env) => {
   if (buildCode !== 0) {
     throw new Error(`Android build exited with code ${buildCode}.`);
   }
+};
+
+// A cleared app is a fresh development install, so the test selection is written again.
+export const clearAppData = async () => {
+  await adb(['shell', 'pm', 'clear', packageName]);
 };
 
 export const reversePorts = async (ports) => {

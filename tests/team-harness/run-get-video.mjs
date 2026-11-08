@@ -8,9 +8,11 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import {
+  TEST_SELECTION,
   TILE_LABELS,
   adb,
   buildAndroid,
+  clearAppData,
   dumpNodes,
   ensureEmulator,
   killChildren,
@@ -198,6 +200,7 @@ const env = {
   EXPO_PUBLIC_DANNER_WORKER_URL: `http://10.0.2.2:${mockPort}`,
   EXPO_PUBLIC_TEAM_SOURCES_URL: `http://10.0.2.2:${mockPort}/sources.json`,
   EXPO_PUBLIC_TEAM_TEST_URL: `http://10.0.2.2:${fixturePort}/team?scenario=live`,
+  EXPO_PUBLIC_TEST_SELECTION: TEST_SELECTION,
 };
 
 // Collects labels until `done` is seen, so each short-lived phone text is recorded.
@@ -229,6 +232,7 @@ try {
   await startMetro(env);
   await reversePorts([8081, fixturePort, mockPort, 7664]);
   await buildAndroid(env);
+  await clearAppData();
   await reversePorts([8081, fixturePort, mockPort, 7664]);
   const tile = TILE_LABELS[teamKey];
   await launchApp(tile);

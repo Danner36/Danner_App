@@ -286,6 +286,7 @@ try {
         EXPO_NO_TELEMETRY: '1',
         EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
         EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
+        EXPO_PUBLIC_TEST_SELECTION: 'mlb-5',
       },
       stdio: 'inherit',
     },
@@ -311,6 +312,7 @@ try {
           EXPO_NO_TELEMETRY: '1',
           EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
           EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEST_SELECTION: 'mlb-5',
         },
         stdio: 'inherit',
       },
@@ -344,6 +346,7 @@ try {
   await adb(['reverse', 'tcp:7664', 'tcp:7664']).catch(() => {});
   await adb(['shell', 'input', 'keyevent', '224']).catch(() => {});
   await adb(['shell', 'wm', 'dismiss-keyguard']).catch(() => {});
+  await adb(['shell', 'pm', 'clear', packageName]);
   await adb(['shell', 'pm', 'revoke', packageName, 'android.permission.RECORD_AUDIO']).catch(
     () => {},
   );

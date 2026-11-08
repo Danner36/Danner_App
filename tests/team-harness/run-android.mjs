@@ -5,9 +5,11 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
+  TEST_SELECTION,
   TILE_LABELS,
   adb,
   buildAndroid,
+  clearAppData,
   dumpNodes,
   ensureEmulator,
   killChildren,
@@ -165,6 +167,7 @@ const env = {
   EXPO_NO_TELEMETRY: '1',
   EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
   EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
+  EXPO_PUBLIC_TEST_SELECTION: TEST_SELECTION,
 };
 
 const server = spawn(
@@ -183,6 +186,7 @@ try {
   await startMetro(env);
   await reversePorts([8081, serverPort, 7664]);
   await buildAndroid(env);
+  await clearAppData();
   await reversePorts([8081, serverPort, 7664]);
   for (const entry of matrix) {
     try {

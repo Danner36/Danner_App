@@ -355,6 +355,7 @@ try {
           EXPO_NO_TELEMETRY: '1',
           EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
           EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEST_SELECTION: 'mlb-5',
         },
         stdio: 'inherit',
       },
@@ -376,6 +377,7 @@ try {
           EXPO_NO_TELEMETRY: '1',
           EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
           EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEST_SELECTION: 'mlb-5',
         },
         stdio: 'inherit',
       },
@@ -389,6 +391,7 @@ try {
   await adb(['reverse', `tcp:${metroPort}`, `tcp:${metroPort}`]).catch(() => {});
   await adb(['reverse', `tcp:${harnessPort}`, `tcp:${harnessPort}`]).catch(() => {});
   await adb(['logcat', '-c']);
+  await adb(['shell', 'pm', 'clear', packageName]);
   await adb(['shell', 'am', 'force-stop', packageName]);
   await adb(['shell', 'am', 'start', '-n', `${packageName}/.MainActivity`]);
 
