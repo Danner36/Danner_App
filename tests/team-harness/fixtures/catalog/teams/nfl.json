@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-11-08T10:00:00.000Z",
+  "league": "nfl",
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "key": "nfl-8",
+      "espnId": "8",
+      "name": "Detroit Lions",
+      "nickname": "Lions",
+      "location": "Detroit",
+      "abbreviation": "DET",
+      "color": "#0076b6",
+      "alternateColor": "#bbbbbb",
+      "hrefNeedles": ["detroit-lions"]
+    },
+    {
+      "key": "nfl-17",
+      "espnId": "17",
+      "name": "New England Patriots",
+      "nickname": "Patriots",
+      "location": "New England",
+      "abbreviation": "NE",
+      "color": "#002a5c",
+      "alternateColor": "#c60c30",
+      "hrefNeedles": ["new-england-patriots"]
+    }
+  ]
+}

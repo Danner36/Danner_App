@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-11-08T10:00:00.000Z",
+  "league": "mlb",
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "key": "mlb-5",
+      "espnId": "5",
+      "name": "Cleveland Guardians",
+      "nickname": "Guardians",
+      "location": "Cleveland",
+      "abbreviation": "CLE",
+      "color": "#00385d",
+      "alternateColor": "#e50022",
+      "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/cle.png",
+      "hrefNeedles": ["cleveland-guardians"],
+      "statsapi": { "teamId": 114, "leagueId": 103 }
+    },
+    {
+      "key": "mlb-6",
+      "espnId": "6",
+      "name": "Detroit Tigers",
+      "nickname": "Tigers",
+      "location": "Detroit",
+      "abbreviation": "DET",
+      "color": "#0a2240",
+      "alternateColor": "#ff4713",
+      "logo": "https://a.espncdn.com/i/teamlogos/mlb/500/det.png",
+      "hrefNeedles": ["detroit-tigers"],
+      "statsapi": { "teamId": 116, "leagueId": 103 }
+    }
+  ]
+}

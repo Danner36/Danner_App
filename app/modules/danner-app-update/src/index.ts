@@ -2,7 +2,13 @@ import { requireOptionalNativeModule } from 'expo';
 import { Platform } from 'react-native';
 
 type DannerAppUpdateModule = {
+  getInstallTimes: () => Promise<InstallTimes>;
   installApk: (url: string, sha256: string) => Promise<string>;
+};
+
+export type InstallTimes = {
+  firstInstallTime: number;
+  lastUpdateTime: number;
 };
 
 export type ReleaseApkInstallResult =
@@ -22,6 +28,11 @@ let activeInstall: Promise<ReleaseApkInstallResult> | undefined;
 
 export function isAppUpdateInstallAvailable(): boolean {
   return nativeModule != null && Platform.OS === 'android';
+}
+
+// The package's install and update times. Undefined on iPhone, which has no equivalent.
+export async function getInstallTimes(): Promise<InstallTimes | undefined> {
+  return nativeModule ? nativeModule.getInstallTimes() : undefined;
 }
 
 export function getActiveReleaseApkInstall():

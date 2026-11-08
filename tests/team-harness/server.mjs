@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
 // Fixture server for the team-screen device harness: GET /team and GET /sources.json, keyed by
-// team key, plus the page and media routes the playback drivers use. POST /control sets the scenario
+// team key, GET /catalog/ with the picker's fixture catalog, plus the page and media routes the
+// playback drivers use. POST /control sets the scenario
 // that requests without one read, so one development bundle serves every scenario.
 
 const port = Number.parseInt(process.env.TEAM_HARNESS_PORT ?? '8108', 10);
@@ -11,6 +12,7 @@ const appleMediaRoot = new URL(
   'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/',
 );
 const TEAM_KEYS = new Set(['mlb-5', 'nfl-17', 'ncaa-66']);
+const CATALOG_PATH = /^\/catalog\/(leagues\.json|teams\/(?:mlb|nfl|ncaa)\.json)$/;
 const validScenarios = new Set([
   'delayed',
   'final',
@@ -173,6 +175,14 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && requestUrl.pathname === '/health') {
     response.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     response.end('ok');
+    return;
+  }
+
+  const catalogMatch = CATALOG_PATH.exec(requestUrl.pathname);
+  if (request.method === 'GET' && catalogMatch) {
+    const body = await readFile(new URL(`catalog/${catalogMatch[1]}`, fixtureDirectory), 'utf8');
+    response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+    response.end(body);
     return;
   }
 

@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-11-08T10:00:00.000Z",
+  "league": "ncaa",
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "key": "ncaa-2294",
+      "espnId": "2294",
+      "name": "Iowa Hawkeyes",
+      "nickname": "Hawkeyes",
+      "location": "Iowa",
+      "abbreviation": "IOWA",
+      "color": "#000000",
+      "alternateColor": "#ffcd00",
+      "conference": "Big Ten",
+      "hrefNeedles": ["iowa-hawkeyes"],
+      "sports": ["football", "mens-basketball", "womens-basketball"]
+    },
+    {
+      "key": "ncaa-66",
+      "espnId": "66",
+      "name": "Iowa State Cyclones",
+      "nickname": "Cyclones",
+      "location": "Iowa State",
+      "abbreviation": "ISU",
+      "color": "#ae192d",
+      "alternateColor": "#f1be48",
+      "conference": "Big 12",
+      "hrefNeedles": ["iowa-state-cyclones"],
+      "sports": ["football", "mens-basketball", "womens-basketball"]
+    },
+    {
+      "key": "ncaa-900",
+      "espnId": "900",
+      "name": "Northern Plains Retired",
+      "nickname": "Retired",
+      "location": "Northern Plains",
+      "abbreviation": "NPR",
+      "hrefNeedles": ["northern-plains-retired"],
+      "sports": ["football"],
+      "retired": true
+    },
+    {
+      "key": "ncaa-901",
+      "espnId": "901",
+      "name": "Hidden Valley Hidden",
+      "nickname": "Hidden",
+      "location": "Hidden Valley",
+      "abbreviation": "HVH",
+      "hrefNeedles": ["hidden-valley-hidden"],
+      "sports": ["football"],
+      "hidden": true
+    },
+    {
+      "key": "ncaa-902",
+      "espnId": "902",
+      "name": "Lakeside Otters",
+      "nickname": "Otters",
+      "location": "Lakeside",
+      "abbreviation": "LAK",
+      "hrefNeedles": ["lakeside-otters"],
+      "sports": ["football", "mens-basketball"],
+      "retiredSports": ["mens-basketball"]
+    }
+  ]
+}

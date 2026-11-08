@@ -2,17 +2,19 @@
 
 Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 
-`App.tsx` is the thin shell: SafeArea, status bar, and a route among the hub, the preset team screens, and TV Location. Product screens live in sibling folders.
+`App.tsx` is the thin shell: SafeArea, status bar, the splash hold until the selection has loaded, and a route among the hub, a team screen, the picker, and TV Location. Product screens live in sibling folders.
 
 ## Folders
 
-- `hub/` is the logo-only main menu, the iPhone signing-warning text, and the GitHub-release update prompt.
+- `hub/` is the logo-only main menu, its grid math, tiles and tile actions, the iPhone signing-warning text, and the GitHub-release update prompt.
+- `picker/` is the team picker, the catalog snapshot, and the catalog cache and parser.
+- `logos/` downloads and resolves team logos; `TeamLogo.tsx` feeds the hub tile and the team hero.
 - `team/` is the one team screen, its pure engine under `team/engine/`, and its pieces.
 - `leagues/` holds the league adapters (`espn/`, `mlb/`) and the shared basketball board parser and rules.
 - `playback/` is the native player, isolated WebView player, Listen, Cast, and TV relay.
 - `streams/` is the per-team streams parser, fetch chain, and Get video through Worker v2.
 - `scoreboards/` is the baseball board, the period board, and `basketball/`, the arena board with pure layout, text, color, and model-type modules.
-- `selection/` holds the tile types and the three presets.
+- `selection/` holds the tile types, the three presets, the tile operations, loading and migration, seeding, and the on-phone store.
 - `tvLocation/` is the four-step YouTube TV location flow and bundled map.
 - `modules/` holds native Expo modules only, not product screens.
 - `assets/` holds shared logos, splash art, and the generated offline map HTML.
@@ -24,6 +26,7 @@ Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 ```powershell
 npm install
 npm run build:offline-map
+npm run build:catalog-snapshot
 npm run typecheck
 npx expo install --check
 npm run android
@@ -31,6 +34,9 @@ npx expo export --platform ios
 npm run test:leagues
 npm run test:team-engine
 npm run test:imports
+npm run test:hub
+npm run test:selection
+npm run test:picker:android
 npm run test:team:android:all
 npm run test:team:android -- --team mlb-5 --scenario live
 npm run test:team:android:get-video -- --team ncaa-66
@@ -52,7 +58,7 @@ Metro answers Android packager requests with a single JavaScript body. The emula
 
 Use `npm run ios` on macOS to create a native iPhone build. `npx expo export --platform ios` validates the production iOS JavaScript bundle on Windows. The local Android release APK is generated at `android/app/build/outputs/apk/release/app-release.apk`.
 
-The checked-in offline map already runs without a network connection. `npm run build:offline-map` refreshes the generated U.S. place, state, and interstate data from the official 2025 U.S. Census sources. `npm run build:offline-map -- --reuse-json` rebuilds `assets/offline-us-map.html` from the committed JSON and the page template `scripts/offline-us-map.template.html` without downloading.
+`npm run build:catalog-snapshot` copies `../catalog/` into `picker/catalogSnapshot.json` before a release and writes nothing when `catalog/` is missing. The checked-in offline map already runs without a network connection. `npm run build:offline-map` refreshes the generated U.S. place, state, and interstate data from the official 2025 U.S. Census sources. `npm run build:offline-map -- --reuse-json` rebuilds `assets/offline-us-map.html` from the committed JSON and the page template `scripts/offline-us-map.template.html` without downloading.
 
 ## Build configuration
 

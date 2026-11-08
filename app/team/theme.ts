@@ -38,6 +38,12 @@ export function teamAccent(key: string, team: TeamRef): string {
   return ACCENT_FALLBACK;
 }
 
+// White or black, whichever has the higher contrast on the color.
+export function textColorOn(hex: string): '#000000' | '#FFFFFF' {
+  const withWhite = contrastWithWhite(hex);
+  return withWhite * withWhite >= 21 ? '#FFFFFF' : '#000000';
+}
+
 export function teamBoardLabel(team: TeamRef): string {
   return team.nickname.length <= 10
     ? team.nickname.toUpperCase()

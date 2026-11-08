@@ -7,7 +7,7 @@ The approved [modular teams plan](../Production/ModularTeams.md) replaces the fi
 
 ## Product
 
-Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a two-row 2×2 artwork grid on the two-thirds line. Cleveland Guardians and New England Patriots sit on the first row. Iowa State Cyclones sits under Guardians. YouTube TV launches `TV Location` from the cell under Patriots. Android and iPhone share all four modules.
+Danner Apps is a cross-platform collection of Danner family tools. The logo-only main menu centers the Danner mark one-third down the screen and a grid of artwork tiles on the two-thirds line: the teams chosen on that phone, then YouTube TV, which launches `TV Location`, then `+`, which adds a team. A family phone upgraded from `v1.x` starts with Cleveland Guardians, New England Patriots, and Iowa State Cyclones. Each sub-app remains self-contained with a clear way back to the menu. Android and iPhone share all features.
 
 ## Guardians experience
 

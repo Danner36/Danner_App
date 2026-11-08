@@ -7,6 +7,6 @@ const PRESET_LOGOS: Readonly<Record<TeamKey, ImageSourcePropType>> = {
   'nfl-17': require('../assets/new-england-patriots-logo.jpg'),
 };
 
-export function heroLogoFor(key: TeamKey): ImageSourcePropType | undefined {
+export function presetLogoFor(key: TeamKey): ImageSourcePropType | undefined {
   return PRESET_LOGOS[key];
 }
