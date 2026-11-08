@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-08T18:10:18.452Z",
+  "generatedAt": "2026-11-08T19:44:38.963Z",
   "leagues": [
     {
       "key": "mlb",
       "label": "MLB",
       "kind": "pro",
-      "pickable": false,
+      "pickable": true,
       "schedule": {
         "provider": "mlb-statsapi",
         "sportId": 1
@@ -19,7 +19,7 @@
       "key": "nfl",
       "label": "NFL",
       "kind": "pro",
-      "pickable": false,
+      "pickable": true,
       "officialDateZone": "America/New_York",
       "schedule": {
         "corePath": "football/leagues/nfl",
@@ -44,7 +44,7 @@
         {
           "key": "football",
           "label": "NCAA football",
-          "pickable": false,
+          "pickable": true,
           "schedule": {
             "corePath": "football/leagues/college-football",
             "provider": "espn",
@@ -62,7 +62,7 @@
         {
           "key": "mens-basketball",
           "label": "NCAA men's basketball",
-          "pickable": false,
+          "pickable": true,
           "schedule": {
             "corePath": "basketball/leagues/mens-college-basketball",
             "provider": "espn",
@@ -80,7 +80,7 @@
         {
           "key": "womens-basketball",
           "label": "NCAA women's basketball",
-          "pickable": false,
+          "pickable": true,
           "schedule": {
             "corePath": "basketball/leagues/womens-college-basketball",
             "provider": "espn",
