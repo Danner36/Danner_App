@@ -1,0 +1,58 @@
+{
+  "cases": [
+    {
+      "name": "an event id matches on the id and the current official date",
+      "stream": { "eventId": "401856779", "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "401856779", "gamePk": 401856779, "gameNumber": 1, "officialDate": "2026-09-12" },
+      "matches": true
+    },
+    {
+      "name": "another event does not match",
+      "stream": { "eventId": "401856779", "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "999", "gamePk": 999, "gameNumber": 1, "officialDate": "2026-09-12" },
+      "matches": false
+    },
+    {
+      "name": "a postponed ESPN event that keeps its id does not show Play on the new date",
+      "stream": { "eventId": "401856779", "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "401856779", "gamePk": 401856779, "gameNumber": 1, "officialDate": "2026-09-13" },
+      "matches": false
+    },
+    {
+      "name": "the event id decides, not the game number",
+      "stream": { "eventId": "401856779", "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "401856779", "gamePk": 401856779, "gameNumber": 2, "officialDate": "2026-09-12" },
+      "matches": true
+    },
+    {
+      "name": "a hand-written entry matches on date and game number",
+      "stream": { "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "1", "gamePk": 1, "gameNumber": 1, "officialDate": "2026-09-12" },
+      "matches": true
+    },
+    {
+      "name": "a hand-written entry does not match another game number",
+      "stream": { "gameDates": ["2026-09-12"], "gameNumbers": [1] },
+      "game": { "gameId": "1", "gamePk": 1, "gameNumber": 2, "officialDate": "2026-09-12" },
+      "matches": false
+    },
+    {
+      "name": "an MLB resumed game keeps its gamePk and official date",
+      "stream": { "eventId": "555", "gameDates": ["2026-08-28"], "gameNumbers": [1] },
+      "game": { "gameId": "555", "gamePk": 555, "gameNumber": 1, "officialDate": "2026-08-28" },
+      "matches": true
+    },
+    {
+      "name": "a school entry needs the same sport",
+      "stream": { "gameDates": ["2026-09-12"], "gameNumbers": [1], "sport": "football" },
+      "game": { "gameId": "1", "gamePk": 1, "gameNumber": 1, "officialDate": "2026-09-12", "sport": "mens-basketball" },
+      "matches": false
+    },
+    {
+      "name": "a school entry with the same sport matches",
+      "stream": { "gameDates": ["2026-09-12"], "gameNumbers": [1], "sport": "football" },
+      "game": { "gameId": "1", "gamePk": 1, "gameNumber": 1, "officialDate": "2026-09-12", "sport": "football" },
+      "matches": true
+    }
+  ]
+}

@@ -1,0 +1,92 @@
+{
+  "wins": 0,
+  "losses": 0,
+  "ties": 0,
+  "liveGame": {
+    "abstractState": "Live",
+    "gameDate": "2026-09-10T00:20:00Z",
+    "gameNumber": 1,
+    "status": "Q2 8:42",
+    "isHome": false,
+    "opponentName": "Seattle Seahawks",
+    "opponentScore": 10,
+    "officialDate": "2026-09-09",
+    "seasonType": 2,
+    "timeValid": true,
+    "gameId": "401872656",
+    "teamScore": 14,
+    "board": {
+      "status": "Q2 8:42",
+      "clock": "8:42",
+      "period": 2,
+      "down": 2,
+      "distance": 7,
+      "situation": "2nd & 7 at SEA 33",
+      "possessionTeamId": 17,
+      "away": {
+        "points": 14,
+        "quarters": [
+          7,
+          7
+        ]
+      },
+      "home": {
+        "points": 10,
+        "quarters": [
+          3,
+          7
+        ]
+      }
+    }
+  },
+  "upcomingGames": [
+    {
+      "abstractState": "Preview",
+      "gameDate": "2026-09-14T17:00:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": true,
+      "opponentName": "Miami Dolphins",
+      "opponentScore": 0,
+      "officialDate": "2026-09-14",
+      "seasonType": 2,
+      "timeValid": true,
+      "gameId": "401872700",
+      "teamScore": 0
+    },
+    {
+      "abstractState": "Preview",
+      "gameDate": "2026-09-21T17:00:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": false,
+      "opponentName": "New York Jets",
+      "opponentScore": 0,
+      "officialDate": "2026-09-21",
+      "seasonType": 2,
+      "timeValid": true,
+      "gameId": "401872710",
+      "teamScore": 0
+    }
+  ],
+  "streams": [
+    {
+      "allowInsecureHttp": true,
+      "kind": "direct",
+      "url": "http://10.0.2.2:8108/http-media/v3/prog_index.m3u8"
+    },
+    {
+      "kind": "direct",
+      "url": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+    },
+    {
+      "kind": "youtube",
+      "url": "https://www.youtube.com/watch?v=qjtzooqcjgA"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "url": "http://10.0.2.2:8108/popup-player"
+    }
+  ]
+}

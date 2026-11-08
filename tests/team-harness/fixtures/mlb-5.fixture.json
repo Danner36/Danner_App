@@ -1,0 +1,118 @@
+{
+  "wins": 60,
+  "losses": 64,
+  "liveGame": {
+    "abstractState": "Live",
+    "gameDate": "2026-08-16T17:40:00Z",
+    "gameNumber": 1,
+    "status": "In Progress",
+    "isHome": true,
+    "opponentName": "Detroit Tigers",
+    "opponentScore": 2,
+    "officialDate": "2026-08-16",
+    "gameId": "999000001",
+    "teamScore": 4,
+    "board": {
+      "status": "Top 5th",
+      "balls": 3,
+      "strikes": 0,
+      "outs": 2,
+      "batterNumber": "42",
+      "pitcherNumber": "31",
+      "innings": [
+        {
+          "num": 1,
+          "away": 0,
+          "home": 0
+        },
+        {
+          "num": 2,
+          "away": 0,
+          "home": 0
+        },
+        {
+          "num": 3,
+          "away": 1,
+          "home": 2
+        },
+        {
+          "num": 4,
+          "away": 1,
+          "home": 1
+        },
+        {
+          "num": 5,
+          "away": 0
+        }
+      ],
+      "away": {
+        "runs": 2,
+        "hits": 5,
+        "errors": 1
+      },
+      "home": {
+        "runs": 4,
+        "hits": 7,
+        "errors": 0
+      }
+    }
+  },
+  "upcomingGames": [
+    {
+      "abstractState": "Preview",
+      "gameDate": "2026-08-18T22:40:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": true,
+      "opponentName": "San Francisco Giants",
+      "opponentScore": 0,
+      "officialDate": "2026-08-18",
+      "gameId": "999000002",
+      "teamScore": 0
+    },
+    {
+      "abstractState": "Preview",
+      "gameDate": "2026-08-22T00:40:00Z",
+      "gameNumber": 1,
+      "status": "Scheduled",
+      "isHome": false,
+      "opponentName": "Colorado Rockies",
+      "opponentScore": 0,
+      "officialDate": "2026-08-21",
+      "gameId": "999000003",
+      "teamScore": 0
+    }
+  ],
+  "streams": [
+    {
+      "allowInsecureHttp": true,
+      "kind": "direct",
+      "url": "http://10.0.2.2:8108/http-media/v3/prog_index.m3u8"
+    },
+    {
+      "kind": "direct",
+      "url": "https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8"
+    },
+    {
+      "kind": "youtube",
+      "url": "https://www.youtube.com/watch?v=qjtzooqcjgA"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "url": "http://10.0.2.2:8108/popup-player"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "trustedHosts": [],
+      "url": "http://10.0.2.2:8108/native-hls-player"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "trustedHosts": [],
+      "url": "http://10.0.2.2:8108/capture-pattern"
+    }
+  ]
+}

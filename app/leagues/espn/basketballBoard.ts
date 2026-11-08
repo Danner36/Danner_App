@@ -147,7 +147,7 @@ function idText(value: unknown): string | undefined {
   return undefined;
 }
 
-// Same parse as finiteCount in app/cyclones/espnCyclonesScoreboard.ts.
+// Same parse as finiteCount in summary.ts.
 function finiteCount(value: unknown): number | undefined {
   const raw = record(value);
   if (raw) {
