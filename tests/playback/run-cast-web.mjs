@@ -3,12 +3,12 @@ import { homedir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const harnessDirectory = fileURLToPath(new URL('.', import.meta.url));
+const harnessDirectory = fileURLToPath(new URL('../team-harness/', import.meta.url));
 const appDirectory = fileURLToPath(new URL('../../app/', import.meta.url));
 const expoCliPath = fileURLToPath(
   new URL('../../app/node_modules/expo/bin/cli', import.meta.url),
 );
-const serverPath = fileURLToPath(new URL('./server.mjs', import.meta.url));
+const serverPath = fileURLToPath(new URL('../team-harness/server.mjs', import.meta.url));
 const sdkRoot = process.env.ANDROID_HOME
   ?? process.env.ANDROID_SDK_ROOT
   ?? path.join(homedir(), 'AppData', 'Local', 'Android', 'Sdk');
@@ -339,8 +339,8 @@ try {
 
   const emulator = serial.startsWith('emulator-');
   const deviceHost = emulator ? '10.0.2.2' : '127.0.0.1';
-  const harnessUrl = `http://${deviceHost}:${harnessPort}/guardians?scenario=live`;
-  const sourcesUrl = `http://${deviceHost}:${harnessPort}/guardians-sources.json`;
+  const harnessUrl = `http://${deviceHost}:${harnessPort}/team?scenario=live`;
+  const sourcesUrl = `http://${deviceHost}:${harnessPort}/sources.json?scenario=live`;
 
   if (await healthyHttp(`http://127.0.0.1:${metroPort}/status`)) {
     reusedMetro = true;
@@ -353,8 +353,8 @@ try {
         env: {
           ...process.env,
           EXPO_NO_TELEMETRY: '1',
-          EXPO_PUBLIC_GUARDIANS_SOURCES_URL: sourcesUrl,
-          EXPO_PUBLIC_GUARDIANS_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
+          EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
         },
         stdio: 'inherit',
       },
@@ -374,8 +374,8 @@ try {
           ...process.env,
           ANDROID_SERIAL: serial,
           EXPO_NO_TELEMETRY: '1',
-          EXPO_PUBLIC_GUARDIANS_SOURCES_URL: sourcesUrl,
-          EXPO_PUBLIC_GUARDIANS_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
+          EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
         },
         stdio: 'inherit',
       },

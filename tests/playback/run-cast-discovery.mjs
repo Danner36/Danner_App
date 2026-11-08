@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import {
   castStreamTypeForRelay,
   castStreamTypeForUrl,
-} from '../../app/guardians/castStreamType.ts';
+} from '../../app/playback/castStreamType.ts';
 import {
   DASH_CONTENT_TYPE,
   HLS_CONTENT_TYPE,
@@ -22,7 +22,7 @@ import {
   tvPressForcesReload,
   tvRelayFailureMessage,
   webMediaDiscoveryInjection,
-} from '../../app/guardians/webMediaDiscoveryInjection.ts';
+} from '../../app/playback/webMediaDiscoveryInjection.ts';
 import {
   isPrivateLanIpv4,
   liveRelayFromNative,

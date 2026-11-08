@@ -1,15 +1,33 @@
 import { readFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 
-const port = Number.parseInt(process.env.GUARDIANS_HARNESS_PORT ?? '8108', 10);
-const fixtureUrl = new URL('./live-game.fixture.json', import.meta.url);
+// Fixture server for the team-screen device harness: GET /team and GET /sources.json, keyed by
+// team key, plus the page and media routes the playback drivers use. POST /control sets the scenario
+// that requests without one read, so one development bundle serves every scenario.
+
+const port = Number.parseInt(process.env.TEAM_HARNESS_PORT ?? '8108', 10);
+const fixtureDirectory = new URL('./fixtures/', import.meta.url);
 const appleMediaRoot = new URL(
   'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/',
 );
-const validScenarios = new Set(['delayed', 'final', 'live', 'ready', 'today']);
+const TEAM_KEYS = new Set(['mlb-5', 'nfl-17', 'ncaa-66']);
+const validScenarios = new Set([
+  'delayed',
+  'final',
+  'live',
+  'live-basketball',
+  'ready',
+  'today',
+  'two-games',
+]);
+let currentScenario = 'live';
 
-async function readFixtureDocument() {
-  return JSON.parse(await readFile(fixtureUrl, 'utf8'));
+async function readFixture(teamKey, scenario) {
+  const name =
+    teamKey === 'ncaa-66' && (scenario === 'live-basketball' || scenario === 'two-games')
+      ? 'live-basketball'
+      : teamKey;
+  return JSON.parse(await readFile(new URL(`${name}.fixture.json`, fixtureDirectory), 'utf8'));
 }
 
 function easternDateString(date) {
@@ -23,17 +41,17 @@ function easternDateString(date) {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-// The app shows a Final recap only on the phone's local official date. The harness host's
-// zone stands in for the phone's; run this server with TZ set to match a phone elsewhere.
+// The app shows an MLB Final recap only on the phone's local official date. The harness host's zone
+// stands in for the phone's; run this server with TZ set to match a phone elsewhere.
 function localDateString(date) {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-// Every official date a scenario can assign at this moment. Near Eastern midnight a live
-// game that started 90 minutes ago, a game starting in 45 minutes, and the recap can each
-// fall on a different date, and the stream entry must match whichever one is featured.
+// Every official date a scenario can assign at this moment. Near Eastern midnight a live game that
+// started 90 minutes ago, a game starting in 45 minutes, and the recap can each fall on a different
+// date, and the stream entry must match whichever one is featured.
 function scenarioOfficialDates(now) {
   return [
     ...new Set([
@@ -46,15 +64,24 @@ function scenarioOfficialDates(now) {
   ];
 }
 
-function snapshotForScenario(fixture, scenario) {
+function recordsFor(teamKey, fixture) {
+  const record = { losses: fixture.losses, ties: fixture.ties ?? 0, wins: fixture.wins };
+  if (teamKey === 'ncaa-66') {
+    return {
+      'ncaa/football': record,
+      'ncaa/mens-basketball': { losses: 0, ties: 0, wins: 0 },
+      'ncaa/womens-basketball': { losses: 0, ties: 0, wins: 0 },
+    };
+  }
+  return { [teamKey === 'mlb-5' ? 'mlb' : 'nfl']: record };
+}
+
+function snapshotForScenario(teamKey, fixture, scenario) {
   const now = Date.now();
+  const records = recordsFor(teamKey, fixture);
   const futureGames = fixture.upcomingGames.map((game, index) => {
     const gameDate = new Date(now + (index + 1) * 86_400_000);
-    return {
-      ...game,
-      gameDate: gameDate.toISOString(),
-      officialDate: easternDateString(gameDate),
-    };
+    return { ...game, gameDate: gameDate.toISOString(), officialDate: easternDateString(gameDate) };
   });
 
   if (scenario === 'final') {
@@ -63,30 +90,59 @@ function snapshotForScenario(fixture, scenario) {
       liveGame: {
         ...fixture.liveGame,
         abstractState: 'Final',
+        board: undefined,
         gameDate: gameDate.toISOString(),
-        guardiansScore: 7,
         officialDate: localDateString(new Date(now)),
         opponentScore: 3,
-        scoreboard: undefined,
         status: 'Final',
+        teamScore: 7,
       },
-      losses: fixture.losses,
+      records,
       upcomingGames: futureGames,
-      wins: fixture.wins,
     };
   }
 
-  if (scenario === 'live') {
+  // The live basketball game plus a men's basketball final from earlier the same day: two cards.
+  if (scenario === 'two-games') {
+    const liveDate = new Date(now - 60 * 60_000);
+    const finalDate = new Date(now - 3 * 60 * 60_000);
+    return {
+      boardFlags: fixture.boardFlags,
+      liveGame: {
+        ...fixture.liveGame,
+        gameDate: liveDate.toISOString(),
+        officialDate: easternDateString(liveDate),
+      },
+      records,
+      upcomingGames: [
+        {
+          ...fixture.liveGame,
+          abstractState: 'Final',
+          board: undefined,
+          gameDate: finalDate.toISOString(),
+          gameId: String(Number(fixture.liveGame.gameId) + 1),
+          officialDate: easternDateString(finalDate),
+          opponentScore: 66,
+          sport: 'mens-basketball',
+          status: 'Final',
+          teamScore: 72,
+        },
+        ...futureGames,
+      ],
+    };
+  }
+
+  if (scenario === 'live' || scenario === 'live-basketball') {
     const gameDate = new Date(now - 90 * 60_000);
     return {
+      boardFlags: fixture.boardFlags,
       liveGame: {
         ...fixture.liveGame,
         gameDate: gameDate.toISOString(),
         officialDate: easternDateString(gameDate),
       },
-      losses: fixture.losses,
+      records,
       upcomingGames: futureGames,
-      wins: fixture.wins,
     };
   }
 
@@ -95,17 +151,18 @@ function snapshotForScenario(fixture, scenario) {
   const todayGame = {
     ...fixture.liveGame,
     abstractState: 'Preview',
+    board: undefined,
     gameDate: gameDate.toISOString(),
-    guardiansScore: 0,
-    opponentScore: 0,
     officialDate: easternDateString(gameDate),
+    opponentScore: 0,
     status: scenario === 'delayed' ? 'Delayed Start' : 'Scheduled',
+    teamScore: 0,
   };
-  return {
-    losses: fixture.losses,
-    upcomingGames: [todayGame, ...futureGames],
-    wins: fixture.wins,
-  };
+  return { records, upcomingGames: [todayGame, ...futureGames] };
+}
+
+function scenarioFrom(requestUrl) {
+  return requestUrl.searchParams.get('scenario') ?? currentScenario;
 }
 
 const server = createServer(async (request, response) => {
@@ -119,34 +176,43 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === 'GET' && requestUrl.pathname === '/guardians') {
+  if (request.method === 'POST' && requestUrl.pathname === '/control') {
+    const scenario = requestUrl.searchParams.get('scenario') ?? '';
+    if (!validScenarios.has(scenario)) {
+      response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+      response.end('Unknown scenario');
+      return;
+    }
+    currentScenario = scenario;
+    response.writeHead(204);
+    response.end();
+    return;
+  }
+
+  if (request.method === 'GET' && requestUrl.pathname === '/team') {
     try {
-      const scenario = requestUrl.searchParams.get('scenario') ?? 'live';
-      if (!validScenarios.has(scenario)) {
-        response.writeHead(400, {
-          'Content-Type': 'text/plain; charset=utf-8',
-        });
-        response.end('Unknown Guardians scenario');
+      const teamKey = requestUrl.searchParams.get('team') ?? '';
+      const scenario = scenarioFrom(requestUrl);
+      if (!TEAM_KEYS.has(teamKey) || !validScenarios.has(scenario)) {
+        response.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+        response.end('Unknown team or scenario');
         return;
       }
-      const fixture = await readFixtureDocument();
-      response.writeHead(200, {
-        'Content-Type': 'application/json; charset=utf-8',
-      });
-      response.end(JSON.stringify(snapshotForScenario(fixture, scenario)));
+      const fixture = await readFixture(teamKey, scenario);
+      response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      response.end(JSON.stringify(snapshotForScenario(teamKey, fixture, scenario)));
     } catch {
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Invalid Guardians fixture');
+      response.end('Invalid fixture');
     }
     return;
   }
 
-  if (
-    request.method === 'GET' &&
-    requestUrl.pathname === '/guardians-sources.json'
-  ) {
+  if (request.method === 'GET' && requestUrl.pathname === '/sources.json') {
     try {
-      const fixture = await readFixtureDocument();
+      const teamKey = requestUrl.searchParams.get('team') ?? '';
+      const scenario = scenarioFrom(requestUrl);
+      const fixture = await readFixture(teamKey, scenario);
       const gameDates = scenarioOfficialDates(Date.now());
       const advertisedHost = request.headers.host ?? `10.0.2.2:${port}`;
       const streams = fixture.streams.map((stream) => ({
@@ -154,16 +220,15 @@ const server = createServer(async (request, response) => {
         gameDates,
         gameNumbers: [1],
         kind: stream.kind,
+        ...(teamKey === 'ncaa-66' ? { sport: stream.sport ?? fixture.liveGame.sport ?? 'football' } : {}),
         trustedHosts: stream.trustedHosts ?? [],
         url: stream.url.replaceAll('10.0.2.2:8108', advertisedHost),
       }));
-      response.writeHead(200, {
-        'Content-Type': 'application/json; charset=utf-8',
-      });
+      response.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       response.end(JSON.stringify({ streams }));
     } catch {
       response.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Invalid Guardians stream fixture');
+      response.end('Invalid stream fixture');
     }
     return;
   }
@@ -388,7 +453,7 @@ const server = createServer(async (request, response) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  process.stdout.write(`Guardians harness listening on http://localhost:${port}\n`);
+  process.stdout.write(`Team harness listening on http://localhost:${port}\n`);
 });
 
 const stop = () => server.close(() => process.exit(0));

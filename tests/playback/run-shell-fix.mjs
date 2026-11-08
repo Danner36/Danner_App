@@ -8,7 +8,7 @@ const appDirectory = fileURLToPath(new URL('../../app/', import.meta.url));
 const expoCliPath = fileURLToPath(
   new URL('../../app/node_modules/expo/bin/cli', import.meta.url),
 );
-const serverPath = fileURLToPath(new URL('./server.mjs', import.meta.url));
+const serverPath = fileURLToPath(new URL('../team-harness/server.mjs', import.meta.url));
 const sdkRoot = process.env.ANDROID_HOME
   ?? process.env.ANDROID_SDK_ROOT
   ?? path.join(homedir(), 'AppData', 'Local', 'Android', 'Sdk');
@@ -19,8 +19,8 @@ const emulatorPath = path.join(
   process.platform === 'win32' ? 'emulator.exe' : 'emulator',
 );
 const packageName = 'com.example.location_helper';
-const harnessUrl = 'http://10.0.2.2:8108/guardians?scenario=live';
-const sourcesUrl = 'http://10.0.2.2:8108/guardians-sources.json';
+const harnessUrl = 'http://10.0.2.2:8108/team?scenario=live';
+const sourcesUrl = 'http://10.0.2.2:8108/sources.json?scenario=live';
 const metroPort = 8081;
 
 const children = [];
@@ -284,8 +284,8 @@ try {
       env: {
         ...process.env,
         EXPO_NO_TELEMETRY: '1',
-        EXPO_PUBLIC_GUARDIANS_SOURCES_URL: sourcesUrl,
-        EXPO_PUBLIC_GUARDIANS_TEST_URL: harnessUrl,
+        EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
+        EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
       },
       stdio: 'inherit',
     },
@@ -309,8 +309,8 @@ try {
         env: {
           ...process.env,
           EXPO_NO_TELEMETRY: '1',
-          EXPO_PUBLIC_GUARDIANS_SOURCES_URL: sourcesUrl,
-          EXPO_PUBLIC_GUARDIANS_TEST_URL: harnessUrl,
+          EXPO_PUBLIC_TEAM_SOURCES_URL: sourcesUrl,
+          EXPO_PUBLIC_TEAM_TEST_URL: harnessUrl,
         },
         stdio: 'inherit',
       },
