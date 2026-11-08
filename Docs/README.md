@@ -7,7 +7,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 ## Subfolders
 
 - `Anchor/` contains product intent and platform boundaries.
-- `Domain/` contains the Guardians, Patriots, and Cyclones dashboards, authorized playback rules, destination selection, and the four-step playback-area flow.
+- `Domain/` contains the team screen, league adapters, authorized playback rules, destination selection, and the four-step playback-area flow.
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
 - `Production/` contains current capability, delivery, and validation status, plus the approved modular-teams plan.
@@ -18,9 +18,9 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Topic | Source |
 |-------|--------|
 | Product intent and platform boundaries | [Anchor/Vision.md](Anchor/Vision.md) |
-| Guardians data, schedule, and playback | [Domain/Guardians.md](Domain/Guardians.md) |
-| Patriots data, schedule, and playback | [Domain/Patriots.md](Domain/Patriots.md) |
-| Cyclones data, schedule, and playback | [Domain/Cyclones.md](Domain/Cyclones.md) |
+| One team screen | [Domain/TeamScreen.md](Domain/TeamScreen.md) |
+| League adapters | [Domain/Leagues/](Domain/Leagues/MLB.md) |
+| Streams files, Get video, and playback kinds | [Domain/Streams.md](Domain/Streams.md) |
 | App hub, destination selection, and playback-area flow | [Domain/Playback.md](Domain/Playback.md) |
 | Runtime, dependencies, and builds | [Technical/Stack.md](Technical/Stack.md) |
 | Visual specification and launcher art | [Art/README.md](Art/README.md) |
@@ -29,7 +29,6 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Modular teams delivery plan | [Production/ModularTeams.md](Production/ModularTeams.md) |
 | Fixed three-team design (archived, `823d2be`) | [Archive/FixedTeams/README.md](Archive/FixedTeams/README.md) |
 | SideStore iPhone distribution (archived, `19740af`) | [Archive/IphoneSideStore/README.md](Archive/IphoneSideStore/README.md) |
-| Iowa State Cyclones implement notes (superseded by the modular teams plan) | [Production/Cyclones.md](Production/Cyclones.md) |
 | Physical iPhone install (Windows) | [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md) |
 | Family iPhone setup card | [../release/IPHONE_SETUP.md](../release/IPHONE_SETUP.md) |
 | Legacy APK inventory | [../reference/Apk_Inventory.md](../reference/Apk_Inventory.md) |

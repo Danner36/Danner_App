@@ -7,6 +7,7 @@ Phase: MVP
 |-----------------------------|--------|----------------|
 | Cross-platform application | Complete | One Expo SDK 57 and React Native 0.86 project serves Android and iPhone |
 | Danner app hub | Complete | Logo-only two-row 2×2 hub: Guardians and Patriots on row 1, Cyclones under Guardians, YouTube TV under Patriots |
+| One team screen | In progress | `ModularTeams.md` Phase 3 is on `main` with no tag: `app/team/` replaces the three fixed screens, one ESPN and one statsapi adapter serve the presets, and streams and Get video use Worker v2 per team key. The hub is still fixed; family phones stay on `v1.x` until the cutover release |
 | Guardians dashboard | Complete | MLB-backed record, today/live/Final-recap featured card, one-second countdown, explicit interruption states, live score, five-second park-style scoreboard while live, remaining schedule, phone-local times, ten-minute schedule refresh, one-minute source refresh, pull-to-refresh, and retry are implemented |
 | Patriots dashboard | Implementation complete | ESPN-backed leftover preseason, regular-season, and playoff schedule, regular-season W–L–T, today/live/Final-recap featured card, football scoreboard, Time TBA, ten-minute schedule refresh, and the same Watch timing as Guardians. Device confirmation is still required |
 | Patriots authorized playback | Implementation complete | Root `patriots_streams.json` holds the six-field schema plus an inactive copyable example. Entries match America/New_York official dates and game number 1 |

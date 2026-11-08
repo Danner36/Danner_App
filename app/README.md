@@ -2,16 +2,17 @@
 
 Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 
-`App.tsx` is the thin shell: SafeArea, status bar, and a switch among the hub, Guardians, Patriots, Cyclones, and TV Location. Product screens live in sibling folders. `guardians_streams.json`, `patriots_streams.json`, and `cyclones_streams.json` stay at the repository root so phones keep fetching `.../main/` those files. (Superseded by `Docs/Production/ModularTeams.md`, Phases 3, 4, and 6.)
+`App.tsx` is the thin shell: SafeArea, status bar, and a route among the hub, the preset team screens, and TV Location. Product screens live in sibling folders.
 
 ## Folders
 
 - `hub/` is the logo-only main menu, the iPhone signing-warning text, and the GitHub-release update prompt.
-- `guardians/` is the Cleveland Guardians dashboard and authorized players.
-- `patriots/` is the New England Patriots dashboard and authorized players.
-- `cyclones/` is the Iowa State Cyclones dashboard and authorized players.
-- `scoreboards/basketball/` is the basketball arena board: `BasketballArenaBoard.tsx` plus pure layout, text, color, and model-type modules.
-- `leagues/espn/` holds the pure ESPN basketball board parser and each basketball adapter's capability flags and foul rules.
+- `team/` is the one team screen, its pure engine under `team/engine/`, and its pieces.
+- `leagues/` holds the league adapters (`espn/`, `mlb/`) and the shared basketball board parser and rules.
+- `playback/` is the native player, isolated WebView player, Listen, Cast, and TV relay.
+- `streams/` is the per-team streams parser, fetch chain, and Get video through Worker v2.
+- `scoreboards/` is the baseball board, the period board, and `basketball/`, the arena board with pure layout, text, color, and model-type modules.
+- `selection/` holds the tile types and the three presets.
 - `tvLocation/` is the four-step YouTube TV location flow and bundled map.
 - `modules/` holds native Expo modules only, not product screens.
 - `assets/` holds shared logos, splash art, and the generated offline map HTML.
@@ -27,34 +28,16 @@ npm run typecheck
 npx expo install --check
 npm run android
 npx expo export --platform ios
-npm run test:guardians:android
-npm run test:guardians:android:ready
-npm run test:guardians:android:delayed
-npm run test:guardians:android:final
-npm run test:guardians:android:live
-npm run test:guardians:snapshot
-npm run test:guardians:cast-discovery
-npm run test:guardians:android:cast-web
-npm run test:guardians:android:shell-fix
-npm run test:guardians:android:get-video
-npm run test:guardians:server
-npm run test:patriots:android
-npm run test:patriots:android:ready
-npm run test:patriots:android:delayed
-npm run test:patriots:android:final
-npm run test:patriots:android:live
-npm run test:patriots:snapshot
-npm run test:patriots:android:get-video
-npm run test:patriots:server
-npm run test:cyclones:android
-npm run test:cyclones:android:ready
-npm run test:cyclones:android:delayed
-npm run test:cyclones:android:final
-npm run test:cyclones:android:live
-npm run test:cyclones:android:live-basketball
-npm run test:cyclones:snapshot
-npm run test:cyclones:android:get-video
-npm run test:cyclones:server
+npm run test:leagues
+npm run test:team-engine
+npm run test:imports
+npm run test:team:android:all
+npm run test:team:android -- --team mlb-5 --scenario live
+npm run test:team:android:get-video -- --team ncaa-66
+npm run test:team:server
+npm run test:playback:cast-discovery
+npm run test:playback:android:cast-web
+npm run test:playback:android:shell-fix
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map

@@ -43,11 +43,14 @@ Release builds bake the GitHub tag into the Android version name and version cod
 
 | Path | Role |
 |------|------|
-| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / Guardians / Patriots / Cyclones / TV Location switch |
+| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / preset team screen / TV Location routes |
 | `app/hub/` | Logo-only two-row menu, iPhone signing-warning text, and GitHub-release update prompt |
-| `app/guardians/` | MLB data retrieval, today/live/recap promotion, countdown, delay state, source refresh and cache, Get video, Listen, Cast/TV send, schedule, and video player |
-| `app/patriots/` | ESPN NFL data retrieval, today/live/recap promotion, football scoreboard, countdown, source refresh and cache, Get video, Listen, Cast/TV send, schedule, and video player |
-| `app/cyclones/` | ESPN NCAA football, men's basketball, and women's basketball retrieval, featured pick across sports, three records, sport-specific boards, countdown, source refresh and cache, Get video with `sport`, and reused Guardians players |
+| `app/team/` | The one team screen, its featured cards and schedule, and the pure engine under `engine/` |
+| `app/leagues/` | League adapters: ESPN rows, MLB statsapi, and the basketball board parser and rules |
+| `app/playback/` | Native and isolated web players, Listen, Cast, and the TV relay |
+| `app/streams/` | Per-team streams parser, fetch chain, and Get video through Worker v2 |
+| `app/scoreboards/` | Baseball, period, and basketball arena boards |
+| `app/selection/` | Tile types and the three presets |
 | `app/tvLocation/` | Guided home, destination storage, bundled map, browser injection, and verification view |
 | `guardians_streams.json` | Owner-edited, GitHub-hosted Guardians playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
 | `patriots_streams.json` | Owner-edited, GitHub-hosted Patriots playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
@@ -67,9 +70,9 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `.github/workflows/guardians-stream-pipeline.yml` | Guardians Get video extract job, started by `repository_dispatch` type `guardians-get-video` |
 | `.github/workflows/patriots-stream-pipeline.yml` | Patriots Get video extract job, started by `repository_dispatch` type `patriots-get-video` |
 | `.github/workflows/cyclones-stream-pipeline.yml` | Cyclones Get video extract job, started by `repository_dispatch` type `cyclones-get-video` |
-| `tests/guardians/` | Repo-only today/ready/delayed/live/final/get-video/live-HLS harness |
-| `tests/patriots/` | Repo-only today/ready/delayed/live/final/get-video harness |
-| `tests/cyclones/` | Repo-only today/ready/delayed/live/final/get-video harness plus snapshot |
+| `tests/team-harness/` | Repo-only fixture server and device drivers: today/ready/delayed/live/final/live-basketball/get-video per team key |
+| `tests/team-engine/`, `tests/leagues/`, `tests/imports/` | Pure engine, adapter, and import suites |
+| `tests/playback/` | Cast discovery, Cast web, and Back navigation drivers |
 | `release/` | Required GitHub release set, update manifests, and portable iPhone first-install and recovery card linking to official LocalDevVPN, SideStore, iLoader, and Danner release locations |
 | `reference/` | Legacy APK and its technical inventory |
 | `tests/app-update/` | Release-tag compare, manifest parse, and update-asset writer |
@@ -87,32 +90,12 @@ npx expo install --check
 npm run android
 npm run ios
 npx expo export --platform ios
-npm run test:guardians:android
-npm run test:guardians:android:ready
-npm run test:guardians:android:delayed
-npm run test:guardians:android:live
-npm run test:guardians:snapshot
-npm run test:guardians:cast-discovery
-npm run test:guardians:android:final
-npm run test:guardians:android:live-hls
-npm run test:guardians:android:get-video
-npm run test:guardians:server
-npm run test:patriots:android
-npm run test:patriots:android:ready
-npm run test:patriots:android:delayed
-npm run test:patriots:android:final
-npm run test:patriots:android:live
-npm run test:patriots:snapshot
-npm run test:patriots:android:get-video
-npm run test:patriots:server
-npm run test:cyclones:android
-npm run test:cyclones:android:ready
-npm run test:cyclones:android:delayed
-npm run test:cyclones:android:final
-npm run test:cyclones:android:live
-npm run test:cyclones:snapshot
-npm run test:cyclones:android:get-video
-npm run test:cyclones:server
+npm run test:leagues
+npm run test:team-engine
+npm run test:imports
+npm run test:team:android:all
+npm run test:team:android:get-video -- --team mlb-5
+npm run test:playback:cast-discovery
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map
