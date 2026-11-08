@@ -878,15 +878,17 @@ assert.equal(centerBoard.away.teamId, '66');
 assert.equal(centerBoard.away.color, '#AE192D');
 assert.equal(centerBoard.home.color, '#330A57');
 assert.equal(centerBoard.home.alternateColor, '#E2E3E4');
-assert.equal(Object.values(centerBoard.flags).some(Boolean), false);
+assert.equal(centerBoard.flags.players, true);
+assert.equal(centerBoard.flags.teamFouls, true);
+assert.equal(centerBoard.flags.timeouts, false);
+assert.equal(centerBoard.flags.possessionArrow, false);
 for (const side of sides) {
-  assert.equal(centerBoard[side].lineup, 'unavailable');
-  assert.deepEqual(centerBoard[side].players, []);
-  assert.equal(centerBoard[side].bonus, 'none');
-  assert.equal(centerBoard[side].teamFouls, undefined);
+  assert.equal(centerBoard[side].lineup, 'floor');
+  assert.equal(centerBoard[side].players.length, 5);
+  assert.equal(typeof centerBoard[side].teamFouls, 'number');
   assert.equal(centerBoard[side].timeoutsLeft, undefined);
 }
-assert.equal(centerBoard.lastFoul, undefined);
+assert.ok(centerBoard.lastFoul);
 assert.deepEqual(centerBoard.stale, {
   playerCellsAppliedAt: boardPolledAt,
   playsLength: basketballSummary.plays.length,

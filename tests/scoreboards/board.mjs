@@ -1260,7 +1260,10 @@ check('flags off omit cells', () => {
       teamFouls: false,
     }),
   );
-  assert.deepEqual(basketballRulesFor('ncaa/womens-basketball').flags, off.flags);
+  assert.deepEqual(
+    basketballRulesFor('ncaa/womens-basketball').flags,
+    basketballRulesFor('ncaa/mens-basketball').flags,
+  );
   assert.deepEqual(basketballRulesFor('ncaa/mens-basketball').flags, {
     ...off.flags,
     bonus: true,
@@ -1509,6 +1512,9 @@ function liveCaptures() {
   return out;
 }
 
+// This game's substitution log fails the lineup check, so its tables hold the top scorers.
+const TOP_SCORER_EVENTS = new Set(['401917691']);
+
 for (const capture of liveCaptures()) {
   check(`live capture ${capture.adapter} ${capture.event}/${capture.file}`, () => {
     const rules = basketballRulesFor(capture.adapter);
@@ -1516,6 +1522,10 @@ for (const capture of liveCaptures()) {
     assert.ok(model);
     if (!rules.flags.players) return;
     for (const side of [model.away, model.home]) {
+      if (TOP_SCORER_EVENTS.has(capture.event)) {
+        assert.equal(side.lineup, 'topScorers', `${side.teamId} lineup`);
+        continue;
+      }
       assert.equal(side.lineup, 'floor', `${side.teamId} lineup`);
       const active = boxAthletes(capture.summary, side.teamId)
         .filter((entry) => entry.active === true)

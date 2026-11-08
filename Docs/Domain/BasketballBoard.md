@@ -61,7 +61,7 @@ A flag that is off omits its row or cell instead of dashing it; with `players` o
 
 | Flag or rule | `ncaa/mens-basketball` | `ncaa/womens-basketball` |
 |---|---|---|
-| `players`, `rebounds`, `teamFouls`, `bonus`, `lastFoul` | On | Off |
+| `players`, `rebounds`, `teamFouls`, `bonus`, `lastFoul` | On | On |
 | `activeLineup`, `timeouts`, `possessionArrow` | Off | Off |
 | Foul window | Each half; overtime continues the second half | Each quarter; overtime continues the fourth |
 | Bonus | 6 opponent fouls `BONUS`, 9 `2× BONUS` | 4 `BONUS` |

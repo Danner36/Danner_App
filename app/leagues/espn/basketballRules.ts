@@ -93,6 +93,19 @@ const NCAA_MENS_FLAGS: BasketballCapabilityFlags = {
   teamFouls: true,
 };
 
+// Women's flags after the live capture of event 401917691 (tests/leagues/ncaa-womens-basketball/
+// captures/): team fouls per quarter matched the foul plays. The substitution replay failed its
+// lineup check on every captured poll of that game, so its tables show the top scorers; the
+// fallback stays because a failed check is never captioned as on the floor.
+const NCAA_WOMENS_FLAGS: BasketballCapabilityFlags = {
+  ...FLAGS_OFF,
+  bonus: true,
+  lastFoul: true,
+  players: true,
+  rebounds: true,
+  teamFouls: true,
+};
+
 // NCAA: PersonalFoul (519) and Technical Foul (521).
 const NCAA_TEAM_FOUL_PLAYS: TeamFoulPlayMatch = {
   kind: 'typeIds',
@@ -126,7 +139,7 @@ const RULES: Readonly<Record<BasketballAdapterKey, BasketballRules>> = deepFreez
   'ncaa/womens-basketball': {
     adapter: 'ncaa/womens-basketball',
     bonus: { bonusAt: 4 },
-    flags: FLAGS_OFF,
+    flags: NCAA_WOMENS_FLAGS,
     foulWindow: { overtime: 'continuesLastPeriod' },
     playerFoulLimit: 5,
     regulationPeriods: 4,
