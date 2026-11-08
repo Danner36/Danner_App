@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import type { TeamKey, TeamRef } from '../leagues/types.ts';
 import { teamAccent, textColorOn } from '../team/theme';
+import { LOGO_BACKGROUND } from './logoColors';
 import { cachedLogoUri, getLogoVersion, subscribeToLogos } from './logoStore';
 
 const LOGO_PADDING_RATIO = 0.12;
@@ -23,7 +24,7 @@ export function TeamLogo({
   const uri = cachedLogoUri(tileKey);
   if (uri) {
     return (
-      <View style={[styles.fill, styles.white, { padding: size * LOGO_PADDING_RATIO }]}>
+      <View style={[styles.fill, styles.background, { padding: size * LOGO_PADDING_RATIO }]}>
         <Image resizeMode="contain" source={{ uri }} style={styles.fill} />
       </View>
     );
@@ -59,7 +60,7 @@ const styles = StyleSheet.create({
     height: '100%',
     width: '100%',
   },
-  white: {
-    backgroundColor: '#FFFFFF',
+  background: {
+    backgroundColor: LOGO_BACKGROUND,
   },
 });

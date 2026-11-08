@@ -3,9 +3,9 @@ Phase: MVP
 
 # Basketball arena board
 
-A gym-style board for a live basketball game: a center panel with both team names, the scores, the game clock, the phase, the period, team fouls, bonus pills and the last foul, and each team's five players with jersey (`#`), fouls (`FL`) and points (`PTS`). Team names are text; the board carries no logos or other branding.
+A gym-style board for a live basketball game: a center panel with both team names, team fouls, bonus pills and the last foul, and each team's five players with jersey (`#`), fouls (`FL`) and points (`PTS`). Team names are text; the board carries no logos or other branding.
 
-A school tile's featured card draws it for a live men's or women's basketball game, as the card's last item, after the Play and Listen row and Get video. It is not drawn before the game is Live or after Final: the countdown comes before, and the Final recap keeps its score box. Football keeps its own board.
+The card's score header (`app/team/GameScoreHeader.tsx`) holds the score, clock, period, phase and possession. A school tile's featured card draws the board for a live men's or women's basketball game, as the card's last item, after the Play and Listen row and Get video. It is not drawn before the game is Live or after Final: the countdown comes before, and the Final recap keeps its score box. Football keeps its own board.
 
 ## Code
 
@@ -57,7 +57,7 @@ The check rejects inconsistent data; it cannot prove the lineup. A substitution 
 
 ## Capability flags and rules
 
-A flag that is off omits its row or cell instead of dashing it; with `players` off the board is the center panel only. A flag turns on only after a live capture for that adapter holds the paths it needs. The men's row has `players`, `rebounds`, `teamFouls`, `bonus` and `lastFoul` on, from the live capture of event 401909771; every women's flag is off until a women's live capture, so a women's game shows the team names, scores, clock, phase and period.
+A flag that is off omits its row or cell instead of dashing it; with `players` off the board is the center panel only, and with every detail flag off only the stale note is drawn. A flag turns on only after a live capture for that adapter holds the paths it needs. The men's row has `players`, `rebounds`, `teamFouls`, `bonus` and `lastFoul` on, from the live capture of event 401909771; every women's flag is off until a women's live capture, so a women's game shows the team names, scores, clock, phase and period.
 
 | Flag or rule | `ncaa/mens-basketball` | `ncaa/womens-basketball` |
 |---|---|---|
@@ -82,7 +82,7 @@ The live summary poll and the schedule refresh share one board per featured game
 
 The board's inner width is W = min(window width, 720) − 76; the board reaches 12 dp into the card's padding. `split` (236 ≤ W < 612, phones in portrait): the center panel spans the board and the two tables sit side by side under it. `arena` (W ≥ 612): away table, center panel and home table in one row. `stacked` (W < 236): center panel, then each table at full width. With `players` off the board is the center panel alone, scaled to the full width in every mode. Nothing scrolls sideways.
 
-Away is left and home right. The followed team gets a 4 dp stripe in its accent color; the opponent's stripe is its ESPN color at 3:1 or more against the panel, else its alternate color, else `#C7D2DD`. Colors live in `arenaTokens.ts`: navy `#07264A` panel, black `#05070A` wells, amber `#FFCF4A` score, clock and points digits, white stat digits, 12 dp labels, system tabular digits.
+Away is left and home right. The followed team's 4 dp stripe is its accent color at 3:1 or more against the panel, else its alternate color, else the muted label color; the opponent's stripe is its ESPN color at 3:1 or more against the panel, else its alternate color, else `#C7D2DD`. Colors live in `arenaTokens.ts`: navy `#07264A` panel, black `#05070A` wells, amber `#FFCF4A` score, clock and points digits, white stat digits, 12 dp labels, system tabular digits.
 
 ## States
 

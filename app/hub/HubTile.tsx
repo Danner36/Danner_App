@@ -5,6 +5,7 @@ import {
   Text,
   type AccessibilityActionEvent,
 } from 'react-native';
+import { LOGO_BACKGROUND } from '../logos/logoColors';
 
 const PLUS_GLYPH_RATIO = 0.5;
 
@@ -78,7 +79,7 @@ const styles = StyleSheet.create({
   },
   tile: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: LOGO_BACKGROUND,
     borderColor: '#A9CEBB',
     borderRadius: 14,
     borderWidth: 2,

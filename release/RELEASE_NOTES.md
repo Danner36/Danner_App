@@ -22,8 +22,7 @@ Install only from the in-app update or this repository's releases. Any other cop
 - Team picker for MLB, NFL, and NCAA football, men's basketball, and women's basketball
 - Phones updating from v1 keep Cleveland Guardians, New England Patriots, Iowa State Cyclones, and YouTube TV on the hub
 - One team screen for every team: record, every game today on a featured card, countdown, remaining schedule, and the same Play, Listen, Get video, and TV send controls
-- Football, baseball, and basketball scoreboards while a game is live, and a Final recap afterward
-- Win chance bar on the featured card
+- Every game card leads with the score, clock, both teams, and win chance, with each sport's extra stats below the video controls
 - Get video works for any chosen team, tries backup sources in order, and shows its progress while it searches
 - TV Location with a default and current location on each phone, and each person's own YouTube TV sign-in
 - Offline United States location map

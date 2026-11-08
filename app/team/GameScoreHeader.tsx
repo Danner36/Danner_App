@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import type { WinChance } from '../leagues/espn/winChance.ts';
 import type { TeamKey, TeamRef } from '../leagues/types.ts';
+import { LOGO_BACKGROUND } from '../logos/logoColors';
 import { TeamLogo } from '../logos/TeamLogo';
 import { isAllowedLogoUrl } from '../picker/catalogModel.ts';
 import type { ScoreHeader, ScoreHeaderRow } from './engine/scoreHeader.ts';
@@ -249,7 +250,7 @@ const styles = StyleSheet.create({
   },
   logoBox: {
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: LOGO_BACKGROUND,
     borderRadius: 8,
     height: LOGO_SIZE,
     justifyContent: 'center',
