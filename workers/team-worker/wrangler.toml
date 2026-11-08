@@ -1,5 +1,6 @@
 # The name is the live Worker's name and is frozen. worker-deploy.yml deploys the staging copy with
-# `--name guardians-get-video-staging`; the same bindings and migration apply to both.
+# `--name guardians-get-video-staging`; the same bindings and migration apply to both, and the
+# staging copy overrides GLOBAL_DISPATCH_PER_HOUR to 0 so it can never start a run.
 name = "guardians-get-video"
 main = "src/index.js"
 compatibility_date = "2026-10-20"

@@ -17,6 +17,30 @@ export class UpstreamError extends Error {
   }
 }
 
+class WaitTimeoutError extends UpstreamError {}
+
+// Bounds a wait on a shared read by this request's own timer. The read may belong to another
+// request whose context has already ended, and then it never settles.
+function withinRequestTimeout(promise, stage) {
+  let timer;
+  const expiry = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new WaitTimeoutError(stage, 'timed out')), REQUEST_TIMEOUT_MS);
+  });
+  return Promise.race([promise, expiry]).finally(() => clearTimeout(timer));
+}
+
+// Joins the in-flight read unless it is old enough that its request may be gone, in which case a
+// new read replaces it. `clear` removes an entry only while it is still the current one.
+function sharedRead({ current, nowMs, start, store, clear }) {
+  if (current && nowMs - current.startedAt < REQUEST_TIMEOUT_MS) {
+    return current.promise;
+  }
+  const entry = { startedAt: nowMs };
+  entry.promise = start().finally(() => clear(entry));
+  store(entry);
+  return entry.promise;
+}
+
 export function githubRepo(env) {
   return env.GITHUB_REPO ?? DEFAULT_REPO;
 }
@@ -54,14 +78,31 @@ export class FolderIndex {
     this.ttlMs = ttlMs;
   }
 
-  read(env) {
+  async read(env) {
     if (this.entries && this.now() < this.freshUntil) {
-      return Promise.resolve(this.entries);
+      return this.entries;
     }
-    this.pending ??= this.refresh(env).finally(() => {
-      this.pending = undefined;
+    const pending = sharedRead({
+      clear: (entry) => {
+        if (this.pending === entry) {
+          this.pending = undefined;
+        }
+      },
+      current: this.pending,
+      nowMs: this.now(),
+      start: () => this.refresh(env),
+      store: (entry) => {
+        this.pending = entry;
+      },
     });
-    return this.pending;
+    try {
+      return await withinRequestTimeout(pending, `folder ${this.path}`);
+    } catch (error) {
+      if (error instanceof WaitTimeoutError) {
+        return this.failed('timed out');
+      }
+      throw error;
+    }
   }
 
   async refresh(env) {
@@ -120,9 +161,10 @@ export class FolderIndex {
 
 // A blob SHA names one immutable body, so a cached copy never needs revalidating.
 export class BlobCache {
-  constructor({ client, log }) {
+  constructor({ client, log, now }) {
     this.client = client;
     this.log = log;
+    this.now = now;
     this.items = new Map();
     this.pending = new Map();
   }
@@ -143,13 +185,20 @@ export class BlobCache {
       this.items.set(sha, cached);
       return Promise.resolve(cached);
     }
-    const inFlight = this.pending.get(sha);
-    if (inFlight) {
-      return inFlight;
-    }
-    const load = this.load(env, sha).finally(() => this.pending.delete(sha));
-    this.pending.set(sha, load);
-    return load;
+    const pending = sharedRead({
+      clear: (entry) => {
+        if (this.pending.get(sha) === entry) {
+          this.pending.delete(sha);
+        }
+      },
+      current: this.pending.get(sha),
+      nowMs: this.now(),
+      start: () => this.load(env, sha),
+      store: (entry) => {
+        this.pending.set(sha, entry);
+      },
+    });
+    return withinRequestTimeout(pending, 'blob');
   }
 
   async load(env, sha) {
@@ -164,7 +213,12 @@ export class BlobCache {
       this.log('github blob read failed', sha, String(response.status));
       throw new UpstreamError('blob', String(response.status));
     }
-    return this.remember(sha, await response.text());
+    try {
+      return this.remember(sha, await withinRequestTimeout(response.text(), 'blob'));
+    } catch (error) {
+      this.log('github blob body read failed', sha, error instanceof Error ? error.name : 'error');
+      throw new UpstreamError('blob', 'body read failed');
+    }
   }
 
   async text(env, sha) {

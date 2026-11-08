@@ -19,7 +19,7 @@ const EVENT_ID_PATTERN = /^\d{1,12}$/;
 const SPORT_SHAPE_PATTERN = /^[a-z][a-z-]{0,31}$/;
 const FINAL_CODE_PATTERN = /^[a-z][a-z_]{0,39}$/;
 const RUN_ID_PATTERN = /^\d{1,20}$/;
-const MAX_BODY_CHARS = 4096;
+const MAX_BODY_BYTES = 4096;
 const SIGNATURE_HEADER = 'X-Signature';
 const SIGNATURE_WINDOW_MS = 300 * 1000;
 const PROGRESS_STEPS = new Set(['source_start', 'found']);
@@ -27,6 +27,7 @@ const MAX_PROGRESS_SITES = 20;
 const READ_LIMIT = 120;
 const READ_WINDOW_MS = 60 * 1000;
 const READ_BUCKET_MAX = 10_000;
+const GATE_RETRY_SECONDS = 60;
 
 function reply(status, code, message, { retryAfterSeconds = null, sport = null, team = null } = {}) {
   const headers = { 'Cache-Control': 'no-store', 'Content-Type': JSON_TYPE };
@@ -111,12 +112,37 @@ function parseJsonObject(text) {
   }
 }
 
+// The body as text, or undefined once it passes the limit. Reading stops at the limit, so a chunked
+// body with no Content-Length is never read in full.
 async function boundedText(request) {
-  if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_CHARS) {
+  if (Number(request.headers.get('Content-Length') ?? 0) > MAX_BODY_BYTES) {
     return undefined;
   }
-  const text = await request.text();
-  return text.length <= MAX_BODY_CHARS ? text : undefined;
+  if (!request.body) {
+    return '';
+  }
+  const reader = request.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) {
+      reader.cancel().catch(() => {});
+      return undefined;
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 // Accepts an ISO 8601 string or a number of seconds or milliseconds since the epoch.
@@ -145,7 +171,7 @@ export function createApp({
   now = () => Date.now(),
 } = {}) {
   const client = createGithubClient({ fetchImpl });
-  const blobs = createBlobs({ client, log });
+  const blobs = createBlobs({ client, log, now });
   const catalog = createCatalogStore({ blobs, client, log, now });
   const streams = createStreamsStore({ blobs, client, log, now });
   const events = createEventChecker({ fetchImpl, log, now });
@@ -153,14 +179,19 @@ export function createApp({
   const readBuckets = new Map();
   let repoEtag;
 
-  // Runs `method` on the Durable Object when it is bound and answers, otherwise on the per-isolate
-  // gate. `local` on the result records which one served, so a later release goes to the same place.
-  async function callGate(stubFactory, localGate, method, args) {
+  // Runs `method` on the Durable Object when it is bound, otherwise on the per-isolate gate, which
+  // is the Free-plan case. `local` on the result records which one served, so a later release goes
+  // to the same place. A strict call on a bound object that fails answers `unavailable`, because a
+  // per-isolate count there would let a limit be evaded by reaching other isolates.
+  async function callGate(stubFactory, localGate, method, args, { strict = false } = {}) {
     if (stubFactory) {
       try {
         return { local: false, value: await stubFactory()[method](...args) };
       } catch (error) {
-        log('gate call failed, using the per-isolate gate', method, error instanceof Error ? error.name : 'error');
+        log('gate call failed', method, error instanceof Error ? error.name : 'error');
+        if (strict) {
+          return { unavailable: true };
+        }
       }
     }
     return { local: true, value: await localGate[method](...args) };
@@ -184,6 +215,10 @@ export function createApp({
     callGate(teamStub(env, teamKey), localGates.team(env, teamKey), method, args);
   const globalGate = (env, method, ...args) =>
     callGate(globalStub(env), localGates.global(env), method, args);
+  const strictTeamGate = (env, teamKey, method, ...args) =>
+    callGate(teamStub(env, teamKey), localGates.team(env, teamKey), method, args, { strict: true });
+  const strictGlobalGate = (env, method, ...args) =>
+    callGate(globalStub(env), localGates.global(env), method, args, { strict: true });
 
   // A release that fails leaves the slot to expire on its own; the caller still answers.
   async function releaseQuietly(gate, reservation) {
@@ -228,6 +263,8 @@ export function createApp({
     reply(429, 'rate_limited', 'Too many requests.', { retryAfterSeconds: 60 });
   const notConfigured = (scope) => reply(500, 'not_configured', 'Worker secrets are not configured.', scope);
   const upstreamFailed = (scope) => reply(502, 'upstream_error', 'Upstream read failed.', scope);
+  const gateUnavailable = (scope) =>
+    reply(503, 'busy', 'Too many requests.', { ...scope, retryAfterSeconds: GATE_RETRY_SECONDS });
 
   async function githubReachable(env) {
     let response;
@@ -370,19 +407,27 @@ export function createApp({
     }
 
     // The key check comes before any external call, so a caller without the key cannot make the
-    // Worker read GitHub, ESPN or statsapi. The lockout is IP-wide because a per-team limit alone
-    // would allow guesses across about a thousand catalog keys.
+    // Worker read GitHub, ESPN or statsapi. The attempt limit is IP-wide because a per-team limit
+    // alone would allow guesses across about a thousand catalog keys.
     const ip = rateLimitKey(request);
-    const lockout = await globalGate(env, 'checkLockout', ip);
-    if (!lockout.value.ok) {
+    const attempt = await strictGlobalGate(env, 'consumeKeyAttempt', ip);
+    if (attempt.unavailable) {
+      return gateUnavailable(scope);
+    }
+    if (!attempt.value.ok) {
       return reply(429, 'rate_limited', 'Too many requests.', {
         ...scope,
-        retryAfterSeconds: lockout.value.retryAfterSeconds,
+        retryAfterSeconds: attempt.value.retryAfterSeconds,
       });
     }
     if (!appKeyMatches(body.appKey, env)) {
-      await globalGate(env, 'recordFailedKey', ip);
       return reply(401, 'unauthorized', 'Unauthorized.', scope);
+    }
+    try {
+      const gate = attempt.local ? localGates.global(env) : globalStub(env)();
+      await gate.refundKeyAttempt(ip, attempt.value.at);
+    } catch (error) {
+      log('key attempt refund failed', error instanceof Error ? error.name : 'error');
     }
 
     let entry;
@@ -425,7 +470,10 @@ export function createApp({
       }
     }
 
-    const teamReserve = await teamGate(env, teamKey, 'reserve', ip, eventId);
+    const teamReserve = await strictTeamGate(env, teamKey, 'reserve', ip, eventId);
+    if (teamReserve.unavailable) {
+      return gateUnavailable(scope);
+    }
     if (!teamReserve.value.ok) {
       const { code, retryAfterSeconds } = teamReserve.value;
       if (code === 'in_progress') {
@@ -438,12 +486,16 @@ export function createApp({
     }
 
     const runKey = `${teamKey}|${eventId}`;
-    const globalReserve = await globalGate(env, 'reserve', ip, runKey);
+    const globalReserve = await strictGlobalGate(env, 'reserve', ip, runKey);
     const releaseTeam = () =>
       releaseQuietly(
         teamReserve.local ? localGates.team(env, teamKey) : teamStub(env, teamKey)(),
         teamReserve.value.reservation,
       );
+    if (globalReserve.unavailable) {
+      await releaseTeam();
+      return gateUnavailable(scope);
+    }
     if (!globalReserve.value.ok) {
       await releaseTeam();
       const { code, retryAfterSeconds } = globalReserve.value;
@@ -518,8 +570,23 @@ export function createApp({
     return runId === undefined ? undefined : { eventId: body.eventId, runId, team: body.team };
   }
 
+  // A refusal for a report whose team is not in the catalog, or undefined when it may proceed. Each
+  // team key names a Durable Object, so a stolen signing key must not be able to create objects.
+  async function reportTeamRefusal(env, teamKey) {
+    try {
+      return (await catalog.team(env, teamKey))
+        ? undefined
+        : reply(400, 'bad_request', 'Unknown team.', { team: teamKey });
+    } catch (error) {
+      if (error instanceof UpstreamError) {
+        return upstreamFailed({ team: teamKey });
+      }
+      throw error;
+    }
+  }
+
   async function handleRunStatus(request, env) {
-    if (!env.RUN_STATUS_KEY) {
+    if (!env.RUN_STATUS_KEY || !env.GITHUB_TOKEN) {
       return notConfigured();
     }
     const { body, response } = await verifiedBody(request, env.RUN_STATUS_KEY);
@@ -529,6 +596,10 @@ export function createApp({
     const fields = runFields(body);
     if (!fields || typeof body.code !== 'string' || !FINAL_CODE_PATTERN.test(body.code)) {
       return reply(400, 'bad_request', 'Malformed run report.');
+    }
+    const refusal = await reportTeamRefusal(env, fields.team);
+    if (refusal) {
+      return refusal;
     }
     const { value } = await teamGate(env, fields.team, 'recordStatus', {
       code: body.code,
@@ -542,7 +613,7 @@ export function createApp({
   }
 
   async function handleRunProgress(request, env) {
-    if (!env.RUN_PROGRESS_KEY) {
+    if (!env.RUN_PROGRESS_KEY || !env.GITHUB_TOKEN) {
       return notConfigured();
     }
     const { body, response } = await verifiedBody(request, env.RUN_PROGRESS_KEY);
@@ -558,6 +629,10 @@ export function createApp({
       body.n <= MAX_PROGRESS_SITES;
     if (!fields || !PROGRESS_STEPS.has(body.step) || !validCounts) {
       return reply(400, 'bad_request', 'Malformed progress report.');
+    }
+    const refusal = await reportTeamRefusal(env, fields.team);
+    if (refusal) {
+      return refusal;
     }
     await teamGate(env, fields.team, 'recordProgress', {
       eventId: fields.eventId,

@@ -60,13 +60,13 @@ export class GlobalGate extends GateShell {
     this.gate = new GlobalGateCore(ctx.storage, readLimits(env));
   }
 
-  checkLockout(ip) {
-    return this.gate.checkLockout(ip);
+  async consumeKeyAttempt(ip) {
+    await this.scheduleSweep();
+    return this.gate.consumeKeyAttempt(ip);
   }
 
-  async recordFailedKey(ip) {
-    await this.scheduleSweep();
-    return this.gate.recordFailedKey(ip);
+  refundKeyAttempt(ip, at) {
+    return this.gate.refundKeyAttempt(ip, at);
   }
 
   async reserve(ip, runKey) {

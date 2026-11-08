@@ -8,6 +8,7 @@ import {
   TeamGateCore,
   rateLimitKey,
   readLimits,
+  serialized,
 } from '../src/gates.js';
 
 const IP = 'v4:203.0.113.7';
@@ -148,17 +149,32 @@ test('TeamGate sweep deletes old games and IP lists and keeps current ones', asy
   assert.equal((await storage.list()).size, 0);
 });
 
-test('GlobalGate locks an IP out after the wrong-key limit, then lets it back', async () => {
+test('GlobalGate locks an IP out at the key attempt limit, then lets it back', async () => {
   const { clock, gate } = globalGate({ ipFailedKeyPerHour: 2 });
-  assert.equal((await gate.checkLockout(IP)).ok, true);
-  await gate.recordFailedKey(IP);
-  await gate.recordFailedKey(IP);
-  const locked = await gate.checkLockout(IP);
+  assert.equal((await gate.consumeKeyAttempt(IP)).ok, true);
+  assert.equal((await gate.consumeKeyAttempt(IP)).ok, true);
+  const locked = await gate.consumeKeyAttempt(IP);
   assert.equal(locked.code, 'rate_limited');
   assert.equal(locked.retryAfterSeconds, 3600);
-  assert.equal((await gate.checkLockout('v4:198.51.100.2')).ok, true);
+  assert.equal((await gate.consumeKeyAttempt('v4:198.51.100.2')).ok, true);
   clock.now += 3_600_000;
-  assert.equal((await gate.checkLockout(IP)).ok, true);
+  assert.equal((await gate.consumeKeyAttempt(IP)).ok, true);
+});
+
+test('a refunded key attempt does not count, even at the limit', async () => {
+  const { gate, storage } = globalGate({ ipFailedKeyPerHour: 1 });
+  const first = await gate.consumeKeyAttempt(IP);
+  assert.equal((await gate.consumeKeyAttempt(IP)).ok, false);
+  await gate.refundKeyAttempt(IP, first.at);
+  assert.equal((await storage.list({ prefix: 'failed:' })).size, 0);
+  assert.equal((await gate.consumeKeyAttempt(IP)).ok, true);
+});
+
+test('serialized runs a burst one call at a time, so the attempt count cannot be raced', async () => {
+  const { gate } = globalGate({ ipFailedKeyPerHour: 3 });
+  const serial = serialized(gate);
+  const results = await Promise.all(Array.from({ length: 20 }, () => serial.consumeKeyAttempt(IP)));
+  assert.equal(results.filter((result) => result.ok).length, 3);
 });
 
 test('GlobalGate checks the IP limit, then in-flight, then the hourly limit', async () => {
@@ -203,7 +219,7 @@ test('an in-flight slot that never reports is released after 20 minutes', async 
 test('GlobalGate sweep removes expired records', async () => {
   const { clock, gate, storage } = globalGate();
   await gate.reserve(IP, 'a');
-  await gate.recordFailedKey(IP);
+  await gate.consumeKeyAttempt(IP);
   clock.now += 3_600_000;
   assert.equal(await gate.sweep(), false);
   assert.equal((await storage.list()).size, 0);

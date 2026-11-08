@@ -4,7 +4,7 @@
 import { createHash, createHmac } from 'node:crypto';
 
 import { createApp } from '../src/app.js';
-import { GlobalGateCore, MemoryStorage, TeamGateCore, readLimits } from '../src/gates.js';
+import { GlobalGateCore, MemoryStorage, TeamGateCore, readLimits, serialized } from '../src/gates.js';
 
 export const APP_KEY = 'test-app-key-not-a-real-value';
 export const PREVIOUS_KEY = 'test-previous-app-key';
@@ -196,7 +196,8 @@ export function createWorld({ now = START_MS } = {}) {
   world.setStatsapi = (eventId, value, status = 200) => world.statsapi.set(eventId, { status, value });
 
   // Stages: catalogIndex, teamsIndex, streamsIndex, blob, dispatch, repo, espn, statsapi.
-  // A failure is an HTTP status number, 'network' or 'garbage'.
+  // A failure is an HTTP status number, 'network', 'garbage', 'hang' (the request never answers)
+  // or 'stalled-body' (headers arrive and the body never finishes).
   world.fail = (stage, failure) => world.failures.set(stage, failure);
 
   world.callsTo = (stage) => world.calls.filter((call) => call.stage === stage);
@@ -223,6 +224,12 @@ export function createWorld({ now = START_MS } = {}) {
     const failure = world.failures.get(stage);
     if (failure === 'network') {
       throw new TypeError('network down');
+    }
+    if (failure === 'hang') {
+      return new Promise(() => {});
+    }
+    if (failure === 'stalled-body') {
+      return new Response(new ReadableStream({ start() {} }), { status: 200 });
     }
     if (typeof failure === 'number') {
       return new Response(GITHUB_SECRET_TEXT, { status: failure });
@@ -284,6 +291,7 @@ export function createWorld({ now = START_MS } = {}) {
     world.app.fetch(
       new Request(`https://worker.test${path}`, {
         body,
+        ...(body instanceof ReadableStream ? { duplex: 'half' } : {}),
         headers: { 'CF-Connecting-IP': ip, ...headers },
         method,
       }),
@@ -331,6 +339,6 @@ export function fakeNamespace(makeCore) {
 export function bindDurableObjects(world) {
   const limits = readLimits(world.env);
   const now = () => world.clock.now;
-  world.env.TEAM_GATE = fakeNamespace(() => new TeamGateCore(new MemoryStorage(), limits, now));
-  world.env.GLOBAL_GATE = fakeNamespace(() => new GlobalGateCore(new MemoryStorage(), limits, now));
+  world.env.TEAM_GATE = fakeNamespace(() => serialized(new TeamGateCore(new MemoryStorage(), limits, now)));
+  world.env.GLOBAL_GATE = fakeNamespace(() => serialized(new GlobalGateCore(new MemoryStorage(), limits, now)));
 }

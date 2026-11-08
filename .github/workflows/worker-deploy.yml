@@ -69,14 +69,22 @@ jobs:
         with:
           node-version: 24
 
+      # The staging Worker holds the real dispatch token, so a global cap of 0 stops every request
+      # at `busy` after the key, catalog and window checks.
       - name: Resolve the Worker name
         id: worker
         env:
           TARGET: ${{ inputs.target }}
         run: |
           case "$TARGET" in
-            staging) echo 'name=guardians-get-video-staging' >> "$GITHUB_OUTPUT" ;;
-            production) echo 'name=guardians-get-video' >> "$GITHUB_OUTPUT" ;;
+            staging)
+              echo 'name=guardians-get-video-staging' >> "$GITHUB_OUTPUT"
+              echo 'deploy_vars=--var GLOBAL_DISPATCH_PER_HOUR:0' >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo 'name=guardians-get-video' >> "$GITHUB_OUTPUT"
+              echo 'deploy_vars=' >> "$GITHUB_OUTPUT"
+              ;;
             *) echo '::error::Unknown target.'; exit 1 ;;
           esac
 
@@ -99,7 +107,7 @@ jobs:
           done
           if [ "$ROTATE_KEY" = 'true' ]; then
             if [ -z "${APP_KEY_PREVIOUS:-}" ]; then
-              echo '::warning::rotate_key is set and secret APP_KEY_PREVIOUS is empty, so the Worker keeps whatever previous key it already holds.'
+              echo '::warning::rotate_key is set and secret APP_KEY_PREVIOUS is empty, so the Worker deletes its previous key and only the new key is accepted.'
             fi
           else
             if [ ! -f release/app-key.sha256 ]; then
@@ -135,8 +143,9 @@ jobs:
               RUN_PROGRESS_KEY: process.env.RUN_PROGRESS_KEY,
               RUN_STATUS_KEY: process.env.RUN_STATUS_KEY,
             };
-            if (process.env.ROTATE_KEY === "true" && process.env.APP_KEY_PREVIOUS) {
-              secrets.APP_KEY_PREVIOUS = process.env.APP_KEY_PREVIOUS;
+            if (process.env.ROTATE_KEY === "true") {
+              // A null value makes wrangler delete the secret, which revokes a leaked key.
+              secrets.APP_KEY_PREVIOUS = process.env.APP_KEY_PREVIOUS || null;
             }
             require("node:fs").writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });
           ' "$RUNNER_TEMP/worker-secrets.json"
@@ -151,7 +160,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           command: |
             secret bulk ${{ runner.temp }}/worker-secrets.json --name ${{ steps.worker.outputs.name }}
-            deploy --name ${{ steps.worker.outputs.name }}
+            deploy --name ${{ steps.worker.outputs.name }} ${{ steps.worker.outputs.deploy_vars }}
           wranglerVersion: ${{ env.WRANGLER_VERSION }}
           workingDirectory: workers/team-worker
 

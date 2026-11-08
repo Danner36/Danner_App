@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -95,9 +97,58 @@ test('the app key is refused unless its hash matches or rotate_key is set, and i
 test('staging and production map to the two Worker names only', () => {
   for (const name of ['deploy', 'rollback']) {
     const text = job(name);
-    assert.match(text, /staging\) echo 'name=guardians-get-video-staging'/);
-    assert.match(text, /production\) echo 'name=guardians-get-video'/);
+    assert.match(text, /staging\)\s+echo 'name=guardians-get-video-staging'/);
+    assert.match(text, /production\)\s+echo 'name=guardians-get-video'/);
     assert.match(text, /TARGET: \$\{\{ inputs\.target \}\}/);
+  }
+});
+
+test('only staging deploys with a global cap of 0, and the deploy line uses it', () => {
+  const deploy = job('deploy');
+  const staging = deploy.slice(deploy.indexOf('staging)'), deploy.indexOf('production)'));
+  const production = deploy.slice(deploy.indexOf('production)'), deploy.indexOf('*) echo'));
+  assert.match(staging, /deploy_vars=--var GLOBAL_DISPATCH_PER_HOUR:0/);
+  assert.match(production, /echo 'deploy_vars=' >>/);
+  assert.doesNotMatch(production, /GLOBAL_DISPATCH_PER_HOUR/);
+  assert.match(deploy, /deploy --name \$\{\{ steps\.worker\.outputs\.name \}\} \$\{\{ steps\.worker\.outputs\.deploy_vars \}\}/);
+  assert.match(WRANGLER, /^GLOBAL_DISPATCH_PER_HOUR = 60$/m);
+});
+
+function secretsFor(env) {
+  const deploy = job('deploy');
+  const start = deploy.indexOf("node -e '") + "node -e '".length;
+  const script = deploy.slice(start, deploy.indexOf(`' "$RUNNER_TEMP/worker-secrets.json"`));
+  const directory = mkdtempSync(path.join(tmpdir(), 'worker-secrets-'));
+  try {
+    const file = path.join(directory, 'secrets.json');
+    execFileSync(process.execPath, ['-e', script, file], {
+      env: {
+        APP_KEY: 'new',
+        RUN_PROGRESS_KEY: 'p',
+        RUN_STATUS_KEY: 's',
+        WORKER_GITHUB_PAT: 't',
+        ...env,
+      },
+    });
+    return JSON.parse(readFileSync(file, 'utf8'));
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+}
+
+test('rotate_key with an empty previous key deletes it from the Worker', () => {
+  const secrets = secretsFor({ APP_KEY_PREVIOUS: '', ROTATE_KEY: 'true' });
+  assert.equal(secrets.APP_KEY_PREVIOUS, null);
+  assert.ok(Object.hasOwn(secrets, 'APP_KEY_PREVIOUS'));
+  assert.equal(secrets.APP_KEY, 'new');
+  assert.equal(secrets.GITHUB_TOKEN, 't');
+});
+
+test('rotate_key with a previous key writes it, and a plain deploy leaves it alone', () => {
+  assert.equal(secretsFor({ APP_KEY_PREVIOUS: 'old', ROTATE_KEY: 'true' }).APP_KEY_PREVIOUS, 'old');
+  for (const value of ['', 'old']) {
+    const secrets = secretsFor({ APP_KEY_PREVIOUS: value, ROTATE_KEY: 'false' });
+    assert.equal(Object.hasOwn(secrets, 'APP_KEY_PREVIOUS'), false);
   }
 });
 

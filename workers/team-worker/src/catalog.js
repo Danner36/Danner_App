@@ -101,6 +101,6 @@ export function createCatalogStore({ blobs, client, log, now }) {
   };
 }
 
-export function createBlobs({ client, log }) {
-  return new BlobCache({ client, log });
+export function createBlobs({ client, log, now }) {
+  return new BlobCache({ client, log, now });
 }

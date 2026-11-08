@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createApp } from '../src/app.js';
 import {
   APP_KEY,
   GITHUB_SECRET_TEXT,
@@ -784,29 +785,328 @@ test('get-video: GitHub detail goes only to the logs, never the app key', async 
   assert.equal(w.logs.join('\n').includes('test-github-token'), false);
 });
 
-test('Durable Object bindings carry the gates; a throwing binding falls back per isolate', async () => {
+function brokenNamespace() {
+  return {
+    get() {
+      throw new Error('object unavailable');
+    },
+    idFromName: (name) => name,
+  };
+}
+
+// A namespace whose objects work except for the named methods, which throw.
+function namespaceFailing(names, base) {
+  return {
+    get(id) {
+      const object = base.get(id);
+      return new Proxy(object, {
+        get(target, name) {
+          return names.includes(name)
+            ? () => Promise.reject(new Error('object overloaded'))
+            : target[name];
+        },
+      });
+    },
+    idFromName: (name) => name,
+    objects: base.objects,
+  };
+}
+
+test('Durable Object bindings carry the gates', async () => {
   const w = world();
   bindDurableObjects(w);
   assert.equal((await w.getVideo()).status, 202);
   assert.equal(w.env.TEAM_GATE.objects.size, 1);
   assert.equal(w.env.GLOBAL_GATE.objects.size, 1);
+});
 
-  const broken = world();
-  broken.env.TEAM_GATE = {
-    get() {
-      throw new Error('object unavailable');
+test('a bound Durable Object that fails answers 503 busy and sends nothing', async () => {
+  const w = world();
+  w.env.TEAM_GATE = brokenNamespace();
+  w.env.GLOBAL_GATE = brokenNamespace();
+  const response = await w.getVideo();
+  assert.equal(response.status, 503);
+  assert.equal((await bodyOf(response)).code, 'busy');
+  assert.ok(response.headers.get('Retry-After'));
+  assert.equal(w.calls.length, 0);
+  assert.equal(w.dispatches.length, 0);
+});
+
+test('a failed team reserve answers 503 busy and does not fall back per isolate', async () => {
+  const w = world();
+  bindDurableObjects(w);
+  w.env.TEAM_GATE = namespaceFailing(['reserve'], w.env.TEAM_GATE);
+  for (let press = 0; press < 3; press += 1) {
+    const response = await w.getVideo({}, { ip: freshIp() });
+    assert.equal(response.status, 503);
+    assert.equal((await bodyOf(response)).code, 'busy');
+  }
+  assert.equal(w.dispatches.length, 0);
+});
+
+test('a failed global reserve answers 503 busy and releases the team reservation', async () => {
+  const w = world();
+  bindDurableObjects(w);
+  const working = w.env.GLOBAL_GATE;
+  w.env.GLOBAL_GATE = namespaceFailing(['reserve'], working);
+  assert.equal((await w.getVideo({}, { ip: freshIp() })).status, 503);
+  assert.equal(w.dispatches.length, 0);
+  w.env.GLOBAL_GATE = working;
+  assert.equal((await bodyOf(await w.getVideo({}, { ip: freshIp() }))).code, 'started');
+});
+
+test('a failed key attempt call answers 503 busy before the key is compared', async () => {
+  const w = world();
+  bindDurableObjects(w);
+  w.env.GLOBAL_GATE = namespaceFailing(['consumeKeyAttempt'], w.env.GLOBAL_GATE);
+  const wrong = await w.getVideo({ appKey: 'bad' }, { ip: freshIp() });
+  assert.equal(wrong.status, 503);
+  assert.equal(w.calls.length, 0);
+});
+
+test('a failed refund does not block a correct key', async () => {
+  const w = world();
+  bindDurableObjects(w);
+  w.env.GLOBAL_GATE = namespaceFailing(['refundKeyAttempt'], w.env.GLOBAL_GATE);
+  assert.equal((await w.getVideo({}, { ip: freshIp() })).status, 202);
+});
+
+for (const [label, bind] of [
+  ['Durable Object', bindDurableObjects],
+  ['per-isolate', () => {}],
+]) {
+  test(`a parallel wrong-key burst from one IP stops at the limit (${label})`, async () => {
+    const w = world();
+    w.env.IP_FAILED_KEY_PER_HOUR = 5;
+    bind(w);
+    const ip = freshIp();
+    const responses = await Promise.all(
+      Array.from({ length: 30 }, () => w.getVideo({ appKey: 'bad' }, { ip })),
+    );
+    const statuses = responses.map((response) => response.status);
+    assert.equal(statuses.filter((status) => status === 401).length, 5);
+    assert.equal(statuses.filter((status) => status === 429).length, 25);
+    assert.equal(w.calls.length, 0);
+  });
+}
+
+test('correct keys refund their attempt, so they do not use up the limit', async () => {
+  const w = world();
+  w.env.IP_FAILED_KEY_PER_HOUR = 2;
+  w.env.IP_TEAM_DISPATCH_PER_10_MIN = 99;
+  bindDurableObjects(w);
+  const ip = freshIp();
+  for (let press = 0; press < 4; press += 1) {
+    const response = await w.getVideo({}, { ip });
+    assert.notEqual(response.status, 429, `press ${press}`);
+    w.clock.now += 181_000;
+  }
+});
+
+function flush() {
+  return new Promise((resolve) => setImmediate(resolve)).then(
+    () => new Promise((resolve) => setImmediate(resolve)),
+  );
+}
+
+async function settle(rounds = 8) {
+  for (let round = 0; round < rounds; round += 1) {
+    await flush();
+  }
+}
+
+for (const stage of ['teamsIndex', 'blob']) {
+  test(`a shared ${stage} read older than the timeout is replaced by a fresh read`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const w = world();
+    w.fail(stage, 'hang');
+    const first = w.request('/catalog/nfl');
+    await settle();
+    const callsBefore = w.callsTo(stage).length;
+    assert.equal(callsBefore, 1);
+
+    w.failures.delete(stage);
+    w.clock.now += 8000;
+    const second = await w.request('/catalog/nfl');
+    assert.equal(second.status, 200);
+    assert.equal(w.callsTo(stage).length, 2);
+
+    t.mock.timers.tick(8000);
+    await settle();
+    assert.ok((await first).status > 0, 'the request tied to the hung read still ends');
+  });
+}
+
+test('a read younger than the timeout is shared, and every waiter ends at its own timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const w = world();
+  w.fail('teamsIndex', 'hang');
+  const first = w.request('/catalog/nfl');
+  await settle();
+  w.clock.now += 7999;
+  const second = w.request('/catalog/nfl');
+  await settle();
+  assert.equal(w.callsTo('teamsIndex').length, 1);
+
+  t.mock.timers.tick(8000);
+  await settle();
+  for (const pending of [first, second]) {
+    const response = await pending;
+    assert.equal(response.status, 502);
+    assert.equal((await bodyOf(response)).code, 'upstream_error');
+  }
+});
+
+test('a timed-out wait on an index refresh serves the last good copy', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const w = world();
+  const text = streamsDocument([pipelineEntry()]);
+  w.setStreams('nfl', { '17.json': text });
+  await w.request('/streams?team=nfl-17');
+  w.clock.now += 10_000;
+  w.fail('streamsIndex', 'hang');
+  const pending = w.request('/streams?team=nfl-17');
+  await settle();
+  t.mock.timers.tick(8000);
+  await settle();
+  const response = await pending;
+  assert.equal(response.status, 200);
+  assert.equal(await response.text(), text);
+});
+
+test('a late result from a replaced read does not clear the newer one', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const w = world();
+  const realFetch = w.fetch;
+  let releaseOld;
+  let answered = 0;
+  const gate = new Promise((resolve) => { releaseOld = resolve; });
+  w.app = createApp({
+    fetchImpl: async (url, init) => {
+      if (new URL(url).pathname.endsWith('/contents/catalog/teams')) {
+        answered += 1;
+        if (answered === 1) {
+          await gate;
+        }
+      }
+      return realFetch(url, init);
     },
-    idFromName: (name) => name,
-  };
-  broken.env.GLOBAL_GATE = {
-    get() {
-      throw new Error('object unavailable');
+    log: () => {},
+    now: () => w.clock.now,
+  });
+  const first = w.request('/catalog/nfl');
+  await settle();
+  w.clock.now += 8000;
+  await w.request('/catalog/nfl');
+  assert.equal(answered, 2);
+  releaseOld();
+  await settle();
+  assert.equal((await first).status, 200);
+});
+
+for (const failure of ['stalled-body', 'hang']) {
+  test(`streams: a blob read that stalls (${failure}) answers 502 upstream_error`, async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const w = world();
+    w.setStreams('nfl', { '17.json': streamsDocument([]) });
+    await w.request('/catalog/nfl');
+    w.fail('blob', failure);
+    const pending = w.request('/streams?team=nfl-17');
+    await settle();
+    t.mock.timers.tick(8000);
+    await settle();
+    const response = await pending;
+    assert.equal(response.status, 502);
+    assert.equal((await bodyOf(response)).code, 'upstream_error');
+  });
+}
+
+test('get-video: a streams blob body that stalls continues to the gates', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const w = world();
+  w.setStreams('nfl', { '17.json': streamsDocument([pipelineEntry()]) });
+  await w.request('/catalog');
+  await w.request('/catalog/nfl');
+  w.fail('blob', 'stalled-body');
+  const pending = w.getVideo();
+  await settle();
+  t.mock.timers.tick(8000);
+  await settle();
+  const response = await pending;
+  assert.equal(response.status, 202);
+  assert.equal((await bodyOf(response)).code, 'started');
+});
+
+function endlessBody(track) {
+  return new ReadableStream({
+    pull(controller) {
+      track.pulls += 1;
+      controller.enqueue(new Uint8Array(1024));
     },
-    idFromName: (name) => name,
-  };
-  assert.equal((await broken.getVideo()).status, 202);
-  assert.equal((await bodyOf(await broken.getVideo({}, { ip: freshIp() }))).code, 'in_progress');
-  assert.equal(broken.dispatches.length, 1);
+    cancel() {
+      track.cancelled = true;
+    },
+  });
+}
+
+for (const [path, status, code] of [
+  ['/get-video', 400, 'bad_request'],
+  ['/run-status', 401, 'bad_signature'],
+  ['/run-progress', 401, 'bad_signature'],
+]) {
+  test(`${path}: a chunked body with no Content-Length is cut off at the limit`, async () => {
+    const w = world();
+    const track = { cancelled: false, pulls: 0 };
+    const response = await w.request(path, { body: endlessBody(track), method: 'POST' });
+    assert.equal(response.status, status);
+    assert.equal((await bodyOf(response)).code, code);
+    assert.equal(track.cancelled, true);
+    assert.ok(track.pulls <= 8, `read stopped early (${track.pulls} pulls)`);
+  });
+}
+
+test('a body at the limit in chunks is accepted and over it is refused', async () => {
+  const w = world();
+  const fields = JSON.stringify({ appKey: APP_KEY, eventId: '401', pad: 'x', team: 'nfl-17' });
+  const atLimit = fields.replace('"pad":"x"', `"pad":"${'x'.repeat(4096 - fields.length + 1)}"`);
+  const chunked = (text) =>
+    new ReadableStream({
+      start(controller) {
+        const bytes = new TextEncoder().encode(text);
+        for (let offset = 0; offset < bytes.length; offset += 500) {
+          controller.enqueue(bytes.slice(offset, offset + 500));
+        }
+        controller.close();
+      },
+    });
+  assert.equal(new TextEncoder().encode(atLimit).length, 4096);
+  assert.equal((await w.request('/get-video', { body: chunked(atLimit), method: 'POST' })).status, 202);
+  const over = await w.request('/get-video', {
+    body: chunked(atLimit.replace('"pad":"', '"pad":"y')),
+    ip: freshIp(),
+    method: 'POST',
+  });
+  assert.equal(over.status, 400);
+});
+
+test('a target with a global cap of 0 stops at busy after the key, catalog and window checks', async () => {
+  const w = world();
+  // `--var` delivers the override as text.
+  w.env.GLOBAL_DISPATCH_PER_HOUR = '0';
+  bindDurableObjects(w);
+  assert.equal((await w.getVideo({ appKey: 'bad' }, { ip: freshIp() })).status, 401);
+  assert.equal((await w.getVideo({ team: 'nfl-99999' }, { ip: freshIp() })).status, 400);
+  w.setEspn('500', espnSummary({ date: '2026-09-01T18:00:00Z', name: 'STATUS_FINAL', state: 'post' }));
+  assert.equal((await bodyOf(await w.getVideo({ eventId: '500' }, { ip: freshIp() }))).code, 'not_in_window');
+
+  for (let press = 0; press < 3; press += 1) {
+    const response = await w.getVideo({}, { ip: freshIp() });
+    assert.equal(response.status, 503);
+    assert.equal((await bodyOf(response)).code, 'busy');
+    w.clock.now += 1000;
+  }
+  assert.equal(w.callsTo('dispatch').length, 0);
+  assert.equal((await bodyOf(await w.request('/health?deep=1'))).ok, true);
 });
 
 test('without Durable Object bindings the same limits apply per isolate', async () => {
@@ -884,6 +1184,55 @@ test('run-status: bad signatures, stale reports and malformed bodies are refused
   }
   assert.equal((await w.request('/streams?team=nfl-17&event=401')).headers.get('X-Run-State'), 'none');
 });
+
+const SIGNED_REPORTS = [
+  ['/run-status', { code: 'no_video', eventId: '401', runId: 1 }, STATUS_KEY],
+  ['/run-progress', { eventId: '401', k: 1, n: 2, runId: 1, step: 'source_start' }, PROGRESS_KEY],
+];
+
+for (const [path, report, key] of SIGNED_REPORTS) {
+  test(`${path}: a signed report for a team outside the catalog creates no object`, async () => {
+    const w = world();
+    bindDurableObjects(w);
+    const response = await w.signed(path, { ...report, team: 'nfl-99999' }, key);
+    assert.equal(response.status, 400);
+    const body = await bodyOf(response);
+    assert.equal(body.code, 'bad_request');
+    assertReplyShape(body);
+    assert.equal(w.env.TEAM_GATE.objects.size, 0);
+    assert.equal(w.env.GLOBAL_GATE.objects.size, 0);
+    assert.equal((await w.signed(path, { ...report, team: 'zzz-1' }, key)).status, 400);
+    assert.equal(w.env.TEAM_GATE.objects.size, 0);
+  });
+
+  test(`${path}: an unreadable catalog answers 502 and writes nothing`, async () => {
+    const w = world();
+    bindDurableObjects(w);
+    w.fail('teamsIndex', 503);
+    const response = await w.signed(path, { ...report, team: 'nfl-17' }, key);
+    assert.equal(response.status, 502);
+    assert.equal((await bodyOf(response)).code, 'upstream_error');
+    assert.equal(w.env.TEAM_GATE.objects.size, 0);
+    assert.equal(w.env.GLOBAL_GATE.objects.size, 0);
+  });
+
+  test(`${path}: a retired catalog team is still accepted, and a bad signature reads no catalog`, async () => {
+    const w = world();
+    bindDurableObjects(w);
+    assert.equal((await w.signed(path, { ...report, team: 'nfl-99999' }, 'wrong-key')).status, 401);
+    assert.equal(w.callsTo('teamsIndex').length, 0);
+    assert.equal((await w.signed(path, { ...report, sport: 'football', team: 'ncaa-2' }, key)).status, 204);
+    assert.equal(w.env.TEAM_GATE.objects.size, 1);
+  });
+
+  test(`${path}: a missing token answers 500 not_configured`, async () => {
+    const w = world();
+    delete w.env.GITHUB_TOKEN;
+    const response = await w.signed(path, { ...report, team: 'nfl-17' }, key);
+    assert.equal(response.status, 500);
+    assert.equal((await bodyOf(response)).code, 'not_configured');
+  });
+}
 
 test('run-status: at may be ISO text, seconds or milliseconds, and the signature may carry a prefix', async () => {
   const w = world();

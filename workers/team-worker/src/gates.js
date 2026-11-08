@@ -248,9 +248,12 @@ export class GlobalGateCore {
     return ((await this.storage.get('flight')) ?? []).filter((item) => nowMs - item.at < IN_FLIGHT_TTL_MS);
   }
 
-  async checkLockout(ip) {
+  // Counts one key attempt before the key is compared, in a single atomic call, so a parallel burst
+  // from one IP cannot pass before the first failure is recorded. A correct key refunds it.
+  async consumeKeyAttempt(ip) {
     const nowMs = this.now();
-    const stamps = recent(await this.storage.get(`failed:${ip}`), nowMs, HOUR_MS);
+    const key = `failed:${ip}`;
+    const stamps = recent(await this.storage.get(key), nowMs, HOUR_MS);
     if (stamps.length >= this.limits.ipFailedKeyPerHour) {
       return {
         code: 'rate_limited',
@@ -258,14 +261,13 @@ export class GlobalGateCore {
         retryAfterSeconds: retryAfterSeconds(stamps, nowMs, HOUR_MS),
       };
     }
-    return { ok: true };
+    await this.storage.put(key, [...stamps, nowMs]);
+    return { at: nowMs, ok: true };
   }
 
-  async recordFailedKey(ip) {
-    const nowMs = this.now();
+  async refundKeyAttempt(ip, at) {
     const key = `failed:${ip}`;
-    const stamps = recent(await this.storage.get(key), nowMs, HOUR_MS);
-    await this.storage.put(key, [...stamps, nowMs].slice(-Math.max(1, this.limits.ipFailedKeyPerHour)));
+    await storeList(this.storage, key, withoutOne(await this.storage.get(key), at));
   }
 
   // Checks the IP hourly limit, the in-flight cap and the global hourly limit in that order.
@@ -348,6 +350,24 @@ export class GlobalGateCore {
   }
 }
 
+// Runs a gate's methods one at a time, as a Durable Object's input gate does.
+export function serialized(core) {
+  let tail = Promise.resolve();
+  return new Proxy(core, {
+    get(target, name) {
+      const member = target[name];
+      if (typeof member !== 'function') {
+        return member;
+      }
+      return (...args) => {
+        const run = tail.then(() => member.apply(target, args));
+        tail = run.catch(() => {});
+        return run;
+      };
+    },
+  });
+}
+
 // In-memory stand-ins for the two Durable Objects, one set per isolate, using the same limits.
 export function createLocalGates(now) {
   const teams = new Map();
@@ -356,7 +376,7 @@ export function createLocalGates(now) {
 
   return {
     global(env) {
-      globalGate ??= new GlobalGateCore(new MemoryStorage(), readLimits(env), now);
+      globalGate ??= serialized(new GlobalGateCore(new MemoryStorage(), readLimits(env), now));
       return globalGate;
     },
     team(env, teamKey) {
@@ -365,7 +385,7 @@ export function createLocalGates(now) {
         if (teams.size >= TEAM_GATES_MAX) {
           teams.delete(teams.keys().next().value);
         }
-        gate = new TeamGateCore(new MemoryStorage(), readLimits(env), now);
+        gate = serialized(new TeamGateCore(new MemoryStorage(), readLimits(env), now));
         teams.set(teamKey, gate);
       }
       return gate;
