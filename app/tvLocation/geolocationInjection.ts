@@ -1,12 +1,18 @@
 import type { Destination } from './destination';
 
-// Runs before content and again after load; each part installs once per document.
+// Runs before content and again after load; each part installs once per document, and
+// only on youtube.com hosts, so Google account pages never receive it.
 export function createGeolocationInjection(destination: Destination): string {
   const latitude = JSON.stringify(destination.latitude);
   const longitude = JSON.stringify(destination.longitude);
 
   return `
     (function () {
+      const pageHost = window.location.hostname;
+      if (pageHost !== 'youtube.com' && !pageHost.endsWith('.youtube.com')) {
+        return;
+      }
+
       const latitude = ${latitude};
       const longitude = ${longitude};
       const source = 'danner-geolocation';

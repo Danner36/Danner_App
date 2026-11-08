@@ -58,6 +58,8 @@ npm run test:cyclones:server
 npm run test:provisioning-warning
 npm run test:app-update
 npm run test:offline-map
+npm run test:tv-location
+npm run test:tv-location:android
 npm run test:scoreboards
 cd android
 .\gradlew.bat app:assembleRelease

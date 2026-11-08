@@ -205,15 +205,15 @@ export function selectedDestination(
   };
 }
 
-// Tripoli, Iowa from search selects the exact default point and label rather than the
+// Searching the saved point's own place name selects that exact point rather than the
 // quantized Census point.
 export function searchSelection(
   place: OfflineMapPlace,
   stateNames: Array<[string, string]>,
-  defaultStart: { label: string; latitude: number; longitude: number },
+  savedStart?: { label: string; latitude: number; longitude: number },
 ): { label: string; latitude: number; longitude: number } {
-  if (placeLabel(place, stateNames) === defaultStart.label) {
-    return { ...defaultStart };
+  if (savedStart && placeLabel(place, stateNames) === savedStart.label) {
+    return { ...savedStart };
   }
   const location = gridToLocation(place[2], place[3]);
   return {

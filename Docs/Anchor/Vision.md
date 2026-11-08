@@ -23,7 +23,7 @@ The Cyclones screen retrieves leftover football, men's basketball, and women's b
 
 ## Current experience
 
-1. Confirm Tripoli, Iowa or choose another U.S. city or map point.
+1. Choose a U.S. city or map point, or confirm the one saved on the phone.
 2. On the TV, open Profile, then Location, and leave the QR code visible.
 3. Tap the single phone update action; the app advances YouTube's playback-area prompt, supplies the chosen map point, and returns to the steps page.
 4. After the TV displays YouTube's `Welcome to...` message, return to the TV's main screen and select `Live` again.

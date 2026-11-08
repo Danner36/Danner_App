@@ -42,11 +42,8 @@ const shipped = new Function(
   'DATA',
   'GRID',
   `${html.slice(rulesStart, rulesEnd)}
-  return { DEFAULT_START, locationToGrid, gridPointToLocation, selectedMatch, matchLabel, placeLabel, searchPlaces, searchSelection };`,
+  return { startFromInputs, locationToGrid, gridPointToLocation, selectedMatch, matchLabel, placeLabel, searchPlaces, searchSelection };`,
 )(htmlData, htmlData.gridMax);
-
-const tripoliDefault = { label: 'Tripoli, Iowa', latitude: 42.808371, longitude: -92.2578433 };
-assert.deepEqual(shipped.DEFAULT_START, tripoliDefault);
 
 const shippedLabel = (latitude, longitude) =>
   shipped.matchLabel(shipped.selectedMatch({ latitude, longitude }));
@@ -208,14 +205,70 @@ assert.equal(searchLabels('bayam')[0], 'Bayamón, Puerto Rico');
 assert.equal(searchLabels('san juan')[0], 'San Juan, Puerto Rico');
 assert.ok(!places.some((place) => / zona$/i.test(place[0])));
 
-// Tripoli from search selects the exact default rather than the Census point.
+// A search returns the Census point unless the name matches the saved point's label.
+const oldBuiltInPoint = { label: 'Tripoli, Iowa', latitude: 42.808371, longitude: -92.2578433 };
 const tripoliPlace = searchPlaces(places, 'tripoli')[0];
-assert.deepEqual(searchSelection(tripoliPlace, stateNames, tripoliDefault), tripoliDefault);
-assert.deepEqual(shipped.searchSelection(shipped.searchPlaces('tripoli')[0]), tripoliDefault);
+const tripoliSearch = searchSelection(tripoliPlace, stateNames);
+assert.equal(tripoliSearch.label, 'Tripoli, Iowa');
+assert.deepEqual(
+  tripoliSearch,
+  {
+    label: 'Tripoli, Iowa',
+    ...gridToLocation(tripoliPlace[2], tripoliPlace[3]),
+  },
+);
+assert.deepEqual(shipped.searchSelection(shipped.searchPlaces('tripoli')[0]), tripoliSearch);
+const tripoliSearchKm = equirectangularKm(oldBuiltInPoint, tripoliSearch);
+assert.ok(tripoliSearchKm < 2, `Tripoli search point is ${tripoliSearchKm} km from the old point`);
+console.log(`Tripoli search point is ${tripoliSearchKm.toFixed(4)} km from the former built-in point.`);
+
+assert.deepEqual(
+  searchSelection(tripoliPlace, stateNames, oldBuiltInPoint),
+  oldBuiltInPoint,
+);
+assert.deepEqual(
+  shipped.searchSelection(shipped.searchPlaces('tripoli')[0], oldBuiltInPoint),
+  oldBuiltInPoint,
+);
+
 const clevelandPlace = searchPlaces(places, 'cleveland')[0];
 assert.deepEqual(
-  shipped.searchSelection(shipped.searchPlaces('cleveland')[0]),
-  searchSelection(clevelandPlace, stateNames, tripoliDefault),
+  shipped.searchSelection(shipped.searchPlaces('cleveland')[0], oldBuiltInPoint),
+  searchSelection(clevelandPlace, stateNames, oldBuiltInPoint),
+);
+assert.deepEqual(
+  searchSelection(clevelandPlace, stateNames, oldBuiltInPoint),
+  searchSelection(clevelandPlace, stateNames),
+);
+
+// The page never carries a built-in location, and opens with one only when told.
+assert.ok(!/42\.808371|92\.2578433/.test(html), 'offline-us-map.html holds a built-in point');
+assert.ok(!html.includes('DEFAULT_START'), 'offline-us-map.html still has DEFAULT_START');
+const params = (text = '') => new URLSearchParams(text);
+assert.equal(shipped.startFromInputs(undefined, params(), params()), undefined);
+assert.equal(shipped.startFromInputs({}, params(), params()), undefined);
+assert.equal(shipped.startFromInputs(null, params('label=Ames'), params()), undefined);
+assert.equal(shipped.startFromInputs({ latitude: 41 }, params(), params()), undefined);
+assert.equal(shipped.startFromInputs({ latitude: 41, longitude: 'x' }, params(), params()), undefined);
+assert.equal(
+  shipped.startFromInputs({ latitude: null, longitude: null }, params(), params()),
+  undefined,
+);
+assert.deepEqual(
+  shipped.startFromInputs({ label: ' Ames, Iowa ', latitude: 42.03, longitude: -93.62 }, params(), params()),
+  { label: 'Ames, Iowa', latitude: 42.03, longitude: -93.62 },
+);
+assert.deepEqual(
+  shipped.startFromInputs(undefined, params('latitude=42.03&longitude=-93.62&label=Ames'), params()),
+  { label: 'Ames', latitude: 42.03, longitude: -93.62 },
+);
+assert.deepEqual(
+  shipped.startFromInputs(undefined, params(), params('latitude=0&longitude=0')),
+  { label: undefined, latitude: 0, longitude: 0 },
+);
+assert.deepEqual(
+  shipped.startFromInputs({ latitude: 1, longitude: 2 }, params('latitude=3&longitude=4'), params()),
+  { label: undefined, latitude: 1, longitude: 2 },
 );
 
 console.log('Offline map selection passed.');

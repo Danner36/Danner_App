@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   AppState,
   BackHandler,
   type LayoutChangeEvent,
@@ -15,21 +16,41 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView, WebViewMessageEvent } from 'react-native-webview';
-import { flushWebViewCookies } from '../modules/danner-webview-cookies/src';
 import {
+  WebView,
+  type WebViewMessageEvent,
+  type WebViewNavigation,
+} from 'react-native-webview';
+import {
+  clearYouTubeSession,
+  flushWebViewCookies,
+  youTubeSessionState,
+} from '../modules/danner-webview-cookies/src';
+import {
+  DEFAULT_LOCATION_STORAGE_KEY,
   DESTINATION_STORAGE_KEY,
-  TRIPOLI_DESTINATION,
-  destinationFromStored,
-  isTripoli,
+  TV_LOCATION_READ_FAILED,
+  accountControls,
+  pickerControls,
+  resolveTvLocation,
   sameCoordinates,
+  sessionStatusText,
+  showUseDefaultOnStepOne,
+  defaultButtonLabel,
   type Destination,
+  type SessionState,
 } from './destination';
 import { createGeolocationInjection } from './geolocationInjection';
 import { OfflineUsMap } from './OfflineUsMap';
-import { allowVerifyNavigation, isVerifyPageUrl } from './verifyNavigation';
+import {
+  SIGN_IN_URL,
+  SWITCH_ACCOUNT_URL,
+  VERIFY_URL,
+  accountViewProgress,
+  allowVerifyNavigation,
+  isVerifyPageUrl,
+} from './verifyNavigation';
 
-const VERIFY_URL = 'https://tv.youtube.com/verify';
 // Shorter than the WebView cookie store's 30-second write batch.
 const COOKIE_FLUSH_INTERVAL_MS = 20_000;
 
@@ -145,12 +166,37 @@ function StepCard({
 
 
 function DestinationSummary({
+  defaultLocation,
   destination,
+  loaded,
   onEdit,
+  onUseDefault,
 }: {
-  destination: Destination;
+  defaultLocation?: Destination;
+  destination?: Destination;
+  loaded: boolean;
   onEdit: () => void;
+  onUseDefault: () => void;
 }) {
+  if (!loaded) {
+    return (
+      <View style={styles.destinationBox}>
+        <Text style={styles.destinationLabel}>LOCATION YOUTUBE WILL RECEIVE</Text>
+        <ActivityIndicator color="#1F6F55" size="small" />
+      </View>
+    );
+  }
+
+  if (!destination) {
+    return (
+      <View style={styles.destinationBox}>
+        <Text style={styles.destinationLabel}>LOCATION YOUTUBE WILL RECEIVE</Text>
+        <Text style={styles.destinationName}>No location chosen yet</Text>
+        <ActionButton label="Choose on map" onPress={onEdit} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.destinationBox}>
       <Text style={styles.destinationLabel}>LOCATION YOUTUBE WILL RECEIVE</Text>
@@ -160,39 +206,63 @@ function DestinationSummary({
         onPress={onEdit}
         variant="secondary"
       />
+      {defaultLocation &&
+      showUseDefaultOnStepOne(destination, defaultLocation) ? (
+        <ActionButton
+          label={defaultButtonLabel(defaultLocation)}
+          onPress={onUseDefault}
+          variant="secondary"
+        />
+      ) : null}
     </View>
   );
 }
 
 function MapPicker({
+  defaultLocation,
   destination,
   visible,
   onCancel,
+  onMakeDefault,
   onSave,
 }: {
-  destination: Destination;
+  defaultLocation?: Destination;
+  destination?: Destination;
   visible: boolean;
   onCancel: () => void;
+  onMakeDefault: (destination: Destination) => Promise<boolean>;
   onSave: (destination: Destination) => void | Promise<void>;
 }) {
   const [draft, setDraft] = useState(destination);
+  const [defaultError, setDefaultError] = useState(false);
   const insets = useSafeAreaInsets();
   const [saving, setSaving] = useState(false);
+  const controls = pickerControls(draft, defaultLocation);
 
   useEffect(() => {
     if (!visible) {
       return;
     }
     setDraft(destination);
+    setDefaultError(false);
     setSaving(false);
   }, [destination, visible]);
 
   const saveMapLocation = async () => {
+    if (!draft) {
+      return;
+    }
     setSaving(true);
     try {
-      await onSave(isTripoli(draft) ? TRIPOLI_DESTINATION : draft);
+      await onSave(draft);
     } catch {
       setSaving(false);
+    }
+  };
+
+  const makeDefault = async () => {
+    if (draft) {
+      setDefaultError(!(await onMakeDefault(draft)));
     }
   };
 
@@ -229,19 +299,35 @@ function MapPicker({
 
         <View style={styles.mapActions}>
           <Text style={styles.mapSelectionLabel}>SELECTED AREA</Text>
-          <Text style={styles.mapSelectionName}>{draft.label}</Text>
+          <Text style={styles.mapSelectionName}>
+            {draft ? draft.label : 'Move the map or search for a town'}
+          </Text>
+          {defaultError ? (
+            <Text style={styles.inputError}>The default could not be saved.</Text>
+          ) : null}
           <View style={styles.mapButtonStack}>
             <ActionButton
               busy={saving}
-              label="Use this map location"
+              disabled={!controls.primaryEnabled}
+              label={controls.primaryLabel}
               onPress={saveMapLocation}
             />
-            <ActionButton
-              disabled={saving}
-              label="Use Tripoli default"
-              onPress={() => onSave(TRIPOLI_DESTINATION)}
-              variant="secondary"
-            />
+            {defaultLocation && controls.showUseDefault ? (
+              <ActionButton
+                disabled={saving}
+                label={defaultButtonLabel(defaultLocation)}
+                onPress={() => onSave(defaultLocation)}
+                variant="secondary"
+              />
+            ) : null}
+            {controls.showMakeDefault ? (
+              <ActionButton
+                disabled={saving}
+                label="Make this my default"
+                onPress={makeDefault}
+                variant="secondary"
+              />
+            ) : null}
           </View>
         </View>
       </View>
@@ -249,35 +335,133 @@ function MapPicker({
   );
 }
 
+function OnThisPhonePanel({
+  defaultLocation,
+  message,
+  session,
+  signingOut,
+  onForgetLocation,
+  onSignIn,
+  onSignOut,
+  onSwitchAccount,
+}: {
+  defaultLocation?: Destination;
+  message?: string;
+  session: SessionState;
+  signingOut: boolean;
+  onForgetLocation: () => void;
+  onSignIn: () => void;
+  onSignOut: () => void;
+  onSwitchAccount: () => void;
+}) {
+  const controls = accountControls(session);
+
+  return (
+    <View style={styles.phonePanel}>
+      <Text accessibilityRole="header" style={styles.phonePanelTitle}>
+        On this phone
+      </Text>
+      <Text style={styles.phonePanelStatus}>{sessionStatusText(session)}</Text>
+      {message ? (
+        <Text accessibilityRole="alert" style={styles.inputError}>
+          {message}
+        </Text>
+      ) : null}
+      <View style={styles.stepActions}>
+        {controls.signIn ? (
+          <ActionButton label="Sign in" onPress={onSignIn} variant="secondary" />
+        ) : null}
+        {controls.switchAccount ? (
+          <ActionButton
+            label="Switch account"
+            onPress={onSwitchAccount}
+            variant="secondary"
+          />
+        ) : null}
+        {controls.signOut ? (
+          <ActionButton
+            busy={signingOut}
+            label="Sign out"
+            onPress={onSignOut}
+            variant="secondary"
+          />
+        ) : null}
+      </View>
+      <Text style={styles.phonePanelNote}>
+        If Google asks for a passkey, choose Try another way and use your password
+        or phone.
+      </Text>
+      {Platform.OS === 'android' ? (
+        <Text style={styles.phonePanelNote}>
+          Install Danner Apps only from its in-app update or its GitHub releases
+          page.
+        </Text>
+      ) : null}
+      {defaultLocation ? (
+        <View style={styles.phonePanelLocation}>
+          <Text style={styles.phonePanelDefault}>
+            Default: {defaultLocation.label}
+          </Text>
+          <ActionButton
+            label="Forget location"
+            onPress={onForgetLocation}
+            variant="secondary"
+          />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function GuidedHome({
+  accountMessage,
   currentStep,
   complete,
+  defaultLocation,
   destination,
   initialFocusStep,
   initialScrollOffset,
+  loaded,
   message,
+  session,
+  signingOut,
   verifyRetry,
   onBackToMenu,
   onEditDestination,
   onConfirmDestination,
+  onForgetLocation,
   onScrollOffsetChange,
+  onSignIn,
+  onSignOut,
+  onSwitchAccount,
   onTvReady,
+  onUseDefault,
   onVerify,
   onConfirmed,
   onStartOver,
 }: {
+  accountMessage?: string;
   currentStep: StepNumber;
   complete: boolean;
-  destination: Destination;
+  defaultLocation?: Destination;
+  destination?: Destination;
   initialFocusStep?: StepNumber;
   initialScrollOffset: number;
+  loaded: boolean;
   message?: string;
+  session: SessionState;
+  signingOut: boolean;
   verifyRetry: boolean;
   onBackToMenu: () => void;
   onEditDestination: () => void;
   onConfirmDestination: () => void;
+  onForgetLocation: () => void;
   onScrollOffsetChange: (offset: number) => void;
+  onSignIn: () => void;
+  onSignOut: () => void;
+  onSwitchAccount: () => void;
   onTvReady: () => void;
+  onUseDefault: () => void;
   onVerify: () => void;
   onConfirmed: () => void;
   onStartOver: () => void;
@@ -285,6 +469,7 @@ function GuidedHome({
   const scrollViewRef = useRef<ScrollView>(null);
   const stepOffsets = useRef<Partial<Record<StepNumber, number>>>({});
   const hasRendered = useRef(false);
+  const hadDestination = useRef(false);
   const pendingFocusStep = useRef(initialFocusStep);
   const focusTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -345,6 +530,14 @@ function GuidedHome({
 
     return () => clearTimeout(timer);
   }, [complete, currentStep, scrollToStep]);
+
+  // Forgetting the location returns to the first step at the top of the page.
+  useEffect(() => {
+    if (hadDestination.current && !destination) {
+      scrollViewRef.current?.scrollTo({ animated: true, y: 0 });
+    }
+    hadDestination.current = destination !== undefined;
+  }, [destination]);
 
   return (
     <ScrollView
@@ -408,16 +601,23 @@ function GuidedHome({
 
         <View onLayout={onStepLayout(1)}>
           <StepCard
-            description="Confirm the map location YouTube should receive. You can change it whenever you need to."
+            description={
+              loaded && !destination
+                ? 'Choose the map location YouTube should receive.'
+                : 'Confirm the map location YouTube should receive. You can change it whenever you need to.'
+            }
             number={1}
             status={statusFor(1)}
             title="Choose the location"
           >
             <DestinationSummary
+              defaultLocation={defaultLocation}
               destination={destination}
+              loaded={loaded}
               onEdit={onEditDestination}
+              onUseDefault={onUseDefault}
             />
-            {currentStep === 1 ? (
+            {currentStep === 1 && destination ? (
               <ActionButton
                 label="Use this location"
                 onPress={onConfirmDestination}
@@ -488,40 +688,66 @@ function GuidedHome({
             ) : null}
           </StepCard>
         </View>
+
+        <OnThisPhonePanel
+          defaultLocation={defaultLocation}
+          message={accountMessage}
+          session={session}
+          signingOut={signingOut}
+          onForgetLocation={onForgetLocation}
+          onSignIn={onSignIn}
+          onSignOut={onSignOut}
+          onSwitchAccount={onSwitchAccount}
+        />
       </View>
     </ScrollView>
   );
 }
 
-function VerifyView({
-  destination,
-  onAdvanced,
+function WebPageHeader({
+  title,
   onClose,
 }: {
-  destination: Destination;
-  onAdvanced: () => void;
+  title: string;
   onClose: () => void;
 }) {
-  const returnTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
+  return (
+    <View style={styles.verifyHeader}>
+      <Pressable
+        accessibilityLabel="Return to the setup steps"
+        accessibilityRole="button"
+        hitSlop={12}
+        onPress={onClose}
+        style={({ pressed }) => [
+          styles.backButton,
+          pressed && styles.backButtonPressed,
+        ]}
+      >
+        <Text style={styles.backButtonText}>‹ Steps</Text>
+      </Pressable>
+      <Text numberOfLines={1} style={styles.verifyTitle}>
+        {title}
+      </Text>
+      <View style={styles.headerSpacer} />
+    </View>
   );
+}
+
+function YouTubeTvWebView({
+  injection,
+  onMessage,
+  onNavigationStateChange,
+  startUrl,
+}: {
+  injection?: string;
+  onMessage?: (event: WebViewMessageEvent) => void;
+  onNavigationStateChange?: (navigation: WebViewNavigation) => void;
+  startUrl: string;
+}) {
   const [loadAttempt, setLoadAttempt] = useState(0);
-  const injectionScript = useMemo(
-    () => createGeolocationInjection(destination),
-    [destination],
-  );
 
-  useEffect(
-    () => () => {
-      if (returnTimer.current) {
-        clearTimeout(returnTimer.current);
-      }
-    },
-    [],
-  );
-
-  // Android writes the sign-in cookies to disk while verification is open, when the app
-  // leaves the foreground, and when verification closes, so a swiped-away app keeps them.
+  // Android writes the sign-in cookies to disk while the page is open, when the app
+  // leaves the foreground, and when the page closes, so a swiped-away app keeps them.
   useEffect(() => {
     const timer = setInterval(() => {
       void flushWebViewCookies();
@@ -537,6 +763,78 @@ function VerifyView({
       void flushWebViewCookies();
     };
   }, []);
+
+  // originWhitelist admits every URL so that allowVerifyNavigation drops disallowed
+  // ones; the library opens whitelist misses with Linking.
+  return (
+    <WebView
+      allowsBackForwardNavigationGestures
+      geolocationEnabled={false}
+      injectedJavaScript={injection}
+      injectedJavaScriptBeforeContentLoaded={injection}
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly={
+        Platform.OS !== 'ios'
+      }
+      key={loadAttempt}
+      onMessage={onMessage}
+      onNavigationStateChange={onNavigationStateChange}
+      onShouldStartLoadWithRequest={allowVerifyNavigation}
+      originWhitelist={['*']}
+      renderError={() => (
+        <View style={styles.webLoading}>
+          <Text style={styles.webErrorTitle}>YouTube did not open</Text>
+          <Text style={styles.webErrorText}>
+            Check that this phone is online, then tap Retry.
+          </Text>
+          <View style={styles.webErrorAction}>
+            <ActionButton
+              label="Retry"
+              onPress={() => setLoadAttempt((attempt) => attempt + 1)}
+            />
+          </View>
+        </View>
+      )}
+      renderLoading={() => (
+        <View style={styles.webLoading}>
+          <ActivityIndicator color="#1F6F55" size="large" />
+          <Text style={styles.webLoadingText}>Opening YouTube…</Text>
+        </View>
+      )}
+      setSupportMultipleWindows={false}
+      sharedCookiesEnabled
+      source={{ uri: startUrl }}
+      startInLoadingState
+      style={styles.webView}
+      thirdPartyCookiesEnabled
+    />
+  );
+}
+
+function VerifyView({
+  destination,
+  onAdvanced,
+  onClose,
+}: {
+  destination: Destination;
+  onAdvanced: () => void;
+  onClose: () => void;
+}) {
+  const returnTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const injectionScript = useMemo(
+    () => createGeolocationInjection(destination),
+    [destination],
+  );
+
+  useEffect(
+    () => () => {
+      if (returnTimer.current) {
+        clearTimeout(returnTimer.current);
+      }
+    },
+    [],
+  );
 
   const onMessage = (event: WebViewMessageEvent) => {
     try {
@@ -561,65 +859,59 @@ function VerifyView({
 
   return (
     <View style={styles.verifySafeArea}>
-      <View style={styles.verifyHeader}>
-        <Pressable
-          accessibilityLabel="Return to the setup steps"
-          accessibilityRole="button"
-          hitSlop={12}
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backButtonPressed,
-          ]}
-        >
-          <Text style={styles.backButtonText}>‹ Steps</Text>
-        </Pressable>
-        <Text numberOfLines={1} style={styles.verifyTitle}>
-          YouTube Verification
-        </Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
-      {/* originWhitelist admits every URL so that allowVerifyNavigation drops
-          disallowed ones; the library opens whitelist misses with Linking. */}
-      <WebView
-        allowsBackForwardNavigationGestures
-        geolocationEnabled={false}
-        injectedJavaScript={injectionScript}
-        injectedJavaScriptBeforeContentLoaded={injectionScript}
-        injectedJavaScriptBeforeContentLoadedForMainFrameOnly={
-          Platform.OS !== 'ios'
-        }
-        key={loadAttempt}
+      <WebPageHeader onClose={onClose} title="YouTube Verification" />
+      <YouTubeTvWebView
+        injection={injectionScript}
         onMessage={onMessage}
-        onShouldStartLoadWithRequest={allowVerifyNavigation}
-        originWhitelist={['*']}
-        renderError={() => (
-          <View style={styles.webLoading}>
-            <Text style={styles.webErrorTitle}>YouTube did not open</Text>
-            <Text style={styles.webErrorText}>
-              Check that this phone is online, then tap Retry.
-            </Text>
-            <View style={styles.webErrorAction}>
-              <ActionButton
-                label="Retry"
-                onPress={() => setLoadAttempt((attempt) => attempt + 1)}
-              />
-            </View>
-          </View>
-        )}
-        renderLoading={() => (
-          <View style={styles.webLoading}>
-            <ActivityIndicator color="#1F6F55" size="large" />
-            <Text style={styles.webLoadingText}>Opening YouTube…</Text>
-          </View>
-        )}
-        setSupportMultipleWindows={false}
-        sharedCookiesEnabled
-        source={{ uri: VERIFY_URL }}
-        startInLoadingState
-        style={styles.webView}
-        thirdPartyCookiesEnabled
+        startUrl={VERIFY_URL}
+      />
+    </View>
+  );
+}
+
+function AccountView({
+  startUrl,
+  onBlocked,
+  onClose,
+}: {
+  startUrl: string;
+  onBlocked: () => void;
+  onClose: () => void;
+}) {
+  const sawAccountsPage = useRef(false);
+  const returnTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  useEffect(
+    () => () => {
+      if (returnTimer.current) {
+        clearTimeout(returnTimer.current);
+      }
+    },
+    [],
+  );
+
+  const onNavigationStateChange = (navigation: WebViewNavigation) => {
+    const progress = accountViewProgress(
+      sawAccountsPage.current,
+      navigation.url,
+      navigation.title,
+    );
+    sawAccountsPage.current = progress.sawAccountsPage;
+    if (progress.blocked) {
+      onBlocked();
+    } else if (progress.finished && !returnTimer.current) {
+      returnTimer.current = setTimeout(onClose, 800);
+    }
+  };
+
+  return (
+    <View style={styles.verifySafeArea}>
+      <WebPageHeader onClose={onClose} title="Google Account" />
+      <YouTubeTvWebView
+        onNavigationStateChange={onNavigationStateChange}
+        startUrl={startUrl}
       />
     </View>
   );
@@ -632,30 +924,74 @@ export function TvLocationScreen({
 }) {
   const [currentStep, setCurrentStep] = useState<StepNumber>(1);
   const [complete, setComplete] = useState(false);
-  const [destination, setDestination] = useState(TRIPOLI_DESTINATION);
+  const [loaded, setLoaded] = useState(false);
+  const [destination, setDestination] = useState<Destination>();
+  const [defaultLocation, setDefaultLocation] = useState<Destination>();
   const [mapPickerVisible, setMapPickerVisible] = useState(false);
   const [showVerify, setShowVerify] = useState(false);
+  const [accountUrl, setAccountUrl] = useState<string>();
+  const [session, setSession] = useState<SessionState>('unknown');
+  const [signingOut, setSigningOut] = useState(false);
   const [message, setMessage] = useState<string>();
+  const [accountMessage, setAccountMessage] = useState<string>();
   const [verifyRetry, setVerifyRetry] = useState(false);
   const homeScrollOffset = useRef(0);
   const homeFocusStep = useRef<StepNumber | undefined>(undefined);
 
   useEffect(() => {
-    void AsyncStorage.getItem(DESTINATION_STORAGE_KEY)
-      .then((stored) => {
-        if (!stored) {
+    let active = true;
+
+    void AsyncStorage.multiGet([
+      DEFAULT_LOCATION_STORAGE_KEY,
+      DESTINATION_STORAGE_KEY,
+    ])
+      .then((pairs) => {
+        const stored = new Map(pairs);
+        return resolveTvLocation(
+          stored.get(DEFAULT_LOCATION_STORAGE_KEY),
+          stored.get(DESTINATION_STORAGE_KEY),
+        );
+      })
+      .catch(() => TV_LOCATION_READ_FAILED)
+      .then((resolved) => {
+        if (!active) {
           return;
         }
-        const parsed: unknown = JSON.parse(stored);
-        const savedDestination = destinationFromStored(parsed);
-        if (savedDestination) {
-          setDestination(savedDestination);
+        setDefaultLocation(resolved.defaultLocation);
+        setDestination(resolved.current);
+        setLoaded(true);
+        if (resolved.loadError) {
+          setMessage('The saved location could not be loaded. Choose a location.');
         }
-      })
-      .catch(() => {
-        setMessage('The saved location could not be loaded. Tripoli is selected.');
+        if (resolved.writeDefault && resolved.current) {
+          // A failed write leaves the current point in place and runs again next launch.
+          void AsyncStorage.setItem(
+            DEFAULT_LOCATION_STORAGE_KEY,
+            JSON.stringify(resolved.current),
+          ).catch(() => undefined);
+        }
       });
+
+    return () => {
+      active = false;
+    };
   }, []);
+
+  // The session is read again whenever a Google page closes.
+  useEffect(() => {
+    if (showVerify || accountUrl) {
+      return;
+    }
+    let active = true;
+    void youTubeSessionState().then((state) => {
+      if (active) {
+        setSession(state);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [accountUrl, showVerify]);
 
   // Leaving verification without YouTube's Next taking effect keeps step 3 current.
   const closeVerify = useCallback(() => {
@@ -674,26 +1010,46 @@ export function TvLocationScreen({
     setMessage(undefined);
   }, []);
 
+  const openAccountView = useCallback((url: string) => {
+    homeFocusStep.current = undefined;
+    setAccountMessage(undefined);
+    setAccountUrl(url);
+  }, []);
+
+  const closeAccountView = useCallback(() => {
+    setAccountUrl(undefined);
+  }, []);
+
+  const blockAccountView = useCallback(() => {
+    setAccountUrl(undefined);
+    setAccountMessage('Google blocked sign-in inside the app for this account.');
+  }, []);
+
   useEffect(() => {
-    if (!showVerify || Platform.OS !== 'android') {
+    if ((!showVerify && !accountUrl) || Platform.OS !== 'android') {
       return;
     }
 
     const subscription = BackHandler.addEventListener(
       'hardwareBackPress',
       () => {
-        closeVerify();
+        if (accountUrl) {
+          closeAccountView();
+        } else {
+          closeVerify();
+        }
         return true;
       },
     );
 
     return () => subscription.remove();
-  }, [closeVerify, showVerify]);
+  }, [accountUrl, closeAccountView, closeVerify, showVerify]);
 
   useEffect(() => {
     if (
       Platform.OS !== 'android' ||
       showVerify ||
+      accountUrl ||
       mapPickerVisible
     ) {
       return;
@@ -708,12 +1064,18 @@ export function TvLocationScreen({
     );
 
     return () => subscription.remove();
-  }, [mapPickerVisible, onBackToMenu, showVerify]);
+  }, [accountUrl, mapPickerVisible, onBackToMenu, showVerify]);
 
+  // The first save on a phone with no default sets both points.
   const saveDestination = useCallback(
     async (nextDestination: Destination) => {
-      const moved = !sameCoordinates(nextDestination, destination);
+      const moved =
+        !destination || !sameCoordinates(nextDestination, destination);
+      const firstUse = !defaultLocation;
       setDestination(nextDestination);
+      if (firstUse) {
+        setDefaultLocation(nextDestination);
+      }
       setMapPickerVisible(false);
       setMessage(undefined);
 
@@ -725,9 +1087,14 @@ export function TvLocationScreen({
       }
 
       try {
-        await AsyncStorage.setItem(
-          DESTINATION_STORAGE_KEY,
-          JSON.stringify(nextDestination),
+        const stored = JSON.stringify(nextDestination);
+        await AsyncStorage.multiSet(
+          firstUse
+            ? [
+                [DEFAULT_LOCATION_STORAGE_KEY, stored],
+                [DESTINATION_STORAGE_KEY, stored],
+              ]
+            : [[DESTINATION_STORAGE_KEY, stored]],
         );
       } catch {
         setMessage(
@@ -735,7 +1102,29 @@ export function TvLocationScreen({
         );
       }
     },
-    [complete, currentStep, destination],
+    [complete, currentStep, defaultLocation, destination],
+  );
+
+  const applyDefault = useCallback(() => {
+    if (defaultLocation) {
+      void saveDestination(defaultLocation);
+    }
+  }, [defaultLocation, saveDestination]);
+
+  const makeDefault = useCallback(
+    async (nextDefault: Destination): Promise<boolean> => {
+      try {
+        await AsyncStorage.setItem(
+          DEFAULT_LOCATION_STORAGE_KEY,
+          JSON.stringify(nextDefault),
+        );
+        setDefaultLocation(nextDefault);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
   );
 
   const startOver = useCallback(() => {
@@ -745,9 +1134,73 @@ export function TvLocationScreen({
     setMessage(undefined);
   }, []);
 
+  const forgetLocation = useCallback(async () => {
+    try {
+      await AsyncStorage.multiRemove([
+        DEFAULT_LOCATION_STORAGE_KEY,
+        DESTINATION_STORAGE_KEY,
+      ]);
+    } catch {
+      setAccountMessage('The location could not be forgotten. Try again.');
+      return;
+    }
+    setDestination(undefined);
+    setDefaultLocation(undefined);
+    setAccountMessage(undefined);
+    startOver();
+  }, [startOver]);
+
+  const confirmForgetLocation = useCallback(() => {
+    Alert.alert(
+      'Forget this location?',
+      'The saved location and default are removed from this phone.',
+      [
+        { style: 'cancel', text: 'Cancel' },
+        {
+          onPress: () => void forgetLocation(),
+          style: 'destructive',
+          text: 'Forget',
+        },
+      ],
+    );
+  }, [forgetLocation]);
+
+  const signOut = useCallback(async () => {
+    setAccountMessage(undefined);
+    setSigningOut(true);
+    const cleared = await clearYouTubeSession();
+    await flushWebViewCookies();
+    if (!cleared) {
+      setAccountMessage('Sign out did not finish. Try again.');
+    }
+    setSession(await youTubeSessionState());
+    setSigningOut(false);
+  }, []);
+
+  const confirmSignOut = useCallback(() => {
+    Alert.alert(
+      'Sign out of YouTube TV on this phone?',
+      'The TV stays signed in.',
+      [
+        { style: 'cancel', text: 'Cancel' },
+        {
+          onPress: () => void signOut(),
+          style: 'destructive',
+          text: 'Sign out',
+        },
+      ],
+    );
+  }, [signOut]);
+
   return (
     <>
-      {showVerify ? (
+      {accountUrl ? (
+        <AccountView
+          onBlocked={blockAccountView}
+          onClose={closeAccountView}
+          startUrl={accountUrl}
+        />
+      ) : showVerify && destination ? (
         <VerifyView
           destination={destination}
           onAdvanced={finishVerify}
@@ -755,29 +1208,41 @@ export function TvLocationScreen({
         />
       ) : (
         <GuidedHome
+          accountMessage={accountMessage}
           complete={complete}
           currentStep={currentStep}
+          defaultLocation={defaultLocation}
           destination={destination}
           initialFocusStep={homeFocusStep.current}
           initialScrollOffset={homeScrollOffset.current}
+          loaded={loaded}
           message={message}
+          session={session}
+          signingOut={signingOut}
           verifyRetry={verifyRetry}
           onBackToMenu={onBackToMenu}
           onConfirmed={() => setComplete(true)}
           onConfirmDestination={() => setCurrentStep(2)}
           onEditDestination={() => setMapPickerVisible(true)}
+          onForgetLocation={confirmForgetLocation}
           onScrollOffsetChange={(offset) => {
             homeScrollOffset.current = offset;
           }}
+          onSignIn={() => openAccountView(SIGN_IN_URL)}
+          onSignOut={confirmSignOut}
           onStartOver={startOver}
+          onSwitchAccount={() => openAccountView(SWITCH_ACCOUNT_URL)}
           onTvReady={() => setCurrentStep(3)}
+          onUseDefault={applyDefault}
           onVerify={() => setShowVerify(true)}
         />
       )}
 
       <MapPicker
+        defaultLocation={defaultLocation}
         destination={destination}
         onCancel={() => setMapPickerVisible(false)}
+        onMakeDefault={makeDefault}
         onSave={saveDestination}
         visible={mapPickerVisible}
       />
@@ -967,6 +1432,43 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     marginTop: 2,
+  },
+  phonePanel: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#D8DEDA',
+    borderRadius: 18,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 18,
+  },
+  phonePanelTitle: {
+    color: '#15354A',
+    fontSize: 22,
+    fontWeight: '800',
+    lineHeight: 28,
+  },
+  phonePanelStatus: {
+    color: '#3F4E57',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 25,
+    marginTop: 6,
+  },
+  phonePanelNote: {
+    color: '#3F4E57',
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 12,
+  },
+  phonePanelLocation: {
+    gap: 10,
+    marginTop: 18,
+  },
+  phonePanelDefault: {
+    color: '#15354A',
+    fontSize: 17,
+    fontWeight: '700',
+    lineHeight: 24,
   },
   actionButton: {
     alignItems: 'center',
