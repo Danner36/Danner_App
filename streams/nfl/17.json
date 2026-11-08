@@ -21,6 +21,20 @@
       "url": "https://example.invalid/game.m3u8",
       "allowInsecureHttp": false,
       "trustedHosts": []
+    },
+    {
+      "eventId": "401873049",
+      "gameDates": [
+        "2026-11-08"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/59657?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
     }
   ]
 }
