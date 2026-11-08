@@ -1,5 +1,5 @@
 Status: ACTIVE
-Phase: Approved plan. Phases 0, 1 and 2a are merged with their owner runs pending; Phase 2b is next. Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
+Phase: Approved plan. Phases 0, 1, 2a and the 2b pipeline and Worker are merged with their owner runs pending; the 2b CI and Phase 3 are next. Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
 
 # Modular teams plan
 
