@@ -151,7 +151,8 @@ jobs:
           fi
           build_tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
           certs="$("${build_tools}apksigner" verify --print-certs Danner-Apps-Android.apk)"
-          actual="$(awk -F': ' '/certificate SHA-256 digest/ {print tolower($2)}' <<<"$certs" | sort -u)"
+          # The digest is the last field; the text before it differs between build-tools versions.
+          actual="$(awk -F': ' '/certificate SHA-256 digest/ {print tolower($NF)}' <<<"$certs" | sort -u)"
           if [ "$actual" != "$expected" ]; then
             echo '::error::The APK signing certificate does not match release/android-signing-cert.sha256.'
             exit 1
