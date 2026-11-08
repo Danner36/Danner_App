@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 2,
+  "team": {
+    "key": "nfl-22",
+    "name": "Arizona Cardinals"
+  },
+  "HOW_TO_GUIDE": {
+    "DATES": "gameDates are America/New_York calendar dates (MLB: MLB official date).",
+    "COMMIT": "Commit streams/nfl/22.json to main."
+  },
+  "streams": [
+    "INACTIVE EXAMPLE. COPY THE COMPLETE OBJECT BELOW THIS LINE.",
+    {
+      "gameDates": [
+        "YYYY-MM-DD"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "direct",
+      "url": "https://example.invalid/game.m3u8",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    },
+    {
+      "eventId": "401873048",
+      "gameDates": [
+        "2026-11-08"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/59662?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
+    }
+  ]
+}
