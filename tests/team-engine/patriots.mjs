@@ -394,6 +394,31 @@ assert.equal(
   4,
 );
 
+const coreSituationBoard = liveSummaryFromEspn(
+  summaryDocument(
+    { detail: 'Q2 0:49', state: 'in' },
+    {
+      situation: {
+        distance: 1,
+        down: 3,
+        downDistanceText: '3rd & 1 at DAL 34',
+        possessionText: 'DAL 34',
+        shortDownDistanceText: '3rd & 1',
+        team: { $ref: 'http://sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/2026/teams/6?lang=en' },
+      },
+    },
+  ),
+)?.scoreboard;
+assert.equal(coreSituationBoard?.situation, '3rd & 1 at DAL 34');
+assert.equal(coreSituationBoard?.down, 3);
+assert.equal(coreSituationBoard?.distance, 1);
+assert.equal(coreSituationBoard?.possessionTeamId, 6);
+const halftimeBoard = liveSummaryFromEspn(
+  summaryDocument({ detail: 'Halftime', state: 'in' }, { situation: { distance: 10, down: 1 } }),
+)?.scoreboard;
+assert.equal(halftimeBoard?.situation, undefined);
+assert.equal(halftimeBoard?.possessionTeamId, undefined);
+
 const postSummary = liveSummaryFromEspn(
   summaryDocument(
     { completed: true, detail: 'Final', state: 'post' },

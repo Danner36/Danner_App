@@ -16,6 +16,7 @@ import {
 } from './basketballRules.ts';
 import { abstractStateFromEspn } from './game.ts';
 import type { EspnAdapterRow } from './rows.ts';
+import { fetchEspnJson } from './winChance.ts';
 
 export type EspnGameState = 'in' | 'post' | 'pre';
 
@@ -90,8 +91,20 @@ function situationText(value: unknown): string | undefined {
     typeof situation.possessionText === 'string'
       ? situation.possessionText.trim()
       : '';
-  const text = [downDistance, possession].filter(Boolean).join(' · ');
+  // ESPN's long text already ends with the spot of the ball, which is the possession text.
+  const parts =
+    possession && downDistance.includes(possession)
+      ? [downDistance]
+      : [downDistance, possession];
+  const text = parts.filter(Boolean).join(' · ');
   return text || undefined;
+}
+
+// The Core situation names the team with the ball only as a link to the team.
+function teamIdFromRef(team: unknown): number | undefined {
+  const ref = (team as { $ref?: unknown } | null | undefined)?.$ref;
+  const match = typeof ref === 'string' ? /\/teams\/(\d+)/.exec(ref) : null;
+  return match ? Number(match[1]) : undefined;
 }
 
 function competitionFromDocument(value: unknown): unknown {
@@ -152,8 +165,8 @@ export function periodBoardFromEspn(value: unknown): PeriodBoard | undefined {
     typeof value === 'object' && value !== null
       ? (value as { situation?: unknown })
       : undefined;
-  // The summary document carries situation at the top level; header and schedule competitions may
-  // carry it on the competition instead.
+  // The live poll adds the Core situation at the top level; schedule competitions carry it on the
+  // competition instead.
   const situation = document?.situation ?? contest.situation;
   const situationRecord =
     typeof situation === 'object' && situation !== null
@@ -161,6 +174,7 @@ export function periodBoardFromEspn(value: unknown): PeriodBoard | undefined {
           distance?: unknown;
           down?: unknown;
           possession?: unknown;
+          team?: unknown;
         })
       : undefined;
   const clock =
@@ -174,7 +188,9 @@ export function periodBoardFromEspn(value: unknown): PeriodBoard | undefined {
     (typeof contest.status?.type?.shortDetail === 'string' &&
       contest.status.type.shortDetail) ||
     'Live';
-  const possessionTeamId = finiteCount(situationRecord?.possession);
+  const possessionTeamId =
+    finiteCount(situationRecord?.possession) ??
+    teamIdFromRef(situationRecord?.team);
 
   return {
     away,
@@ -385,6 +401,15 @@ export async function fetchLiveEspnSummary(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), SUMMARY_TIMEOUT_MS);
 
+  // The football summary has no down, distance, or team with the ball. A failed request leaves the
+  // board without them.
+  const situationRequest =
+    row.scoreboard === 'periods'
+      ? fetchEspnJson(
+          `https://sports.core.api.espn.com/v2/sports/${row.corePath}/events/${gameId}/competitions/${gameId}/situation`,
+        )
+      : Promise.resolve(undefined);
+
   try {
     const response = await fetch(
       `https://site.api.espn.com/apis/site/v2/sports/${row.sitePath}/summary?event=${gameId}`,
@@ -396,7 +421,14 @@ export async function fetchLiveEspnSummary(
     if (!response.ok) {
       return undefined;
     }
-    const document: unknown = await response.json();
+    const [summary, situation] = await Promise.all([
+      response.json() as Promise<unknown>,
+      situationRequest,
+    ]);
+    const document =
+      typeof summary === 'object' && summary !== null && situation !== undefined
+        ? { situation, ...summary }
+        : summary;
     return liveSummaryFromEspn(document, row, {
       now: Date.now(),
       previous: previousBoard,
