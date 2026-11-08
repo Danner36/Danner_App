@@ -60,6 +60,11 @@ jobs:
         if: inputs.ref != '' || hashFiles('tests/imports/run.mjs') != ''
         run: node ../tests/imports/run.mjs
 
+      # A release call always runs this step, so a tag whose picker has no offline catalog fails.
+      - name: Check the catalog snapshot
+        if: inputs.ref != ''
+        run: node scripts/build-catalog-snapshot.mjs --check
+
   pipeline:
     name: Stream pipeline tests (${{ matrix.tz }})
     runs-on: ubuntu-latest

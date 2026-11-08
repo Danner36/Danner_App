@@ -23,8 +23,10 @@ const PURE_MODULES = [
   ...tsFiles('leagues'),
   ...tsFiles('team/engine'),
   ...tsFiles('scoreboards').filter((file) => !file.endsWith('.tsx')),
-  'selection/types.ts',
-  'selection/presets.ts',
+  'hub/hubGrid.ts',
+  'logos/logoPlan.ts',
+  'picker/catalogModel.ts',
+  ...tsFiles('selection').filter((file) => !file.endsWith('store.ts')),
   'streams/sources.ts',
   'tvLocation/destination.ts',
 ];
