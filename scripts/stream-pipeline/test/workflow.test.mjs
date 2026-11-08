@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -196,10 +196,13 @@ test('the local config, packages and captures are git-ignored', () => {
   }
 });
 
-test('the three Phase 1 modules are carried over byte for byte', () => {
+// The old package is deleted at the cutover; until then the three copies stay identical.
+const OLD_PACKAGE = path.join(REPO_ROOT, 'scripts/guardians-stream-pipeline');
+
+test('the three Phase 1 modules are carried over byte for byte', { skip: !existsSync(OLD_PACKAGE) }, () => {
   for (const file of ['lib/sources.mjs', 'lib/redact.mjs', 'lib/extract/providers.mjs']) {
     const carried = readFileSync(path.join(REPO_ROOT, 'scripts/stream-pipeline', file));
-    const original = readFileSync(path.join(REPO_ROOT, 'scripts/guardians-stream-pipeline', file));
+    const original = readFileSync(path.join(OLD_PACKAGE, file));
     assert.ok(carried.equals(original), file);
   }
 });
