@@ -1,5 +1,13 @@
-const GOOZ_HOST = 'gooz.aapmains.net';
-const GOOZ_EMBED_PATH = /\/new-stream-embed\/([^/?#]+)/;
+import {
+  GOOZ_HOST,
+  providerForHost,
+  providerForUrl,
+  providerShowsOffline,
+} from './extract/providers.mjs';
+import { redactHosts } from './redact.mjs';
+
+export { redactHosts };
+
 const GOOZ_URL_PATTERN =
   /https?:\/\/(?:[a-z0-9-]+\.)*gooz\.aapmains\.net[^\s"'<>)]*/gi;
 export const EXTRACT_USER_AGENT =
@@ -9,36 +17,12 @@ export const GOOZ_IFRAME_WAIT_MS = 8_000;
 export const POST_PLAY_WAIT_MS = 5_000;
 const LINK_NAVIGATION_WAIT_MS = 15_000;
 
-// Matches on a label boundary, the same way GOOZ_URL_PATTERN does. A bare endsWith would
-// also accept `notgooz.aapmains.net`, letting a squatted sibling host through the checks
-// that decide what gets published into the streams document.
 export function isGoozHost(hostname) {
-  const host = String(hostname).toLowerCase();
-  return host === GOOZ_HOST || host.endsWith(`.${GOOZ_HOST}`);
-}
-
-function goozEmbedId(url) {
-  try {
-    const parsed = new URL(url);
-    if (!isGoozHost(parsed.hostname)) {
-      return undefined;
-    }
-    const match = parsed.pathname.match(GOOZ_EMBED_PATH);
-    if (!match) {
-      return undefined;
-    }
-    const segment = match[1];
-    if (!segment || !/\d/.test(segment)) {
-      return undefined;
-    }
-    return segment;
-  } catch {
-    return undefined;
-  }
+  return providerForHost(hostname)?.id === 'gooz';
 }
 
 export function isValidGoozPlayerUrl(url) {
-  return goozEmbedId(url) !== undefined;
+  return providerForUrl(url)?.id === 'gooz';
 }
 
 // Entries are published with allowInsecureHttp false, which the phone only accepts for https.
@@ -54,8 +38,6 @@ export function httpsProviderUrl(url) {
     return undefined;
   }
 }
-
-const LISTING_HOST_LABEL = '[listing]';
 
 function hostOf(url) {
   try {
@@ -87,17 +69,6 @@ function isPrivateHost(host, privateHosts) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-// The listing host, its full hrefs, and extract.baseUrl stay out of public Actions logs.
-export function redactHosts(text, privateHosts) {
-  let redacted = String(text);
-  for (const host of privateHosts) {
-    if (host) {
-      redacted = redacted.replace(new RegExp(escapeRegExp(host), 'gi'), LISTING_HOST_LABEL);
-    }
-  }
-  return redacted;
 }
 
 export function urlPathForLog(url) {
@@ -525,7 +496,7 @@ export function extractRunsHeaded() {
   return process.env.GITHUB_ACTIONS === 'true';
 }
 
-async function launchExtractBrowser(options = {}) {
+export async function launchExtractBrowser(options = {}) {
   const { chromium } = await import('playwright');
   const headless =
     options.headless ??
@@ -536,7 +507,7 @@ async function launchExtractBrowser(options = {}) {
   });
 }
 
-async function newExtractContext(browser) {
+export async function newExtractContext(browser) {
   return browser.newContext({
     locale: 'en-US',
     timezoneId: 'America/New_York',
@@ -546,14 +517,17 @@ async function newExtractContext(browser) {
 }
 
 // Polls until the listing yields a usable link or a definite ambiguity. A listing still loading
-// rows, or mid-navigation through a challenge, keeps polling until the deadline.
-async function waitForListingLink(page, options, timeoutMs = 15_000) {
+// rows, or mid-navigation through a challenge, keeps polling until the deadline. A closed page
+// or an abandoned attempt ends the wait, because the poll's sleep rejects at once on a closed page.
+async function waitForListingLink(page, options, timeoutMs = 15_000, isAbandoned = () => false) {
   const deadline = Date.now() + timeoutMs;
   let selection = selectListingLink(await findInnerLinkByHref(page, options), options);
   while (
     !selection.link &&
     selection.failure !== 'ambiguous_link' &&
-    Date.now() < deadline
+    Date.now() < deadline &&
+    !page.isClosed() &&
+    !isAbandoned()
   ) {
     await settle(() => page.waitForTimeout(1_000), undefined);
     selection = selectListingLink(await findInnerLinkByHref(page, options), options);
@@ -566,6 +540,87 @@ export function isCloudflareChallengeTitle(title) {
     typeof title === 'string' &&
     title.toLowerCase().includes('just a moment')
   );
+}
+
+export function isChallengeFrameUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    return (
+      parsed.pathname.includes('/cdn-cgi/challenge-platform/') ||
+      host === 'challenges.cloudflare.com' ||
+      host.endsWith('.challenges.cloudflare.com')
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function httpFailureCode(status) {
+  if (typeof status !== 'number' || status < 400) {
+    return undefined;
+  }
+  return status >= 500 ? 'http_5xx' : 'http_4xx';
+}
+
+// A challenge is answered with 403 or 503 and can clear in the same page load, so those two
+// statuses are not a failure while a challenge marker is present.
+async function isChallengeResponse(page, response) {
+  const status = response?.status?.();
+  if (status !== 403 && status !== 503) {
+    return false;
+  }
+  return response.headers?.()['cf-mitigated'] === 'challenge' || pageShowsChallenge(page);
+}
+
+async function pageShowsChallenge(page) {
+  const title = await settle(() => page.title(), '');
+  return (
+    isCloudflareChallengeTitle(title) ||
+    page.frames().some((frame) => isChallengeFrameUrl(frame.url()))
+  );
+}
+
+export function navigationFailureCode(error) {
+  return error?.name === 'TimeoutError' ? 'nav_timeout' : 'nav_error';
+}
+
+// Reached only when no provider URL was found: something embeds a player that no provider row
+// recognizes, or the page has no player at all.
+export function playerFailureCode({ frameCount, iframeCount, videoCount }) {
+  return frameCount > 0 || iframeCount > 0 || videoCount > 0
+    ? 'unknown_provider'
+    : 'player_not_found';
+}
+
+async function playerPageCounts(page) {
+  const summary = await playerPageSummary(page);
+  const videoCount = await settle(
+    () => page.evaluate(() => document.querySelectorAll('video').length),
+    0,
+  );
+  return {
+    cloudflareChallenge: summary.cloudflareChallenge,
+    title: summary.title,
+    // playerPageSummary already dropped challenge, YouTube and reCAPTCHA frames; the first
+    // remaining frame is the game page itself.
+    frameCount: Math.max(summary.frameUrls.length - 1, 0),
+    iframeCount: summary.iframes.filter((url) => !isIgnoredPlayerFrame(url)).length,
+    videoCount,
+  };
+}
+
+async function embedFailureCode(page, capture, goozUrl) {
+  if (httpFailureCode(capture.embedStatus(goozUrl))) {
+    return 'unplayable';
+  }
+  const provider = providerForUrl(goozUrl);
+  if (!provider?.offlineMarkers.length) {
+    return undefined;
+  }
+  const frame = page.frames().find((candidate) => providerForUrl(candidate.url()) === provider);
+  const text = await settle(() => frame.content(), '');
+  return providerShowsOffline(provider, text) ? 'unplayable' : undefined;
 }
 
 async function playerPageSummary(page) {
@@ -865,6 +920,8 @@ async function extractGoozWithRetries(page, pageUrl, networkUrls) {
 export function createGoozCapture(page, pageUrl) {
   let armed = false;
   let documentIndex = 0;
+  let documentResponse;
+  const embedStatuses = new Map();
   const entries = [];
   const requestDocuments = new WeakMap();
 
@@ -893,9 +950,21 @@ export function createGoozCapture(page, pageUrl) {
   page.on('request', (request) => {
     remember(request.url(), documentForRequest(request), pageUrl);
   });
+  const rememberStatus = (response) => {
+    try {
+      if (isValidGoozPlayerUrl(response.url())) {
+        embedStatuses.set(httpsProviderUrl(response.url()), response.status());
+      }
+      if (response.request().isNavigationRequest() && response.frame() === page.mainFrame()) {
+        documentResponse = response;
+      }
+    } catch {}
+  };
+
   page.on('response', async (response) => {
     const index = documentForRequest(response.request());
     remember(response.url(), index, pageUrl);
+    rememberStatus(response);
     try {
       const body = await response.text();
       for (const match of findGoozInText(body, response.url())) {
@@ -914,6 +983,13 @@ export function createGoozCapture(page, pageUrl) {
     armForNavigation() {
       armed = true;
     },
+    // The newest main-frame document response, so a click navigation's status is visible.
+    documentResponse() {
+      return documentResponse;
+    },
+    embedStatus(url) {
+      return embedStatuses.get(httpsProviderUrl(url));
+    },
     urls() {
       return entries
         .filter((entry) => entry.index === documentIndex)
@@ -927,13 +1003,25 @@ async function openPageWithGoozCapture(context, pageUrl, options) {
   const page = await context.newPage();
   const capture = createGoozCapture(page, pageUrl);
 
-  await page.goto(pageUrl, {
+  // A source attempt learns every main-frame host as it commits, so a redirect target is masked
+  // before anything can print it.
+  const onHost = options.sourceAttempt?.onHost;
+  if (onHost) {
+    page.on('framenavigated', (frame) => {
+      const host = /^https?:/i.test(frame.url()) ? hostOf(frame.url()) : undefined;
+      if (host && frame === page.mainFrame()) {
+        onHost(host);
+      }
+    });
+  }
+
+  const response = await page.goto(pageUrl, {
     waitUntil: 'domcontentloaded',
     timeout: timeoutMs,
   });
   await settle(() => page.waitForTimeout(POST_PLAY_WAIT_MS), undefined);
 
-  return { capture, page };
+  return { capture, page, response };
 }
 
 export async function openGoozPlayerPreview(goozUrl, options = {}) {
@@ -1009,7 +1097,11 @@ function linkFailureLines(selection, options, forLog) {
   return [];
 }
 
+// Without options.sourceAttempt this launches its own browser and reports only found, not found,
+// and link failures. With it, the call runs inside the caller's browser context and every failure
+// comes back as a listing-failover code in `failure`.
 export async function extractGoozFromBasePage(baseUrl, options = {}) {
+  const attempt = options.sourceAttempt;
   const hrefNeedles = hrefNeedlesFromOptions(options);
   const hrefNeedle = hrefNeedles.join(' + ');
   const steps = [];
@@ -1025,8 +1117,15 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     opponentName,
     requireOpponent: options.requireOpponent === true,
   };
-  const privateHosts = new Set();
-  rememberPrivateHost(privateHosts, baseUrl);
+  const privateHosts = attempt?.privateHosts ?? new Set();
+  const notePrivateUrl = (url) => {
+    rememberPrivateHost(privateHosts, url);
+    const host = hostOf(url);
+    if (host) {
+      attempt?.onHost?.(host);
+    }
+  };
+  notePrivateUrl(baseUrl);
   const forLog = (url) => describeUrlForLog(url, privateHosts);
 
   const remember = (message) => {
@@ -1058,8 +1157,11 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
 
   let browser;
   try {
-    browser = await launchExtractBrowser();
-    const context = await newExtractContext(browser);
+    let context = attempt?.context;
+    if (!context) {
+      browser = await launchExtractBrowser();
+      context = await newExtractContext(browser);
+    }
 
     if (extractRunsHeaded()) {
       remember('Running headed browser for Cloudflare-protected pages.');
@@ -1068,14 +1170,31 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     pushStep(steps, 'connect_base', `Opening listing path ${listingPath}`);
     remember(`Opening listing path ${listingPath}`);
 
-    const { capture, page: basePage } = await openPageWithGoozCapture(
-      context,
-      baseUrl,
-      options,
-    );
-    rememberPrivateHost(privateHosts, basePage.url());
+    let opened;
+    try {
+      opened = await openPageWithGoozCapture(context, baseUrl, options);
+    } catch (error) {
+      if (!attempt) {
+        throw error;
+      }
+      return failureResult(navigationFailureCode(error), 'Listing page did not load.');
+    }
+    const { capture, page: basePage, response: baseResponse } = opened;
+    notePrivateUrl(basePage.url());
     pushStep(steps, 'base_loaded', 'Base page loaded.');
     remember('Base page loaded.');
+
+    // A challenge that already cleared replaced the document, so the newest response decides.
+    const listingResponse = () => capture.documentResponse() ?? baseResponse;
+    if (attempt) {
+      const response = listingResponse();
+      const httpFailure = httpFailureCode(response?.status?.());
+      if (httpFailure && !(await isChallengeResponse(basePage, response))) {
+        remember(`Listing page answered HTTP ${response.status()}.`);
+        return failureResult(httpFailure, 'Listing page returned an error.');
+      }
+      attempt.onStage?.('link');
+    }
 
     const searchMessage = opponentName
       ?`Searching page elements for href containing "${hrefNeedle}" and opponent ${opponentName}...`
@@ -1083,14 +1202,34 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     pushStep(steps, 'search_links', searchMessage, { hrefNeedle });
     remember(searchMessage);
 
-    const selection = await waitForListingLink(basePage, selectionOptions);
+    const selection = await waitForListingLink(
+      basePage,
+      selectionOptions,
+      attempt?.linkWaitMs,
+      attempt?.isAbandoned,
+    );
     const innerLink = selection.link;
+    if (attempt) {
+      for (const match of selection.matches ?? []) {
+        notePrivateUrl(match.href);
+      }
+    }
 
     if (!innerLink) {
       const listing = await listingPageSummary(basePage);
       const message = 'No video found.';
       pushStep(steps, selection.failure ?? 'link_not_found', message, { success: false });
       remember(message);
+      if (attempt && (selection.failure ?? 'link_not_found') === 'link_not_found') {
+        if (
+          (await isChallengeResponse(basePage, listingResponse())) ||
+          (await pageShowsChallenge(basePage))
+        ) {
+          remember('The listing is still showing a challenge page.');
+          rememberFeaturedGame(steps, remember, game);
+          return failureResult('bot_challenge', message);
+        }
+      }
       for (const line of linkFailureLines(selection, selectionOptions, forLog)) {
         remember(line);
       }
@@ -1111,7 +1250,7 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
       });
     }
 
-    rememberPrivateHost(privateHosts, innerLink.href);
+    notePrivateUrl(innerLink.href);
     pushStep(steps, 'link_found', 'Found link element.', {
       href: innerLink.href,
       hrefNeedleMatched: innerLink.hrefNeedleMatched,
@@ -1129,13 +1268,33 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     );
     remember(`Opening video page: ${forLog(innerLink.href)}`);
 
-    await openInnerPageFromLink(basePage, innerLink, options, capture);
+    attempt?.onStage?.('game');
+    try {
+      await openInnerPageFromLink(basePage, innerLink, options, capture);
+    } catch (error) {
+      if (!attempt) {
+        throw error;
+      }
+      return failureResult('game_nav', 'Video page did not load.');
+    }
     const innerPage = basePage;
-    rememberPrivateHost(privateHosts, innerPage.url());
+    notePrivateUrl(innerPage.url());
     pushStep(steps, 'video_page_loaded', 'Video page loaded.');
     remember('Video page loaded.');
 
-    const embedsReady = await waitForPlayerEmbeds(innerPage, capture.urls);
+    if (attempt) {
+      const response = capture.documentResponse();
+      if (httpFailureCode(response?.status?.()) && !(await isChallengeResponse(innerPage, response))) {
+        return failureResult('game_nav', 'Video page returned an error.');
+      }
+    }
+
+    const embedsReady = await waitForPlayerEmbeds(innerPage, capture.urls, attempt?.embedWaitMs);
+    // A challenge that cleared during the wait replaced the document with a successful one.
+    if (attempt && httpFailureCode(capture.documentResponse()?.status?.())) {
+      return failureResult('game_nav', 'Video page returned an error.');
+    }
+    attempt?.onStage?.('player');
     if (embedsReady) {
       pushStep(steps, 'embeds_ready', 'Player embeds are present on the video page.', {
         success: true,
@@ -1159,7 +1318,12 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     const rawPlayMethod = await activateVideoPlayer(innerPage, capture.urls, {
       skipEmbedWait: true,
     });
-    const playMethod = rawPlayMethod ? redactHosts(rawPlayMethod, privateHosts) : undefined;
+    // A play method can start with the frame's URL, which a source attempt never logs.
+    const playMethod = rawPlayMethod
+      ? attempt
+        ? 'player control'
+        : redactHosts(rawPlayMethod, privateHosts)
+      : undefined;
     if (playMethod) {
       pushStep(steps, 'play_pressed', `Play activated using: ${playMethod}`, {
         playMethod,
@@ -1199,6 +1363,18 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
         success: true,
       });
       remember('Stream entry ready.');
+    } else if (attempt) {
+      const message = 'No video found.';
+      const counts = await playerPageCounts(innerPage);
+      pushStep(steps, 'gooz_not_found', message, { success: false });
+      remember(message);
+      remember(
+        `Player page has ${counts.frameCount} frames, ${counts.iframeCount} iframes and ${counts.videoCount} videos.`,
+      );
+      if (counts.cloudflareChallenge) {
+        remember('The video page is still showing a challenge page.');
+      }
+      return failureResult(playerFailureCode(counts), message);
     } else {
       const message = 'No video found.';
       const player = await playerPageSummary(innerPage);
@@ -1214,6 +1390,15 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
         remember(`Cloudflare challenge page title: "${player.title}".`);
       }
       extraction.streamEntry = undefined;
+    }
+
+    if (attempt && extraction.goozUrl) {
+      attempt.onStage?.('entry');
+      const embedFailure = await embedFailureCode(innerPage, capture, extraction.goozUrl);
+      if (embedFailure) {
+        remember('The player page did not load a playable embed.');
+        return failureResult(embedFailure, 'No video found.');
+      }
     }
 
     return {
