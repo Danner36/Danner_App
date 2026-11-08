@@ -1,0 +1,17 @@
+{
+  "name": "stream-pipeline",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node run.mjs",
+    "dry-run": "node run.mjs --dry-run",
+    "help": "node run.mjs --help",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "playwright": "^1.55.0"
+  }
+}

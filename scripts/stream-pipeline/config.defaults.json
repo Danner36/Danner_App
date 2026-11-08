@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 2,
+  "timing": {
+    "leadMinutes": 15,
+    "postStartGraceMinutes": { "default": 240, "mlb": 180 },
+    "primary": { "navigationTimeoutSeconds": 90 },
+    "backup": { "navigationTimeoutSeconds": 30, "timeoutSeconds": 120 },
+    "extractDeadlineSeconds": 600
+  },
+  "matching": {
+    "leagues": {
+      "mlb": { "leagueHints": ["/mlb/"] },
+      "nfl": { "leagueHints": ["/nfl/"] }
+    },
+    "defaultLeagueHints": ["/stream/"]
+  }
+}

@@ -1,0 +1,184 @@
+name: Stream pipeline
+
+on:
+  repository_dispatch:
+    types: [team-get-video]
+  workflow_dispatch:
+    inputs:
+      team:
+        description: Catalog team key, such as nfl-17
+        required: true
+        type: string
+      sport:
+        description: Sport, for schools only (football, mens-basketball, womens-basketball)
+        required: false
+        type: string
+        default: ''
+      event:
+        description: ESPN event id or MLB gamePk (blank picks today's game)
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: Extract and log without writing the streams file
+        required: false
+        type: boolean
+        default: false
+      force:
+        description: Run even outside the 15-minute pregame window
+        required: false
+        type: boolean
+        default: false
+      source:
+        description: Try only this listing source, 1-based (blank tries all)
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+# One running plus one queued run per team and sport. Two sports of one school run side by side
+# and both write the school's file through the SHA-checked publish.
+concurrency:
+  group: stream-pipeline-${{ github.event.client_payload.team || inputs.team }}-${{ github.event.client_payload.sport || inputs.sport || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  # Opens untrusted listing and player pages, so it holds a read-only token and no stored
+  # credentials. Payload values and inputs reach the shell only through env.
+  extract:
+    name: Extract a stream
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      TEAM_KEY: ${{ github.event.client_payload.team || inputs.team }}
+      TEAM_SPORT: ${{ github.event.client_payload.sport || inputs.sport }}
+      EVENT_ID: ${{ github.event.client_payload.eventId || inputs.event }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+      FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+      SOURCE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.source || '' }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: scripts/stream-pipeline/package-lock.json
+
+      - name: Check request
+        run: node scripts/stream-pipeline/run.mjs --check-request
+
+      # Must stay ahead of every step that can print: it masks each listing host.
+      - name: Write pipeline config
+        env:
+          STREAM_PIPELINE_CONFIG: ${{ secrets.STREAM_PIPELINE_CONFIG }}
+        run: |
+          umask 077
+          node scripts/stream-pipeline/run.mjs --write-config
+
+      - name: Check pipeline config
+        run: node scripts/stream-pipeline/run.mjs --check-config
+
+      - name: Install pipeline packages
+        working-directory: scripts/stream-pipeline
+        run: npm ci
+
+      - name: Restore Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('scripts/stream-pipeline/package-lock.json') }}
+
+      - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: scripts/stream-pipeline
+        run: npx playwright install chromium --with-deps
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: scripts/stream-pipeline
+        run: npx playwright install-deps chromium
+
+      - name: Install xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Run pipeline
+        env:
+          EXTRACT_HEADED: '1'
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_PROGRESS_KEY: ${{ secrets.RUN_PROGRESS_KEY }}
+          WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
+        run: xvfb-run -a node scripts/stream-pipeline/run.mjs
+
+      - name: Upload candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/stream-pipeline/candidate.json
+          retention-days: 7
+          if-no-files-found: ignore
+          overwrite: true
+
+  # Holds the write token, so it installs no packages, opens no page, and re-checks the candidate.
+  publish:
+    name: Publish the stream
+    needs: extract
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      TEAM_KEY: ${{ github.event.client_payload.team || inputs.team }}
+      TEAM_SPORT: ${{ github.event.client_payload.sport || inputs.sport }}
+      EVENT_ID: ${{ github.event.client_payload.eventId || inputs.event }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+      FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+    steps:
+      - name: Check out the pipeline and catalog
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/stream-pipeline
+            catalog
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # A failed extract can leave no artifact; publish.mjs reports that as extract_failed.
+      - name: Download candidate
+        continue-on-error: true
+        uses: actions/download-artifact@v5
+        with:
+          name: candidate-${{ github.run_id }}
+          path: ${{ runner.temp }}/stream-pipeline
+
+      - name: Publish and report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RUN_STATUS_KEY: ${{ secrets.RUN_STATUS_KEY }}
+          WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
+        run: node scripts/stream-pipeline/publish.mjs
+
+      - name: Upload run result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-result.json
+          path: ${{ runner.temp }}/stream-pipeline/pipeline-result.json
+          retention-days: 7
+          if-no-files-found: ignore
+          overwrite: true
