@@ -7,7 +7,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 ## Subfolders
 
 - `Anchor/` contains product intent and platform boundaries.
-- `Domain/` contains the team screen, league adapters, authorized playback rules, destination selection, and the four-step playback-area flow.
+- `Domain/` contains the hub and team picker, the team screen, league adapters, authorized playback rules, destination selection, and the four-step playback-area flow.
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
 - `Production/` contains current capability, delivery, and validation status, plus the approved modular-teams plan.
@@ -18,10 +18,11 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Topic | Source |
 |-------|--------|
 | Product intent and platform boundaries | [Anchor/Vision.md](Anchor/Vision.md) |
+| Hub, team picker, on-phone storage, and preset seeding | [Domain/Hub.md](Domain/Hub.md) |
 | One team screen | [Domain/TeamScreen.md](Domain/TeamScreen.md) |
 | League adapters | [Domain/Leagues/](Domain/Leagues/MLB.md) |
 | Streams files, Get video, and playback kinds | [Domain/Streams.md](Domain/Streams.md) |
-| App hub, destination selection, and playback-area flow | [Domain/Playback.md](Domain/Playback.md) |
+| Destination selection and playback-area flow | [Domain/Playback.md](Domain/Playback.md) |
 | Runtime, dependencies, and builds | [Technical/Stack.md](Technical/Stack.md) |
 | Visual specification and launcher art | [Art/README.md](Art/README.md) |
 | Capability and delivery status | [Production/Roadmap.md](Production/Roadmap.md) |

@@ -19,6 +19,7 @@ Phase: MVP
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
 - `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians, Patriots, and Cyclones source documents.
 - `expo-asset` installs and opens the generated offline map HTML on Android and iOS.
+- `expo-file-system` keeps downloaded team logos in the document directory, which survives in-place updates.
 - `react-native-safe-area-context` preserves readable system-bar insets.
 - `expo-status-bar` and `expo-navigation-bar` keep light system chrome.
 - `expo-splash-screen` uses the Danner launcher art on `#F7F7F2`.
@@ -44,13 +45,15 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | Path | Role |
 |------|------|
 | `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / preset team screen / TV Location routes |
-| `app/hub/` | Logo-only two-row menu, iPhone signing-warning text, and GitHub-release update prompt |
+| `app/hub/` | Logo-only menu, grid math, tiles and tile actions, iPhone signing-warning text, and GitHub-release update prompt |
+| `app/picker/` | Team picker, catalog snapshot, catalog cache and parser |
+| `app/logos/` | Team logo download, index, and the shared `TeamLogo` |
 | `app/team/` | The one team screen, its featured cards and schedule, and the pure engine under `engine/` |
 | `app/leagues/` | League adapters: ESPN rows, MLB statsapi, and the basketball board parser and rules |
 | `app/playback/` | Native and isolated web players, Listen, Cast, and the TV relay |
 | `app/streams/` | Per-team streams parser, fetch chain, and Get video through Worker v2 |
 | `app/scoreboards/` | Baseball, period, and basketball arena boards |
-| `app/selection/` | Tile types and the three presets |
+| `app/selection/` | Tile types, presets, tile operations, load and migration, seeding, and the on-phone store |
 | `app/tvLocation/` | Guided home, destination storage, bundled map, browser injection, and verification view |
 | `guardians_streams.json` | Owner-edited, GitHub-hosted Guardians playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
 | `patriots_streams.json` | Owner-edited, GitHub-hosted Patriots playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
