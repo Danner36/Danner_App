@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 2,
+  "sources": [
+    { "label": "primary", "baseUrl": "https://listing-one.example.invalid/live" },
+    { "label": "backup-1", "baseUrl": "https://listing-two.example.invalid/live", "timeoutSeconds": 120 },
+    {
+      "label": "backup-2",
+      "baseUrl": "https://listing-three.example.invalid/live",
+      "matching": { "teams": { "nfl-17": { "hrefNeedles": ["new-england"] } } }
+    }
+  ],
+  "matching": {
+    "leagues": { "ncaa": { "requireOpponent": false } },
+    "teams": { "ncaa-66/womens-basketball": { "hrefNeedles": ["iowa-state-cyclones-women"] } }
+  }
+}

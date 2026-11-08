@@ -457,6 +457,18 @@ async function publishStreamDocument({
   };
 }
 
+// A provider URL is committed to a public file, so it may hold nothing that could carry a host.
+function hasOnlyPlayerUrlParts(url) {
+  const parsed = new URL(url);
+  return (
+    !url.includes('#') &&
+    !parsed.username &&
+    !parsed.password &&
+    !parsed.port &&
+    [...parsed.searchParams.keys()].every((name) => name === 'ad')
+  );
+}
+
 const LISTING_FAILURE_MESSAGES = {
   browser_failed: 'The browser could not be started.',
   deadline: 'The extraction deadline passed before every listing source was tried.',
@@ -516,7 +528,7 @@ async function extractFromListingSources({
       extraction.found && isValidGoozPlayerUrl(extraction.goozUrl)
         ? httpsProviderUrl(extraction.goozUrl)
         : undefined;
-    if (!url) {
+    if (!url || !hasOnlyPlayerUrlParts(url)) {
       return { code: 'invalid_entry' };
     }
     const entry = {

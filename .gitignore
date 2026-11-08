@@ -57,6 +57,11 @@ scripts/guardians-stream-pipeline/config.json
 scripts/guardians-stream-pipeline/node_modules/
 scripts/guardians-stream-pipeline/.probe-output/
 
+# Stream pipeline local config
+scripts/stream-pipeline/config.json
+scripts/stream-pipeline/node_modules/
+scripts/stream-pipeline/.probe-output/
+
 # Team catalog probe raw captures
 scripts/team-catalog/.probe-output/
 
