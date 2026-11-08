@@ -35,7 +35,6 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out the tag's release folder
-        if: needs.ci.result == 'skipped'
         uses: actions/checkout@v5
         with:
           ref: refs/tags/${{ env.RELEASE_TAG }}
@@ -52,14 +51,22 @@ jobs:
             exit 1
           fi
 
-      - name: Check Worker health
+      # A build with a wrong or empty value installs normally and has no Play or Get video.
+      - name: Check build secrets and Worker health
         if: needs.ci.result == 'success'
         env:
           WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
+          APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
         shell: bash
         run: |
           if [ -z "$WORKER_URL" ]; then
             echo '::error::Secret EXPO_PUBLIC_DANNER_WORKER_URL is empty.'
+            exit 1
+          fi
+          expected="$(awk 'NR==1 {print tolower($1)}' release/app-key.sha256)"
+          actual="$(printf '%s' "$APP_KEY" | sha256sum | awk '{print $1}')"
+          if [ -z "$APP_KEY" ] || [ "$expected" != "$actual" ]; then
+            echo '::error::Secret EXPO_PUBLIC_DANNER_APP_KEY does not match release/app-key.sha256.'
             exit 1
           fi
           # Only the status code reaches the log, so the Worker origin is never printed.
@@ -114,16 +121,16 @@ jobs:
       - name: Generate Android project
         env:
           EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
-          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
-          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          EXPO_PUBLIC_DANNER_APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          EXPO_PUBLIC_DANNER_WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: npx expo prebuild --platform android --clean
 
       - name: Build APK
         env:
           EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
-          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
-          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          EXPO_PUBLIC_DANNER_APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          EXPO_PUBLIC_DANNER_WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: ./android/gradlew --no-daemon -p android app:assembleRelease
 
@@ -194,16 +201,16 @@ jobs:
       - name: Generate iPhone project
         env:
           EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
-          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
-          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          EXPO_PUBLIC_DANNER_APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          EXPO_PUBLIC_DANNER_WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: npx expo prebuild --platform ios --clean
 
       - name: Build unsigned device app
         env:
           EXPO_PUBLIC_APP_VERSION: ${{ env.RELEASE_TAG }}
-          EXPO_PUBLIC_GUARDIANS_FAMILY_PIN: ${{ secrets.EXPO_PUBLIC_GUARDIANS_FAMILY_PIN }}
-          EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL: ${{ secrets.EXPO_PUBLIC_GUARDIANS_GET_VIDEO_URL }}
+          EXPO_PUBLIC_DANNER_APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          EXPO_PUBLIC_DANNER_WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
           RELEASE_TAG: ${{ env.RELEASE_TAG }}
         shell: bash
         run: |

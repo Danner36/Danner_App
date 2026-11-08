@@ -1,5 +1,5 @@
 Status: ACTIVE
-Phase: Approved plan. Phases 0, 1, 2a and 2b are merged with their owner runs pending; Phases 3 and 5 are merged, and Phase 4 is next. Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
+Phase: Approved plan. Phases 0, 1, 2a, 2b, 3, 4 and 5 are merged, and Phase 6 is in progress without Phase 1b (see Phase 6). Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
 
 # Modular teams plan
 
@@ -1113,6 +1113,9 @@ Every cherry-picked commit is also on `main`. Phase 5 starts after 2b (it needs 
 - Owner: run the physical Android check with the owner's own test account; the agent never sees credentials.
 
 **Phase 6: Cutover**
+
+Owner decision, 2026-11-08: `v2.0.0` ships before Phase 1b, because no family phone depends on the iPhone app today. It overrides the Phase 1b dependency below. The release carries the unsigned IPA and `sidestore-source.json` as `release.yml` builds them today, so `v2.0.0` has no TestFlight upload, `Pilot` or `Everyone` step, `testflight-distribute.yml` run or iPhone physical check (O16). iPhones still on `v1.x` lose Play and Get video at step 6 until they update through SideStore. The owner tests the published release live on Android in place of the step 5 draft install. Phase 1b stays planned for when the owner buys the Apple program, and it then starts from the latest `v2.x` tag instead of `v1.5.0`.
+
 1. Confirm the Phase 2b secrets and the PAT check, and that the Phase 1b and Phase 3-5 exits are met.
 2. Pick a day with an evening game for an in-season preset or catalog team, and start in the morning.
 3. Merge the cutover PR: the env rename in `release.yml` and `.github/workflows/ios-testflight.yml` (a called workflow does not inherit the caller's env), the app-key hash check in `checks`, `streams/mlb/5.json`, `streams/nfl/17.json` and `streams/ncaa/66.json` from the template, and the Phase 6 doc and release-text rewrites. Nothing is deleted yet, so the v1 Worker and the old workflows keep serving `v1.x` phones. Until step 7 the `Everyone` build is `v1.5.x`; the keep-alive and any retry run on that tag's own workflow files, so they keep the `EXPO_PUBLIC_GUARDIANS_*` names.

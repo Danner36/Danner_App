@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 2,
+  "team": {
+    "key": "mlb-5",
+    "name": "Cleveland Guardians"
+  },
+  "HOW_TO_GUIDE": {
+    "DATES": "gameDates are America/New_York calendar dates (MLB: MLB official date).",
+    "COMMIT": "Commit streams/mlb/5.json to main."
+  },
+  "streams": [
+    "INACTIVE EXAMPLE. COPY THE COMPLETE OBJECT BELOW THIS LINE.",
+    {
+      "gameDates": [
+        "YYYY-MM-DD"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "direct",
+      "url": "https://example.invalid/game.m3u8",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    }
+  ]
+}
