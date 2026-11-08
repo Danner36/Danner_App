@@ -15,7 +15,7 @@ Read this file before any other work in this repository. Then read [AI_ONBOARDIN
 - If a local preview server is added, prefer port 8108, then scan 8108 through 8127. The test harness uses 8108 (fixture server), 8109 (Cast web), and 8111 (Get video mock).
 - Physical iPhone install, SideStore, IPA sideload, and signing refresh follow [IPHONE_INSTALL.md](IPHONE_INSTALL.md). Windows has no iOS ADB and no Xcode.
 - Do not print Apple Account emails, passwords, 2FA codes, pairing files, device UDIDs, Google or YouTube TV account data, any listing-site URL including backup sources, the family PIN, or the app key.
-- `main` has no required status checks or required pull requests, because the stream pipeline bots commit to it directly. Do not force-push or delete `main`; the `Protect main` ruleset blocks both.md`, Decided 19).
+- `main` has no required status checks or required pull requests, because the stream pipeline bots commit to it directly. Do not force-push or delete `main`; the `Protect main` ruleset blocks both (`Docs/Production/ModularTeams.md`, Decided 19).
 
 ## Generated material
 
