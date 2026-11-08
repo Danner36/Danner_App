@@ -11,8 +11,8 @@ Builds, validates and refreshes the committed team catalog (`catalog/`) that the
 
 Workflow `Team catalog` (`.github/workflows/team-catalog.yml`):
 
-- Tuesdays 09:23 UTC or Run workflow (inputs `leagues`, `live_capture` empty): `probe` (`contents: read`) then `build` (`contents: write`, `issues: write`), which runs `build.mjs` and `validate.mjs` and commits `catalog/` with message `catalog: refresh team list.`, rebasing and retrying up to 3 times.
-- Game hours (every 10 minutes, 15:00 to 06:59 UTC) or Run workflow with `live_capture`: `live-find`, one read-only `live-capture` job per live game, then `live-commit`, the only job there with a write token, which commits the trimmed capture. The scheduled path stays idle while `scripts/espn-capture/capture.mjs` exists.
+- Run workflow (inputs `leagues`, `live_capture` empty): `probe` (`contents: read`) then `build` (`contents: write`, `issues: write`), which runs `build.mjs` and `validate.mjs` and commits `catalog/` with message `catalog: refresh team list.`, rebasing and retrying up to 3 times.
+- Run workflow with `live_capture`: `live-find`, one read-only `live-capture` job per live game, then `live-commit`, the only job there with a write token, which commits the trimmed capture. The workflow has no schedule yet: the weekly and game-hour crons arrive with the removal of `scripts/espn-capture/`.
 - Run workflow inputs: `leagues` (league or adapter keys, comma separated), `live_capture` (`auto` for both NCAA basketball adapters, or one adapter), `live_event` (optional ESPN event id; captured in any state and past the 2-game limit), `live_max_minutes`.
 
 Tests: `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/team-catalog/test/*.test.mjs"` (fixtures only, no network).
