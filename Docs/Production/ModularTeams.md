@@ -745,7 +745,7 @@ When no source succeeds, the outcome is `ambiguous_link` if any source returned 
 |---|---|---|
 | Navigation, source 1 | 90 s (`lib/pipeline.mjs:421-423`) | 90 s |
 | Navigation, backups | — | 30 s |
-| Per source | none (one attempt takes about 2-5 min at worst) | Source 1: none unless set, and never past the deadline minus 45 s. Backups: `timeoutSeconds`, default 120 s, clamped to the time left |
+| Per source | none (one attempt takes about 2-5 min at worst) | Source 1: none unless set, and never past the deadline minus 80 s, which leaves a backup its 45 s reserve and 35 s minimum. Backups: `timeoutSeconds`, default 120 s, clamped to the time left |
 | All sources | none | 600 s; a backup starts only with at least 45 s left |
 | Job | 15 min (`guardians-stream-pipeline.yml:33`) | 15 min for each of `extract` and `publish` |
 | Phone wait | 300 s | Until the run reports, at most 900 s, with live progress (Decided 18) |

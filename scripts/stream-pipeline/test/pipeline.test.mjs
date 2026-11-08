@@ -207,13 +207,13 @@ async function hangingFirstSource(workspace) {
   return { budget, calls: () => calls, result: await running };
 }
 
-test('a hung source 1 is cut off at the deadline minus the reserve and the run ends', async () => {
+test('a hung source 1 is cut off in time for a backup to run', async () => {
   await withWorkspace(async (workspace) => {
     const { budget, calls, result } = await hangingFirstSource(workspace);
-    assert.equal(budget, 555_000);
+    assert.equal(budget, 520_000);
     assert.equal(result.listing.attempts[0].result, 'source_timeout');
-    assert.equal(result.outcome, 'deadline');
-    assert.equal(calls(), 1);
+    assert.equal(result.listing.attempts[1].result, 'link_not_found');
+    assert.ok(calls() > 1);
   });
 });
 
@@ -227,7 +227,7 @@ test('source 1 keeps a shorter timeout of its own, and a longer one is capped', 
   const longer = secretConfig(HOSTS, { timing: { extractDeadlineSeconds: 300 } });
   longer.sources[0].timeoutSeconds = 300;
   await withWorkspace(async (workspace) => {
-    assert.equal((await hangingFirstSource(workspace)).budget, 255_000);
+    assert.equal((await hangingFirstSource(workspace)).budget, 220_000);
   }, longer);
 });
 

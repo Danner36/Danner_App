@@ -38,6 +38,7 @@ import { createRedactor } from './redact.mjs';
 import { fetchEspnGames, isCompleteEspnGame } from './schedule/espn.mjs';
 import { fetchMlbGames, isCompleteMlbGame } from './schedule/mlbStatsapi.mjs';
 import {
+  MIN_BACKUP_BUDGET_SECONDS,
   MIN_SECONDS_FOR_NEXT_SOURCE,
   normalizeSources,
   parseSourceOnly,
@@ -65,9 +66,10 @@ const LISTING_FAILURE_MESSAGES = {
 };
 
 // Source 1 has no per-source budget of its own, so a hung page would otherwise hold the job until
-// its 15-minute limit. It stays uncapped below the extraction deadline minus the reserve.
+// its 15-minute limit. The cap leaves a backup its reserve and minimum budget, so a hang still
+// fails over.
 function capFirstSource(sources, timing) {
-  const cap = timing.extractDeadlineSeconds - MIN_SECONDS_FOR_NEXT_SOURCE;
+  const cap = timing.extractDeadlineSeconds - MIN_SECONDS_FOR_NEXT_SOURCE - MIN_BACKUP_BUDGET_SECONDS;
   return sources.map((source) =>
     source.number === 1 ? { ...source, timeoutSeconds: Math.min(source.timeoutSeconds ?? cap, cap) } : source,
   );
