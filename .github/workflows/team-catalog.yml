@@ -1,0 +1,296 @@
+name: Team catalog
+
+on:
+  schedule:
+    # Tuesdays 09:23 UTC: probe, build and commit the catalog.
+    - cron: '23 9 * * 2'
+    # College basketball game hours, for the live capture of a game in progress.
+    - cron: '*/10 15-23,0-6 * * *'
+  workflow_dispatch:
+    inputs:
+      leagues:
+        description: League or adapter keys to refresh, comma separated (empty means all)
+        required: false
+        type: string
+        default: ''
+      live_capture:
+        description: Adapter to capture live, or auto for both NCAA basketball adapters (runs only the live capture)
+        required: false
+        type: string
+        default: ''
+      live_event:
+        description: ESPN event id for live_capture (digits; optional)
+        required: false
+        type: string
+        default: ''
+      live_max_minutes:
+        description: live_capture limit in minutes (10 to 240)
+        required: false
+        type: string
+        default: '180'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe ESPN and statsapi
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '23 9 * * 2') ||
+      (github.event_name == 'workflow_dispatch' && inputs.live_capture == '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Probe
+        env:
+          LEAGUES: ${{ github.event_name == 'workflow_dispatch' && inputs.leagues || '' }}
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/probe.mjs
+
+      - name: Upload probe report
+        uses: actions/upload-artifact@v4
+        with:
+          name: probe-report-${{ github.run_id }}
+          path: catalog/probe-report.json
+          retention-days: 14
+
+      - name: Upload raw bodies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: espn-probe-${{ github.run_id }}
+          path: scripts/team-catalog/.probe-output
+          retention-days: 14
+          if-no-files-found: ignore
+
+  build:
+    name: Build, validate and commit the catalog
+    needs: probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      issues: write
+    concurrency:
+      group: team-catalog-build
+      cancel-in-progress: false
+    env:
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      # Credentials stay persisted in this job only, for the push of the catalog commit.
+      - name: Check out main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Keep a copy of the committed catalog
+        run: |
+          mkdir -p "$RUNNER_TEMP/catalog-prior"
+          if [ -d catalog ]; then
+            cp -R catalog/. "$RUNNER_TEMP/catalog-prior/"
+          fi
+
+      - name: Download probe report
+        uses: actions/download-artifact@v4
+        with:
+          name: probe-report-${{ github.run_id }}
+          path: catalog
+
+      - name: Build catalog
+        id: build
+        env:
+          LEAGUES: ${{ github.event_name == 'workflow_dispatch' && inputs.leagues || '' }}
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/build.mjs
+
+      - name: Validate catalog
+        id: validate
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/validate.mjs --prior "$RUNNER_TEMP/catalog-prior"
+
+      - name: Commit catalog
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- catalog
+          if git diff --cached --quiet; then
+            echo "Catalog unchanged."
+            exit 0
+          fi
+          git commit -m "catalog: refresh team list."
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "Push attempt ${attempt} failed."
+            sleep $((attempt * 10))
+          done
+          echo "::error::Catalog commit was not pushed after 3 attempts."
+          exit 1
+
+      - name: Open an issue for probe or build failures
+        if: ${{ !cancelled() }}
+        env:
+          BUILD_OUTCOME: ${{ (steps.build.outcome == 'failure' || steps.validate.outcome == 'failure') && 'failure' || 'success' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/team-catalog/issue.mjs
+
+  live-find:
+    name: Find a live game
+    if: >-
+      (github.event_name == 'schedule' && github.event.schedule == '*/10 15-23,0-6 * * *') ||
+      (github.event_name == 'workflow_dispatch' && inputs.live_capture != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      targets: ${{ steps.find.outputs.targets }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Find event
+        id: find
+        env:
+          ADAPTER: ${{ github.event_name == 'workflow_dispatch' && inputs.live_capture || 'auto' }}
+          EVENT: ${{ github.event_name == 'workflow_dispatch' && inputs.live_event || '' }}
+          SCHEDULED: ${{ github.event_name == 'schedule' && '1' || '' }}
+        run: node scripts/team-catalog/live-capture.mjs find
+
+  live-capture:
+    name: Capture
+    needs: live-find
+    # One matrix job per live game, so overlapping men's and women's games are both captured.
+    if: needs.live-find.outputs.targets != '' && needs.live-find.outputs.targets != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 250
+    # Read-only while it polls: the write token exists only in live-commit, after capture ends.
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.live-find.outputs.targets) }}
+    concurrency:
+      group: team-catalog-live-${{ matrix.event }}
+      cancel-in-progress: false
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Capture live game
+        env:
+          ADAPTER: ${{ matrix.adapter }}
+          EVENT: ${{ matrix.event }}
+          LIVE_OUT: ${{ runner.temp }}/espn-live
+          MAX_MINUTES: ${{ github.event_name == 'workflow_dispatch' && inputs.live_max_minutes || '180' }}
+        run: node scripts/team-catalog/live-capture.mjs capture
+
+      - name: Upload capture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: espn-live-${{ github.run_id }}-${{ matrix.event }}
+          path: ${{ runner.temp }}/espn-live
+          retention-days: 14
+          if-no-files-found: ignore
+
+  live-commit:
+    name: Commit trimmed capture
+    needs: [live-find, live-capture]
+    if: ${{ !cancelled() && needs.live-find.outputs.targets != '' && needs.live-find.outputs.targets != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include: ${{ fromJSON(needs.live-find.outputs.targets) }}
+    env:
+      ADAPTER: ${{ matrix.adapter }}
+      EVENT: ${{ matrix.event }}
+    steps:
+      # Credentials stay persisted in this job only, for the push of the capture commit.
+      - name: Check out main
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Download capture
+        uses: actions/download-artifact@v4
+        with:
+          name: espn-live-${{ github.run_id }}-${{ matrix.event }}
+          path: ${{ runner.temp }}/espn-live
+
+      - name: Commit trimmed capture
+        run: |
+          case "$ADAPTER" in
+            mlb|nfl|ncaa/football|ncaa/mens-basketball|ncaa/womens-basketball) ;;
+            *)
+              echo "::error::Adapter is not a catalog adapter."
+              exit 1
+              ;;
+          esac
+          if [[ ! "$EVENT" =~ ^[0-9]{1,12}$ ]]; then
+            echo "::error::Event id must be 1 to 12 digits."
+            exit 1
+          fi
+          adapter_dir="${ADAPTER//\//-}"
+          source_dir="$RUNNER_TEMP/espn-live/tests/leagues/${adapter_dir}/captures/${EVENT}"
+          dest_parent="tests/leagues/${adapter_dir}/captures"
+          dest="${dest_parent}/${EVENT}"
+          if [ ! -d "$source_dir" ] || [ -z "$(ls -A "$source_dir")" ]; then
+            echo "No capture to commit."
+            exit 0
+          fi
+          if [ -d "$dest" ]; then
+            echo "Capture already on main."
+            exit 0
+          fi
+          mkdir -p "$dest_parent"
+          cp -R "$source_dir" "$dest_parent/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$dest"
+          git commit -m "capture: ${adapter_dir} event ${EVENT}"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "Push attempt ${attempt} failed."
+            sleep $((attempt * 10))
+          done
+          echo "::error::Capture commit was not pushed after 3 attempts."
+          exit 1
