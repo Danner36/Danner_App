@@ -1,0 +1,221 @@
+name: Worker deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: staging deploys guardians-get-video-staging; production replaces the live Worker
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      rotate_key:
+        description: Install a new app key whose SHA-256 does not yet match release/app-key.sha256
+        required: false
+        type: boolean
+        default: false
+      rollback:
+        description: Deploy workers/guardians-get-video and delete the gate classes instead of deploying the team worker
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy-${{ inputs.target }}
+  cancel-in-progress: false
+
+env:
+  WRANGLER_VERSION: 4.156.2
+
+jobs:
+  test:
+    name: Worker tests
+    if: ${{ !inputs.rollback }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run Worker tests
+        run: node --test "workers/team-worker/test/*.test.mjs"
+
+  deploy:
+    name: Deploy team worker
+    needs: test
+    if: ${{ !inputs.rollback }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # The staging Worker holds the real dispatch token, so a global cap of 0 stops every request
+      # at `busy` after the key, catalog and window checks.
+      - name: Resolve the Worker name
+        id: worker
+        env:
+          TARGET: ${{ inputs.target }}
+        run: |
+          case "$TARGET" in
+            staging)
+              echo 'name=guardians-get-video-staging' >> "$GITHUB_OUTPUT"
+              echo 'deploy_vars=--var GLOBAL_DISPATCH_PER_HOUR:0' >> "$GITHUB_OUTPUT"
+              ;;
+            production)
+              echo 'name=guardians-get-video' >> "$GITHUB_OUTPUT"
+              echo 'deploy_vars=' >> "$GITHUB_OUTPUT"
+              ;;
+            *) echo '::error::Unknown target.'; exit 1 ;;
+          esac
+
+      - name: Check secrets and the app key hash
+        env:
+          APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          APP_KEY_PREVIOUS: ${{ secrets.APP_KEY_PREVIOUS }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ROTATE_KEY: ${{ inputs.rotate_key }}
+          RUN_PROGRESS_KEY: ${{ secrets.RUN_PROGRESS_KEY }}
+          RUN_STATUS_KEY: ${{ secrets.RUN_STATUS_KEY }}
+          WORKER_GITHUB_PAT: ${{ secrets.WORKER_GITHUB_PAT }}
+        run: |
+          for name in APP_KEY RUN_STATUS_KEY RUN_PROGRESS_KEY WORKER_GITHUB_PAT CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Secret for $name is empty."
+              exit 1
+            fi
+          done
+          if [ "$ROTATE_KEY" = 'true' ]; then
+            if [ -z "${APP_KEY_PREVIOUS:-}" ]; then
+              echo '::warning::rotate_key is set and secret APP_KEY_PREVIOUS is empty, so the Worker deletes its previous key and only the new key is accepted.'
+            fi
+          else
+            if [ ! -f release/app-key.sha256 ]; then
+              echo '::error::release/app-key.sha256 is missing; commit it or run with rotate_key.'
+              exit 1
+            fi
+            expected="$(awk 'NR==1 {print tolower($1)}' release/app-key.sha256)"
+            actual="$(printf '%s' "$APP_KEY" | sha256sum | awk '{print $1}')"
+            if [ "$expected" != "$actual" ]; then
+              echo '::error::The app key does not match release/app-key.sha256. Use rotate_key only for a planned key rotation.'
+              exit 1
+            fi
+          fi
+
+      - name: Install Worker dependencies
+        working-directory: workers/team-worker
+        run: npm ci
+
+      - name: Write the Worker secrets file
+        env:
+          APP_KEY: ${{ secrets.EXPO_PUBLIC_DANNER_APP_KEY }}
+          APP_KEY_PREVIOUS: ${{ secrets.APP_KEY_PREVIOUS }}
+          ROTATE_KEY: ${{ inputs.rotate_key }}
+          RUN_PROGRESS_KEY: ${{ secrets.RUN_PROGRESS_KEY }}
+          RUN_STATUS_KEY: ${{ secrets.RUN_STATUS_KEY }}
+          WORKER_GITHUB_PAT: ${{ secrets.WORKER_GITHUB_PAT }}
+        run: |
+          umask 077
+          node -e '
+            const secrets = {
+              APP_KEY: process.env.APP_KEY,
+              GITHUB_TOKEN: process.env.WORKER_GITHUB_PAT,
+              RUN_PROGRESS_KEY: process.env.RUN_PROGRESS_KEY,
+              RUN_STATUS_KEY: process.env.RUN_STATUS_KEY,
+            };
+            if (process.env.ROTATE_KEY === "true") {
+              // A null value makes wrangler delete the secret, which revokes a leaked key.
+              secrets.APP_KEY_PREVIOUS = process.env.APP_KEY_PREVIOUS || null;
+            }
+            require("node:fs").writeFileSync(process.argv[1], JSON.stringify(secrets), { mode: 0o600 });
+          ' "$RUNNER_TEMP/worker-secrets.json"
+
+      # Each line runs as one wrangler command. Secrets go first so the new code never starts
+      # without them, and both commands name the Worker because a staging run must not fall back
+      # to the production name in wrangler.toml.
+      - name: Set Worker secrets and deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: |
+            secret bulk ${{ runner.temp }}/worker-secrets.json --name ${{ steps.worker.outputs.name }}
+            deploy --name ${{ steps.worker.outputs.name }} ${{ steps.worker.outputs.deploy_vars }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: workers/team-worker
+
+      - name: Remove the Worker secrets file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/worker-secrets.json"
+
+  # Removed at Phase 6 step 8 of Docs/Production/ModularTeams.md, together with the input.
+  rollback:
+    name: Roll back to guardians-get-video
+    if: ${{ inputs.rollback }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Resolve the Worker name
+        id: worker
+        env:
+          ROTATE_KEY: ${{ inputs.rotate_key }}
+          TARGET: ${{ inputs.target }}
+        run: |
+          if [ "$ROTATE_KEY" = 'true' ]; then
+            echo '::error::rollback cannot be combined with rotate_key.'
+            exit 1
+          fi
+          case "$TARGET" in
+            staging) echo 'name=guardians-get-video-staging' >> "$GITHUB_OUTPUT" ;;
+            production) echo 'name=guardians-get-video' >> "$GITHUB_OUTPUT" ;;
+            *) echo '::error::Unknown target.'; exit 1 ;;
+          esac
+
+      # The v1 config has no migrations of its own. The class must be created in the first listed
+      # migration so wrangler applies only the deletion to a Worker already at that tag.
+      - name: Add the gate class removal to the v1 config
+        run: |
+          cat >> workers/guardians-get-video/wrangler.toml <<'EOF'
+
+          [[migrations]]
+          tag = "v2-gates"
+          new_sqlite_classes = ["TeamGate", "GlobalGate"]
+
+          [[migrations]]
+          tag = "v2-gates-rollback"
+          deleted_classes = ["TeamGate", "GlobalGate"]
+          EOF
+
+      - name: Deploy the v1 Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy --name ${{ steps.worker.outputs.name }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: workers/guardians-get-video
