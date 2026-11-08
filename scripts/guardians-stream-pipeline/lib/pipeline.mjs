@@ -1,11 +1,14 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { providerForUrl } from './extract/providers.mjs';
 import {
   buildBlankStreamEntry,
   extractGoozFromBasePage,
   httpsProviderUrl,
   isValidGoozPlayerUrl,
+  launchExtractBrowser,
+  newExtractContext,
   redactHosts,
   urlPathForLog,
 } from './extractGooz.mjs';
@@ -29,6 +32,15 @@ import {
   publishStreamsUpdate,
   readRemoteStreamsDocument,
 } from './publishGithub.mjs';
+import { createRedactor } from './redact.mjs';
+import {
+  DEFAULT_TIMING,
+  normalizeSources,
+  parseSourceOnly,
+  rawSourceUrls,
+  runSources,
+  sourcesConfigProblem,
+} from './sources.mjs';
 import {
   findEquivalentStream,
   findPlayableStreamForGame,
@@ -199,6 +211,53 @@ export function configProblem(config, { dispatchSport, expectedModule } = {}) {
     return 'Pipeline config is missing extract.hrefNeedle.';
   }
   return undefined;
+}
+
+// STREAM_PIPELINE_CONFIG_PATH is set only when the workflow wrote a non-empty secret. Without it
+// `sources` stays undefined and the per-team extract.baseUrl path runs. Every problem is reported
+// without the secret's values, and JSON.parse errors, which quote the text, are not passed on.
+export async function loadListingSources({
+  configPath = process.env.STREAM_PIPELINE_CONFIG_PATH?.trim() || undefined,
+  redactor,
+  sourceOnly = process.env.SOURCE_ONLY,
+} = {}) {
+  let text = '';
+  if (configPath) {
+    try {
+      text = await readFile(configPath, 'utf8');
+    } catch {
+      return { problem: 'Listing sources config file could not be read.' };
+    }
+  }
+  if (!text.trim()) {
+    return { problem: parseSourceOnly(sourceOnly, 1).problem };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { problem: 'Listing sources config is not valid JSON.' };
+  }
+  for (const url of rawSourceUrls(parsed)) {
+    redactor?.add(url);
+  }
+  const problem = sourcesConfigProblem(parsed);
+  if (problem) {
+    return { problem };
+  }
+
+  const allSources = normalizeSources(parsed);
+  const selected = parseSourceOnly(sourceOnly, allSources.length);
+  if (selected.problem) {
+    return { problem: selected.problem };
+  }
+  return {
+    allSources,
+    sources: selected.sourceOnly
+      ? allSources.filter((source) => source.number === selected.sourceOnly)
+      : allSources,
+  };
 }
 
 function noGameMessage(config) {
@@ -398,6 +457,169 @@ async function publishStreamDocument({
   };
 }
 
+const LISTING_FAILURE_MESSAGES = {
+  browser_failed: 'The browser could not be started.',
+  deadline: 'The extraction deadline passed before every listing source was tried.',
+  no_video: 'No video found.',
+  sources_unreachable: 'No listing source could be reached.',
+};
+
+// Tries the configured sources through the same page steps as the per-team path. An attempt
+// passes only with an entry the phone would accept, so an unplayable entry moves on to the next
+// source. Returns { entry, listing } or { result } for a run that found nothing.
+async function extractFromListingSources({
+  config,
+  existing,
+  game,
+  hrefNeedles,
+  listingSources,
+  options,
+  redactor,
+  steps,
+  timeoutSeconds,
+  validation,
+}) {
+  const extractListing = options.extractListing ?? extractGoozFromBasePage;
+  const attemptSource = async ({ context, navigationTimeoutSeconds, onStage, source }) => {
+    const extraction = await extractListing(source.baseUrl, {
+      game,
+      hrefNeedles,
+      opponentName: game.opponentName,
+      requireOpponent: config.extract?.requireOpponent === true,
+      sourceAttempt: {
+        context,
+        onHost: (host) => redactor.add(host),
+        onStage,
+        privateHosts: redactor.hosts,
+      },
+      timeoutSeconds: navigationTimeoutSeconds,
+    });
+    for (const line of extraction.logLines ?? []) {
+      steps.push({ step: 'extract_log', message: line });
+    }
+    if (extraction.failure) {
+      return { code: extraction.failure };
+    }
+    const url =
+      extraction.found && isValidGoozPlayerUrl(extraction.goozUrl)
+        ? httpsProviderUrl(extraction.goozUrl)
+        : undefined;
+    if (!url) {
+      return { code: 'invalid_entry' };
+    }
+    const entry = {
+      gameDates: [game.officialDate],
+      gameNumbers: [game.gameNumber],
+      kind: 'web',
+      url,
+      allowInsecureHttp: false,
+      trustedHosts: providerForUrl(url)?.trustedHosts ?? [],
+      ...(game.sport ? { sport: game.sport } : {}),
+    };
+    return isPlayableStream(entry, validation) ? { entry } : { code: 'invalid_entry' };
+  };
+
+  const listing = await runSources({
+    attemptSource,
+    clock: options.clock,
+    launchBrowser: options.launchBrowser ?? launchExtractBrowser,
+    log: (message) => steps.push({ step: 'listing_source', message }),
+    newContext: options.newContext ?? newExtractContext,
+    redact: redactor.text,
+    sources: listingSources.sources,
+    timing: { ...DEFAULT_TIMING, primary: { navigationTimeoutSeconds: timeoutSeconds } },
+    total: listingSources.allSources.length,
+  });
+  if (listing.entry) {
+    return { entry: listing.entry, listing };
+  }
+
+  const result = {
+    game,
+    listing,
+    outcome: listing.code,
+    steps,
+    success: false,
+  };
+  if (listing.code === 'ambiguous_link') {
+    return {
+      result: {
+        ...result,
+        message: 'More than one listing link matches this game; nothing was published.',
+      },
+    };
+  }
+  if (listing.code === 'no_video') {
+    return {
+      result: {
+        ...result,
+        message: LISTING_FAILURE_MESSAGES.no_video,
+        nextEntry: buildBlankStreamEntry(game),
+        streamEntry: existing,
+      },
+    };
+  }
+  return {
+    result: {
+      ...result,
+      message: LISTING_FAILURE_MESSAGES[listing.code] ?? `Listing sources stopped: ${listing.code}.`,
+    },
+  };
+}
+
+// The last common stretch of a run: skips an unchanged entry, stops a dry run, otherwise
+// publishes.
+async function publishFoundEntry({
+  config,
+  document,
+  game,
+  github,
+  nextEntry,
+  options,
+  steps,
+  streamsPath,
+  today,
+  token,
+  validation,
+}) {
+  const equivalent = findEquivalentStream(document, game, nextEntry, validation);
+  if (equivalent) {
+    return {
+      game,
+      outcome: 'unchanged',
+      message: 'Stream entry is already up to date; nothing to publish.',
+      nextEntry,
+      steps,
+      streamEntry: equivalent,
+      success: true,
+    };
+  }
+
+  if (options.dryRun) {
+    return {
+      game,
+      outcome: 'dry_run',
+      message: `Dry run complete; ${github.path} was not written.`,
+      nextEntry,
+      steps,
+      success: true,
+    };
+  }
+
+  return publishStreamDocument({
+    config,
+    document,
+    game,
+    github,
+    nextEntry,
+    options,
+    steps,
+    streamsPath,
+    today,
+    token,
+  });
+}
+
 export async function runGoozPipeline(options = {}) {
   const configPath = options.configPath ?? defaultConfigPath;
   const config = await loadConfig(configPath);
@@ -417,6 +639,21 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
+  const redactor = options.redactor ?? createRedactor();
+  const listingSources = await loadListingSources({
+    configPath: options.sourcesConfigPath,
+    redactor,
+    sourceOnly: options.sourceOnly,
+  });
+  if (listingSources.problem) {
+    return {
+      outcome: 'config_invalid',
+      message: listingSources.problem,
+      steps,
+      success: false,
+    };
+  }
+
   const moduleName = moduleForConfig(config);
   const leadMinutes = config.leadMinutes ?? DEFAULT_LEAD_MINUTES;
   const timeoutSeconds =
@@ -428,7 +665,20 @@ export async function runGoozPipeline(options = {}) {
   const now = options.now ?? new Date();
   const today = officialDateInZone(now, moduleTimeZone(config));
 
-  const games = await fetchConfiguredGames(config, now);
+  let games;
+  try {
+    games = await fetchConfiguredGames(config, now);
+  } catch (error) {
+    if (!listingSources.sources) {
+      throw error;
+    }
+    return {
+      outcome: 'schedule_failed',
+      message: `Schedule could not be read: ${redactor.text(error instanceof Error ? error.message : String(error))}`,
+      steps,
+      success: false,
+    };
+  }
   const game = featuredGameForConfig(config, games, now, dispatchSport);
   if (!game) {
     return {
@@ -506,14 +756,60 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
+  const shared = {
+    config,
+    document,
+    game,
+    github,
+    options,
+    steps,
+    streamsPath,
+    today,
+    token,
+    validation,
+  };
+
+  if (listingSources.sources) {
+    const extracted = await extractFromListingSources({
+      config,
+      existing,
+      game,
+      hrefNeedles,
+      listingSources,
+      options,
+      redactor,
+      steps,
+      timeoutSeconds,
+      validation,
+    });
+    if (extracted.result) {
+      return extracted.result;
+    }
+    try {
+      const result = await publishFoundEntry({ ...shared, nextEntry: extracted.entry });
+      return { ...result, listing: extracted.listing };
+    } catch (error) {
+      return {
+        game,
+        listing: extracted.listing,
+        outcome: 'publish_failed',
+        message: `Publish failed: ${redactor.text(error instanceof Error ? error.message : String(error))}`,
+        nextEntry: extracted.entry,
+        steps,
+        success: false,
+      };
+    }
+  }
+
   steps.push({
     step: 'extract_gooz',
     message: `Extracting gooz URL from listing path ${urlPathForLog(baseUrl)} using href "${hrefNeedles.join(' + ')}".`,
   });
 
+  const extractListing = options.extractListing ?? extractGoozFromBasePage;
   let extraction;
   try {
-    extraction = await extractGoozFromBasePage(baseUrl, {
+    extraction = await extractListing(baseUrl, {
       game,
       hrefNeedles,
       opponentName: game.opponentName,
@@ -598,40 +894,5 @@ export async function runGoozPipeline(options = {}) {
     };
   }
 
-  const equivalent = findEquivalentStream(document, game, nextEntry, validation);
-  if (equivalent) {
-    return {
-      game,
-      outcome: 'unchanged',
-      message: 'Stream entry is already up to date; nothing to publish.',
-      nextEntry,
-      steps,
-      streamEntry: equivalent,
-      success: true,
-    };
-  }
-
-  if (options.dryRun) {
-    return {
-      game,
-      outcome: 'dry_run',
-      message: `Dry run complete; ${github.path} was not written.`,
-      nextEntry,
-      steps,
-      success: true,
-    };
-  }
-
-  return publishStreamDocument({
-    config,
-    document,
-    game,
-    github,
-    nextEntry,
-    options,
-    steps,
-    streamsPath,
-    today,
-    token,
-  });
+  return publishFoundEntry({ ...shared, nextEntry });
 }

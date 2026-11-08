@@ -13,6 +13,11 @@ on:
         required: false
         type: boolean
         default: false
+      source:
+        description: Try only this listing source, 1-based (blank tries all)
+        required: false
+        type: string
+        default: ''
   repository_dispatch:
     types: [patriots-get-video]
 
@@ -45,6 +50,13 @@ jobs:
           cache: npm
           cache-dependency-path: scripts/guardians-stream-pipeline/package-lock.json
 
+      # Must stay ahead of every step that can print: it masks each listing host.
+      - name: Write listing sources
+        working-directory: scripts/guardians-stream-pipeline
+        env:
+          STREAM_PIPELINE_CONFIG: ${{ secrets.STREAM_PIPELINE_CONFIG }}
+        run: node run.mjs --write-sources-config
+
       - name: Write pipeline config
         working-directory: scripts/guardians-stream-pipeline
         env:
@@ -62,6 +74,7 @@ jobs:
         env:
           GUARDIANS_STREAM_CONFIG: config.json
           PIPELINE_MODULE: patriots
+          SOURCE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.source || '' }}
         run: node run.mjs --check-config
 
       - name: Install pipeline packages
@@ -97,4 +110,5 @@ jobs:
           PIPELINE_MODULE: patriots
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
           FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
+          SOURCE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.source || '' }}
         run: xvfb-run -a node run.mjs
