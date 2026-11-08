@@ -1,0 +1,70 @@
+{
+  "$comment": "Paths each ESPN response must hold. `[]`: an array, every element holds the rest, may be empty. `[+]`: same, not empty. `[0]`: that element must exist. Absence of an optional resource (predictor and probabilities on old events) is judged by status, not by these paths.",
+  "teams": [
+    "sports[+].leagues[+].teams[+].team.id",
+    "sports[+].leagues[+].teams[+].team.displayName",
+    "sports[+].leagues[+].teams[+].team.name",
+    "sports[+].leagues[+].teams[+].team.location",
+    "sports[+].leagues[+].teams[+].team.abbreviation"
+  ],
+  "standings": [
+    "children[+].shortName"
+  ],
+  "schedule": [
+    "events[]",
+    "events[].id",
+    "events[].date",
+    "events[].competitions[0].competitors[+].team.id",
+    "events[].competitions[0].status.type.state"
+  ],
+  "scoreboard": [
+    "events[]",
+    "events[].id",
+    "events[].competitions[0].competitors[+].team.id"
+  ],
+  "summary": [
+    "header.competitions[0].competitors[+].team.id",
+    "header.competitions[0].status.type.state"
+  ],
+  "predictor": [
+    "homeTeam.statistics[]",
+    "awayTeam.statistics[]"
+  ],
+  "probabilities": [
+    "items[]"
+  ],
+  "statsapiTeams": [
+    "teams[+].id",
+    "teams[+].name",
+    "teams[+].league.id"
+  ],
+  "statsapiSchedule": [
+    "dates[]"
+  ],
+  "boardPaths": [
+    "header.competitions[0].status.displayClock",
+    "header.competitions[0].status.period",
+    "header.competitions[0].status.type.name",
+    "header.competitions[0].competitors[+].score",
+    "header.competitions[0].timeoutsAvailable",
+    "header.competitions[0].possessionArrowAvailable",
+    "header.competitions[0].competitors[+].possession",
+    "header.competitions[0].competitors[+].fouls",
+    "header.competitions[0].competitors[+].timeoutsRemaining",
+    "format.regulation.periods",
+    "boxscore.players[+].team.id",
+    "boxscore.players[+].statistics[0].keys",
+    "boxscore.players[+].statistics[0].athletes[+].starter",
+    "boxscore.players[+].statistics[0].athletes[+].active",
+    "boxscore.players[+].statistics[0].athletes[+].stats",
+    "boxscore.players[+].statistics[0].athletes[+].athlete.id",
+    "boxscore.players[+].statistics[0].athletes[+].athlete.jersey",
+    "plays[+].type.id",
+    "plays[+].type.text",
+    "plays[+].period.number",
+    "plays[+].clock.displayValue",
+    "plays[+].wallclock",
+    "timeouts",
+    "situation"
+  ]
+}
