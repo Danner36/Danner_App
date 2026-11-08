@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 2,
+  "team": {
+    "key": "ncaa-8",
+    "name": "Arkansas Razorbacks"
+  },
+  "HOW_TO_GUIDE": {
+    "DATES": "gameDates are America/New_York calendar dates (MLB: MLB official date).",
+    "COMMIT": "Commit streams/ncaa/8.json to main."
+  },
+  "streams": [
+    "INACTIVE EXAMPLE. COPY THE COMPLETE OBJECT BELOW THIS LINE.",
+    {
+      "sport": "mens-basketball",
+      "gameDates": [
+        "YYYY-MM-DD"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "direct",
+      "url": "https://example.invalid/game.m3u8",
+      "allowInsecureHttp": false,
+      "trustedHosts": []
+    },
+    {
+      "sport": "mens-basketball",
+      "eventId": "401920424",
+      "gameDates": [
+        "2026-11-08"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/59630?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
+    }
+  ]
+}
