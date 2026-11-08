@@ -11,7 +11,7 @@ exposed no usable media URL.
 TV send now relays the page's own HLS playlist from the phone and passes the provider's
 segments through untouched, which reaches the receiver at the original resolution with no
 projection permission, no encoder, and no battery cost. Every approved page in
-`guardians_streams.json` reports a media URL, so the converter was never reached, and it
+team streams file reports a media URL, so the converter was never reached, and it
 never had a physical TV pass. It is kept because a future source may expose no URL at all.
 
 ## Contents

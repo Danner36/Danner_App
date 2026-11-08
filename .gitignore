@@ -52,10 +52,6 @@ deploy/*
 # Logs and local data
 *.log
 
-# Guardians stream pipeline local config
-scripts/guardians-stream-pipeline/config.json
-scripts/guardians-stream-pipeline/node_modules/
-scripts/guardians-stream-pipeline/.probe-output/
 
 # Stream pipeline local config
 scripts/stream-pipeline/config.json

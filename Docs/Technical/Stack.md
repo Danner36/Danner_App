@@ -55,9 +55,7 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `app/scoreboards/` | Baseball, period, and basketball arena boards |
 | `app/selection/` | Tile types, presets, tile operations, load and migration, seeding, and the on-phone store |
 | `app/tvLocation/` | Guided home, destination storage, bundled map, browser injection, and verification view |
-| `guardians_streams.json` | Owner-edited, GitHub-hosted Guardians playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
-| `patriots_streams.json` | Owner-edited, GitHub-hosted Patriots playback dates, game numbers, URLs, HTTP opt-ins, and trusted redirect hosts |
-| `cyclones_streams.json` | Owner-edited, GitHub-hosted Cyclones playback dates, game numbers, required `sport`, URLs, HTTP opt-ins, and trusted redirect hosts |
+| `streams/<league>/<espnId>.json` | GitHub-hosted playback entries for one team, written by the stream pipeline: dates, game numbers, event ids, URLs, HTTP opt-ins, and trusted redirect hosts |
 | `app/app.json` | Android and iOS native configuration defaults |
 | `app/app.config.js` | Release-tag overlay for version, versionCode, and buildNumber |
 | `app/eas.json` | Existing internal-distribution development, preview, and production profiles; Android outputs APK while the selected family-iPhone delivery path is SideStore |
@@ -68,11 +66,9 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources and renders `app/scripts/offline-us-map.template.html` into the bundled map page |
 | `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
 | `app/android/` | Locally generated and ignored native project |
-| `workers/guardians-get-video/` | Shared Cloudflare Worker that checks the family PIN, starts the Guardians, Patriots, or Cyclones stream pipeline from `module`, forwards Cyclones `sport`, and serves `GET /streams` for that module |
+| `workers/team-worker/` | Cloudflare Worker that checks the app key and the team against the catalog, starts the stream pipeline for one game, and serves `GET /streams` and `GET /catalog` |
 | `.github/workflows/release.yml` | Tag-triggered Android and iPhone builds plus GitHub Release publication after both artifacts pass |
-| `.github/workflows/guardians-stream-pipeline.yml` | Guardians Get video extract job, started by `repository_dispatch` type `guardians-get-video` |
-| `.github/workflows/patriots-stream-pipeline.yml` | Patriots Get video extract job, started by `repository_dispatch` type `patriots-get-video` |
-| `.github/workflows/cyclones-stream-pipeline.yml` | Cyclones Get video extract job, started by `repository_dispatch` type `cyclones-get-video` |
+| `.github/workflows/stream-pipeline.yml` | Get video extract and publish jobs for one team's game, started by `repository_dispatch` type `team-get-video` |
 | `tests/team-harness/` | Repo-only fixture server and device drivers: today/ready/delayed/live/final/live-basketball/get-video per team key |
 | `tests/team-engine/`, `tests/leagues/`, `tests/imports/` | Pure engine, adapter, and import suites |
 | `tests/playback/` | Cast discovery, Cast web, and Back navigation drivers |

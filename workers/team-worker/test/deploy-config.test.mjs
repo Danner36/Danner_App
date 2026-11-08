@@ -57,10 +57,10 @@ test('the deploy workflow has no automatic trigger', () => {
   assert.doesNotMatch(on, /\n {2}(push|pull_request|schedule|repository_dispatch|workflow_call|workflow_run):/);
 });
 
-test('the deploy workflow takes target, rotate_key and rollback, with staging as the default', () => {
+test('the deploy workflow takes target and rotate_key, with staging as the default', () => {
   assert.match(WORKFLOW, /target:\n(?: {8}.*\n)*? {8}options:\n {10}- staging\n {10}- production\n {8}default: staging\n/);
   assert.match(WORKFLOW, /rotate_key:\n(?: {8}.*\n)*? {8}type: boolean\n {8}default: false\n/);
-  assert.match(WORKFLOW, /rollback:\n(?: {8}.*\n)*? {8}type: boolean\n {8}default: false\n/);
+  assert.doesNotMatch(WORKFLOW, /rollback/);
 });
 
 test('the workflow is read-only and every checkout drops credentials', () => {
@@ -95,12 +95,10 @@ test('the app key is refused unless its hash matches or rotate_key is set, and i
 });
 
 test('staging and production map to the two Worker names only', () => {
-  for (const name of ['deploy', 'rollback']) {
-    const text = job(name);
-    assert.match(text, /staging\)\s+echo 'name=guardians-get-video-staging'/);
-    assert.match(text, /production\)\s+echo 'name=guardians-get-video'/);
-    assert.match(text, /TARGET: \$\{\{ inputs\.target \}\}/);
-  }
+  const text = job('deploy');
+  assert.match(text, /staging\)\s+echo 'name=guardians-get-video-staging'/);
+  assert.match(text, /production\)\s+echo 'name=guardians-get-video'/);
+  assert.match(text, /TARGET: \$\{\{ inputs\.target \}\}/);
 });
 
 test('only staging deploys with a global cap of 0, and the deploy line uses it', () => {
@@ -150,17 +148,6 @@ test('rotate_key with a previous key writes it, and a plain deploy leaves it alo
     const secrets = secretsFor({ APP_KEY_PREVIOUS: value, ROTATE_KEY: 'false' });
     assert.equal(Object.hasOwn(secrets, 'APP_KEY_PREVIOUS'), false);
   }
-});
-
-test('rollback deploys the v1 folder with a deleted_classes migration', () => {
-  const rollback = job('rollback');
-  assert.match(rollback, /if: \$\{\{ inputs\.rollback \}\}/);
-  assert.match(rollback, /deleted_classes = \["TeamGate", "GlobalGate"\]/);
-  assert.match(rollback, /tag = "v2-gates"\n {10}new_sqlite_classes = \["TeamGate", "GlobalGate"\]/);
-  assert.match(rollback, /workingDirectory: workers\/guardians-get-video/);
-  assert.doesNotMatch(rollback, /needs:/);
-  assert.match(job('test'), /if: \$\{\{ !inputs\.rollback \}\}/);
-  assert.match(job('deploy'), /if: \$\{\{ !inputs\.rollback \}\}/);
 });
 
 test('the entry module re-exports both Durable Object classes', () => {

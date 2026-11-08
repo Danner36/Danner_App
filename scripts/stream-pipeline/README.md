@@ -7,7 +7,7 @@ Finds a playable stream for one catalog team's game and publishes it to `streams
 - A candidate can claim `found`, a failure code, a schedule stop (`blocked`, `game_over`, `no_game`, `too_early`) or `entry_exists`. `publish.mjs` alone produces `published`, `unchanged`, `video_ready` (after reading the branch) and `dry_run`; any other claim is `extract_failed`.
 - A run that names an event serves that event; a manual run with a blank `event` takes today's game by the featured-game tiers.
 - `config.defaults.json` holds the `timing` and `matching` defaults; the secret merges over it. There is no in-repo fallback: an empty or missing secret fails the run. `config.example.json` shows the secret's shape.
-- Modules `lib/sources.mjs`, `lib/redact.mjs` and `lib/extract/providers.mjs` are copied unchanged from `scripts/guardians-stream-pipeline/`. `lib/extract/listing.mjs` reads player hosts and embed paths only from `providers.mjs`; adding a player is one row there.
+- `lib/extract/listing.mjs` reads player hosts and embed paths only from `lib/extract/providers.mjs`; adding a player is one row there.
 - Signed bodies carry header `X-Signature` (lowercase hex HMAC-SHA256 of the raw body); `at` is seconds since the epoch.
 - Logs, the step summary and both artifacts name sources only as `source 2/3 (backup-1)`. Traces and screenshots are never uploaded.
 

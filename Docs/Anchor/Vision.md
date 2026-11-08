@@ -44,7 +44,7 @@ Both platforms inject the selected destination into the embedded verification pa
 
 ## Boundaries
 
-- Guardians video is limited to exact links in `guardians_streams.json`, matched to an MLB official date and game number. Patriots video is limited to exact links in `patriots_streams.json`, matched to the America/New_York official date and game number. HTTPS is the default, and cleartext HTTP must be enabled on the individual entry. Get video does not invent a URL on the phone; it starts the matching GitHub extract pipeline, then plays only a date-matched entry that lands in that file.
+- Team video is limited to exact links in `streams/<league>/<espnId>.json`, matched to the game's event or official date and game number. HTTPS is the default, and cleartext HTTP must be enabled on the individual entry. Get video does not invent a URL on the phone; it starts the stream pipeline for that game, then plays only a matching entry that lands in that file.
 - The app does not modify device location or implement a system mock-location provider.
 - The app does not request foreground or background location permission. TV Location does not read GPS. Android Cast uses Nearby Wi-Fi marked `neverForLocation`.
 - The bundled map covers the 50 states, District of Columbia, and Puerto Rico with offline place search, state outlines, and major highways; it does not contain neighborhood streets or satellite imagery.

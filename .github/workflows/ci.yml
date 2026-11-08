@@ -9,9 +9,6 @@ on:
     paths-ignore:
       - "streams/**"
       - "catalog/**"
-      - "guardians_streams.json"
-      - "patriots_streams.json"
-      - "cyclones_streams.json"
       - "tests/leagues/*/captures/**"
   workflow_call:
     inputs:

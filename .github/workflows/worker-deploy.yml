@@ -16,11 +16,6 @@ on:
         required: false
         type: boolean
         default: false
-      rollback:
-        description: Deploy workers/guardians-get-video and delete the gate classes instead of deploying the team worker
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -35,7 +30,6 @@ env:
 jobs:
   test:
     name: Worker tests
-    if: ${{ !inputs.rollback }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -55,7 +49,6 @@ jobs:
   deploy:
     name: Deploy team worker
     needs: test
-    if: ${{ !inputs.rollback }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -167,55 +160,3 @@ jobs:
       - name: Remove the Worker secrets file
         if: always()
         run: rm -f "$RUNNER_TEMP/worker-secrets.json"
-
-  # Removed at Phase 6 step 8 of Docs/Production/ModularTeams.md, together with the input.
-  rollback:
-    name: Roll back to guardians-get-video
-    if: ${{ inputs.rollback }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v5
-        with:
-          persist-credentials: false
-
-      - name: Resolve the Worker name
-        id: worker
-        env:
-          ROTATE_KEY: ${{ inputs.rotate_key }}
-          TARGET: ${{ inputs.target }}
-        run: |
-          if [ "$ROTATE_KEY" = 'true' ]; then
-            echo '::error::rollback cannot be combined with rotate_key.'
-            exit 1
-          fi
-          case "$TARGET" in
-            staging) echo 'name=guardians-get-video-staging' >> "$GITHUB_OUTPUT" ;;
-            production) echo 'name=guardians-get-video' >> "$GITHUB_OUTPUT" ;;
-            *) echo '::error::Unknown target.'; exit 1 ;;
-          esac
-
-      # The v1 config has no migrations of its own. The class must be created in the first listed
-      # migration so wrangler applies only the deletion to a Worker already at that tag.
-      - name: Add the gate class removal to the v1 config
-        run: |
-          cat >> workers/guardians-get-video/wrangler.toml <<'EOF'
-
-          [[migrations]]
-          tag = "v2-gates"
-          new_sqlite_classes = ["TeamGate", "GlobalGate"]
-
-          [[migrations]]
-          tag = "v2-gates-rollback"
-          deleted_classes = ["TeamGate", "GlobalGate"]
-          EOF
-
-      - name: Deploy the v1 Worker
-        uses: cloudflare/wrangler-action@v3
-        with:
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          command: deploy --name ${{ steps.worker.outputs.name }}
-          wranglerVersion: ${{ env.WRANGLER_VERSION }}
-          workingDirectory: workers/guardians-get-video
