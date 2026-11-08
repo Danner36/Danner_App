@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   DEFAULT_TIMING,
+  MIN_BACKUP_BUDGET_SECONDS,
   NEXT_CODES,
   STOP_CODES,
   formatRunSummary,
@@ -197,26 +198,48 @@ test('a backup budget is clamped to the time left minus the reserve', async () =
   assert.deepEqual(run.clock.requested, [55_000]);
 });
 
+test('sources after an ambiguous_link must name the opponent', async () => {
+  const seen = [];
+  const run = harness([], {
+    attemptSource: async ({ requireOpponent, source }) => {
+      seen.push(requireOpponent);
+      return [{ code: 'http_5xx' }, { code: 'ambiguous_link' }, FOUND][source.number - 1];
+    },
+  });
+  const result = await run.run();
+  assert.equal(result.code, 'found');
+  assert.deepEqual(seen, [false, false, true]);
+});
+
+test('a backup with its own 30 second timeout still runs when time is plentiful', async () => {
+  const run = harness([{ code: 'http_5xx' }, FOUND], {
+    sources: [THREE_SOURCES[0], { ...THREE_SOURCES[1], timeoutSeconds: 30 }],
+  });
+  const result = await run.run();
+  assert.equal(result.code, 'found');
+  assert.deepEqual(run.clock.requested, [30_000]);
+});
+
 test('the clamp never raises a backup above its own timeout', () => {
   const backup = { ...THREE_SOURCES[1], timeoutSeconds: 40 };
   assert.equal(sourceBudget(backup, 500).budgetSeconds, 40);
   assert.equal(sourceBudget(backup, 60).budgetSeconds, 15);
 });
 
-test('a backup still starts with just over 45 seconds left', async () => {
+test('a backup still starts when the clamp leaves exactly the minimum budget', async () => {
   const run = harness([
     () => {
-      run.clock.advance(554);
+      run.clock.advance(520);
       return { code: 'http_5xx' };
     },
     FOUND,
   ]);
   const result = await run.run();
   assert.equal(result.code, 'found');
-  assert.deepEqual(run.clock.requested, [1_000]);
+  assert.deepEqual(run.clock.requested, [MIN_BACKUP_BUDGET_SECONDS * 1000]);
 });
 
-for (const elapsed of [555, 556, 700]) {
+for (const elapsed of [521, 554, 555, 700]) {
   test(`${elapsed} seconds into the run the next source stops as deadline`, async () => {
     const run = harness([
       () => {

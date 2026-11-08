@@ -480,20 +480,32 @@ async function extractFromListingSources({
   validation,
 }) {
   const extractListing = options.extractListing ?? extractGoozFromBasePage;
-  const attemptSource = async ({ context, navigationTimeoutSeconds, onStage, source }) => {
+  const attemptSource = async ({
+    context,
+    isAbandoned,
+    navigationTimeoutSeconds,
+    onStage,
+    requireOpponent,
+    source,
+  }) => {
     const extraction = await extractListing(source.baseUrl, {
       game,
       hrefNeedles,
       opponentName: game.opponentName,
-      requireOpponent: config.extract?.requireOpponent === true,
+      requireOpponent: config.extract?.requireOpponent === true || requireOpponent,
       sourceAttempt: {
         context,
+        isAbandoned,
         onHost: (host) => redactor.add(host),
         onStage,
         privateHosts: redactor.hosts,
       },
       timeoutSeconds: navigationTimeoutSeconds,
     });
+    // The run has moved on; its lines would land among the next source's.
+    if (isAbandoned()) {
+      return { code: 'source_timeout' };
+    }
     for (const line of extraction.logLines ?? []) {
       steps.push({ step: 'extract_log', message: line });
     }

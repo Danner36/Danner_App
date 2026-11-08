@@ -50,6 +50,8 @@ export const DEFAULT_TIMING = {
 };
 
 export const MIN_SECONDS_FOR_NEXT_SOURCE = 45;
+// What a backup needs to reach the link stage: 30 s navigation plus the 5 s settle after it.
+export const MIN_BACKUP_BUDGET_SECONDS = 35;
 export const MAX_SOURCES = 5;
 
 const LABEL_PATTERN = /^[a-z0-9-]{1,24}$/;
@@ -192,15 +194,27 @@ export function outcomeForAttempts(attempts) {
   return 'no_video';
 }
 
-async function attemptOneSource({ attemptSource, budget, clock, context, redact, source, total }) {
+async function attemptOneSource({
+  attemptSource,
+  budget,
+  clock,
+  context,
+  redact,
+  requireOpponent,
+  source,
+  total,
+}) {
+  let abandoned = false;
   let stage = 'listing';
   let timer;
   const attempted = attemptSource({
     context,
+    isAbandoned: () => abandoned,
     navigationTimeoutSeconds: budget.navigationTimeoutSeconds,
     onStage: (next) => {
       stage = next;
     },
+    requireOpponent,
     source,
   }).catch((error) => ({
     code: CODE_FOR_THROWN_STAGE[stage] ?? 'nav_error',
@@ -212,7 +226,10 @@ async function attemptOneSource({ attemptSource, budget, clock, context, redact,
     outcome = await attempted;
   } else {
     const timedOut = new Promise((resolve) => {
-      timer = clock.setTimer(() => resolve({ code: 'source_timeout' }), budget.budgetSeconds * 1000);
+      timer = clock.setTimer(() => {
+        abandoned = true;
+        resolve({ code: 'source_timeout' });
+      }, budget.budgetSeconds * 1000);
     });
     outcome = await Promise.race([attempted, timedOut]);
     clock.clearTimer(timer);
@@ -250,8 +267,8 @@ export async function runSources({
     for (const [position, source] of sources.entries()) {
       const elapsedSeconds = (clock.now() - startedAt) / 1000;
       const secondsLeft = timing.extractDeadlineSeconds - elapsedSeconds;
-      // At exactly the reserve a backup's clamped budget would be zero, so the boundary stops too.
-      if (position > 0 && secondsLeft <= MIN_SECONDS_FOR_NEXT_SOURCE) {
+      // Judged on the time left, not the source's own timeoutSeconds, which may be below the minimum.
+      if (position > 0 && secondsLeft - MIN_SECONDS_FOR_NEXT_SOURCE < MIN_BACKUP_BUDGET_SECONDS) {
         log(`Extraction deadline reached before ${sourceName(source, total)}.`);
         return finish('deadline');
       }
@@ -268,9 +285,21 @@ export async function runSources({
       const budget = sourceBudget(source, secondsLeft, timing);
       log(`Trying ${name}.`);
       const attemptStartedAt = clock.now();
+      // A site that listed several links for this game may list only the wrong one on the next
+      // site, so a lone link has to name the opponent once any source was ambiguous.
+      const requireOpponent = attempts.some((attempt) => attempt.result === 'ambiguous_link');
       let outcome;
       try {
-        outcome = await attemptOneSource({ attemptSource, budget, clock, context, redact, source, total });
+        outcome = await attemptOneSource({
+          attemptSource,
+          budget,
+          clock,
+          context,
+          redact,
+          requireOpponent,
+          source,
+          total,
+        });
       } finally {
         await context.close().catch(() => {});
       }

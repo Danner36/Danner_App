@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { selectListingLink } from './lib/extractGooz.mjs';
 import { loadListingSources, runGoozPipeline } from './lib/pipeline.mjs';
 import { createRedactor } from './lib/redact.mjs';
 
@@ -296,6 +297,64 @@ test('an entry the phone would reject moves on as invalid_entry', async () => {
     const result = await sourcesRun(env, sourcesConfig(), async () => answers.shift());
     assert.equal(result.outcome, 'dry_run');
     assert.equal(result.listing.attempts[0].result, 'invalid_entry');
+  });
+});
+
+test('after an ambiguous source a lone link without the opponent does not win', async () => {
+  await withPipeline(async (env) => {
+    const requireOpponent = [];
+    const links = [{ href: 'https://listing-two.test/stream/cleveland-guardians', score: 13, text: 'x' }];
+    const result = await sourcesRun(env, sourcesConfig(), async (_baseUrl, options) => {
+      requireOpponent.push(options.requireOpponent);
+      if (requireOpponent.length === 1) {
+        return { failure: 'ambiguous_link', found: false };
+      }
+      const selection = selectListingLink(links, options);
+      return selection.link ? foundExtraction() : { failure: selection.failure, found: false };
+    });
+    assert.deepEqual(requireOpponent, [false, true, true]);
+    assert.equal(result.outcome, 'ambiguous_link');
+    assert.equal(result.listing.attempts[1].result, 'opponent_not_found');
+    assert.equal(result.nextEntry, undefined);
+  });
+});
+
+test('a timed-out attempt adds no late log lines to the run', async () => {
+  await withPipeline(async (env) => {
+    const timers = [];
+    const clock = {
+      clearTimer: () => {},
+      now: () => 0,
+      setTimer: (callback) => {
+        timers.push(callback);
+        return timers.length;
+      },
+    };
+    let finishExtraction;
+    let extractionStarted;
+    const started = new Promise((resolve) => {
+      extractionStarted = resolve;
+    });
+    const running = sourcesRun(
+      env,
+      sourcesConfig(),
+      () =>
+        new Promise((resolve) => {
+          finishExtraction = resolve;
+          extractionStarted();
+        }),
+      { clock, sourceOnly: '2' },
+    );
+    await started;
+    timers[0]();
+    const result = await running;
+    assert.equal(result.listing.attempts[0].result, 'source_timeout');
+
+    const stepCount = result.steps.length;
+    finishExtraction({ found: false, failure: 'link_not_found', logLines: ['LATE LINE'] });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(result.steps.length, stepCount);
+    assert.equal(result.steps.some((step) => step.message === 'LATE LINE'), false);
   });
 });
 

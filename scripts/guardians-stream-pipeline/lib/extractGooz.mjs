@@ -517,14 +517,17 @@ export async function newExtractContext(browser) {
 }
 
 // Polls until the listing yields a usable link or a definite ambiguity. A listing still loading
-// rows, or mid-navigation through a challenge, keeps polling until the deadline.
-async function waitForListingLink(page, options, timeoutMs = 15_000) {
+// rows, or mid-navigation through a challenge, keeps polling until the deadline. A closed page
+// or an abandoned attempt ends the wait, because the poll's sleep rejects at once on a closed page.
+async function waitForListingLink(page, options, timeoutMs = 15_000, isAbandoned = () => false) {
   const deadline = Date.now() + timeoutMs;
   let selection = selectListingLink(await findInnerLinkByHref(page, options), options);
   while (
     !selection.link &&
     selection.failure !== 'ambiguous_link' &&
-    Date.now() < deadline
+    Date.now() < deadline &&
+    !page.isClosed() &&
+    !isAbandoned()
   ) {
     await settle(() => page.waitForTimeout(1_000), undefined);
     selection = selectListingLink(await findInnerLinkByHref(page, options), options);
@@ -1199,7 +1202,12 @@ export async function extractGoozFromBasePage(baseUrl, options = {}) {
     pushStep(steps, 'search_links', searchMessage, { hrefNeedle });
     remember(searchMessage);
 
-    const selection = await waitForListingLink(basePage, selectionOptions, attempt?.linkWaitMs);
+    const selection = await waitForListingLink(
+      basePage,
+      selectionOptions,
+      attempt?.linkWaitMs,
+      attempt?.isAbandoned,
+    );
     const innerLink = selection.link;
     if (attempt) {
       for (const match of selection.matches ?? []) {

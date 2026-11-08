@@ -60,6 +60,9 @@ class FakePage extends EventEmitter {
   url() {
     return this.currentUrl;
   }
+  isClosed() {
+    return this.script.closed === true;
+  }
   commit(url, frames = []) {
     this.currentUrl = url;
     this.mainFrameValue.urlValue = url;
@@ -131,6 +134,8 @@ class FakePage extends EventEmitter {
   async evaluate(fn, arg) {
     const source = fn.toString();
     if (arg && typeof arg === 'object' && 'hrefNeedles' in arg) {
+      this.linkPolls = (this.linkPolls ?? 0) + 1;
+      this.script.onLinkPoll?.(this.linkPolls);
       return this.script.links ?? [];
     }
     if (source.includes('anchorCount')) {
@@ -251,6 +256,44 @@ test('isChallengeFrameUrl does not count video embeds', () => {
   assert.equal(isChallengeFrameUrl('https://listing-one.test/cdn-cgi/challenge-platform/x'), true);
   assert.equal(isChallengeFrameUrl('https://www.youtube.com/embed/x'), false);
   assert.equal(isChallengeFrameUrl('not a url'), false);
+});
+
+async function attemptWithLongLinkWait(script, isAbandoned) {
+  const page = new FakePage(script);
+  const startedAt = Date.now();
+  const result = await extractGoozFromBasePage(LISTING_URL, {
+    hrefNeedles: ['cleveland-guardians'],
+    sourceAttempt: {
+      context: { newPage: async () => page },
+      isAbandoned,
+      linkWaitMs: 60_000,
+      privateHosts: new Set(),
+    },
+  });
+  return { elapsedMs: Date.now() - startedAt, page, result };
+}
+
+test('the link wait ends at once on a closed page instead of spinning', async () => {
+  const script = {
+    onLinkPoll: () => {
+      script.closed = true;
+    },
+  };
+  const { elapsedMs, page } = await attemptWithLongLinkWait(script);
+  assert.equal(page.linkPolls, 1);
+  assert.ok(elapsedMs < 5_000);
+});
+
+test('the link wait ends when the attempt is abandoned', async () => {
+  let abandoned = false;
+  const script = {
+    onLinkPoll: (count) => {
+      abandoned = count >= 2;
+    },
+  };
+  const { elapsedMs, page } = await attemptWithLongLinkWait(script, () => abandoned);
+  assert.equal(page.linkPolls, 2);
+  assert.ok(elapsedMs < 5_000);
 });
 
 test('an empty listing is link_not_found', async () => {
