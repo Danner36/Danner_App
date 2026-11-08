@@ -1,0 +1,243 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    # Bot commits touch only these generated files, so they start no run.
+    paths-ignore:
+      - "streams/**"
+      - "catalog/**"
+      - "guardians_streams.json"
+      - "patriots_streams.json"
+      - "cyclones_streams.json"
+      - "tests/leagues/*/captures/**"
+  workflow_call:
+    inputs:
+      ref:
+        description: Git ref to check out and test
+        required: true
+        type: string
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App typecheck and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm run test:all
+
+      # A release call always runs this step, so a tag without the suite fails.
+      - name: Import pure modules
+        if: inputs.ref != '' || hashFiles('tests/imports/run.mjs') != ''
+        run: node ../tests/imports/run.mjs
+
+  pipeline:
+    name: Stream pipeline tests (${{ matrix.tz }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        tz:
+          - UTC
+          - Pacific/Honolulu
+          - America/Chicago
+    defaults:
+      run:
+        working-directory: scripts/stream-pipeline
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # The tests inject the extractor, so no browser or package install is needed.
+      - name: Run pipeline tests
+        env:
+          TZ: ${{ matrix.tz }}
+        run: npm test
+
+  worker:
+    name: Worker tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run Worker tests
+        run: node --test "workers/team-worker/test/*.test.mjs"
+
+  catalog:
+    name: Catalog tests and validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run catalog tests
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/team-catalog/test/*.test.mjs"
+
+      # A release call always runs this step, so a tag without the catalog fails.
+      - name: Validate committed catalog
+        if: inputs.ref != '' || hashFiles('catalog/**') != ''
+        run: node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/validate.mjs
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Refuse a tracked config.json under scripts
+        run: |
+          tracked="$(git ls-files -- ':(glob)scripts/**/config.json')"
+          if [ -n "$tracked" ]; then
+            printf '%s\n' "$tracked"
+            echo '::error::A config.json is tracked under scripts/. Local pipeline configs hold listing sites and stay untracked.'
+            exit 1
+          fi
+
+      # This suite asserts the permission blocks of stream-pipeline.yml, including the read-only
+      # extract job and the sparse checkout of the publish job.
+      - name: Check the stream pipeline workflow
+        working-directory: scripts/stream-pipeline
+        run: node --test "test/workflow.test.mjs"
+
+  native-changes:
+    name: Detect native changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      # Depth 2 holds the pull request's merge commit and the base commit it was merged onto.
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Compare with the base branch
+        id: diff
+        run: |
+          files="$(git diff --name-only HEAD^1 HEAD)"
+          if grep -Eq '^app/(modules/|package\.json$)' <<<"$files"; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          fi
+
+  ios-build:
+    name: Unsigned iPhone build
+    needs: native-changes
+    # A release run passes inputs.ref and has already built its own iPhone job, so only a manual
+    # run of this workflow or a pull request that touches native code builds here.
+    if: >-
+      ${{ !cancelled() && !inputs.ref &&
+      (github.event_name == 'workflow_dispatch' || needs.native-changes.outputs.changed == 'true') }}
+    runs-on: macos-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Generate iPhone project
+        run: npx expo prebuild --platform ios --clean
+
+      - name: Build unsigned device app
+        shell: bash
+        run: |
+          set -euo pipefail
+          workspace="$(find ios -maxdepth 1 -name '*.xcworkspace' -print -quit)"
+          test -n "$workspace"
+          scheme="$(xcodebuild -workspace "$workspace" -list -json | python3 -c 'import json, sys; data=json.load(sys.stdin); print(next(item for item in data["workspace"]["schemes"] if not item.startswith("Pods-")))')"
+          xcodebuild \
+            -quiet \
+            -workspace "$workspace" \
+            -scheme "$scheme" \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$RUNNER_TEMP/danner-ios" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build

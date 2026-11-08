@@ -1,8 +1,9 @@
 // Validates the generated catalog before any commit, and from CI. Checks the leagues document,
 // every team entry, the preset and nickname guards, hand-edited overrides, the report's separation
 // of network and shape errors, the append-only rule against a prior copy of the catalog (--prior),
-// and the NCAA basketball capability flags against the newest committed live capture.
-import { existsSync, readFileSync } from 'node:fs';
+// every committed streams file, and the NCAA basketball capability flags against the newest
+// committed live capture.
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { evaluateBoardFlags } from './board-flags.mjs';
@@ -15,7 +16,8 @@ const REPO_ROOT = path.resolve(SCRIPT_DIR, '..', '..');
 const COLOR = /^#[0-9a-fA-F]{6}$/;
 const NEEDLE = /^[a-z0-9-]+$/;
 const LOGO_HOST = 'a.espncdn.com';
-const OVERRIDE_FIELDS = new Set(['statsapi', 'hrefNeedles', 'name', 'nickname', 'conference', 'hidden', 'remove']);
+const STREAMS_FILE = /^([a-z]{2,8})\/(\d{1,8})\.json$/;
+const OVERRIDE_FIELDS =new Set(['statsapi', 'hrefNeedles', 'name', 'nickname', 'conference', 'hidden', 'remove']);
 
 function nonEmptyString(value) {
   return typeof value === 'string' && value.length > 0;
@@ -233,6 +235,58 @@ function readJson(file) {
   return existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : undefined;
 }
 
+// Every file under streams/ must be a v2 document at streams/<league>/<espnId>.json for a catalog
+// team, retired ones included. Messages name only the path: a file's text can hold a listing URL.
+export function streamsFileErrors(streamsDir, teamsByLeague) {
+  if (!existsSync(streamsDir)) {
+    return [];
+  }
+  const errors = [];
+  const files = readdirSync(streamsDir, { recursive: true, withFileTypes: true })
+    .filter((entry) => !entry.isDirectory())
+    .map((entry) => path.join(entry.parentPath, entry.name))
+    .sort();
+  for (const file of files) {
+    const relative = path.relative(streamsDir, file).split(path.sep).join('/');
+    const where = `streams/${relative}`;
+    const match = STREAMS_FILE.exec(relative);
+    if (!match) {
+      errors.push(`${where}: path is not streams/<league>/<espnId>.json`);
+      continue;
+    }
+    const key = `${match[1]}-${match[2]}`;
+    if (!(teamsByLeague[match[1]] ?? []).some((team) => team.key === key)) {
+      errors.push(`${where}: ${key} is not in the catalog`);
+    }
+    let document;
+    try {
+      document = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      errors.push(`${where}: is not readable JSON`);
+      continue;
+    }
+    if (document === null || typeof document !== 'object' || Array.isArray(document)) {
+      errors.push(`${where}: is not a JSON object`);
+      continue;
+    }
+    if (document.schemaVersion !== 2) {
+      errors.push(`${where}: schemaVersion is not 2`);
+    }
+    if (document.team?.key !== key) {
+      errors.push(`${where}: team.key does not equal ${key}`);
+    }
+    if (!nonEmptyString(document.team?.name)) {
+      errors.push(`${where}: team.name is missing`);
+    }
+    if (!Array.isArray(document.streams)) {
+      errors.push(`${where}: streams is not a list`);
+    } else if (!document.streams.every((item) => typeof item === 'string' || (item !== null && typeof item === 'object' && !Array.isArray(item)))) {
+      errors.push(`${where}: streams holds an item that is neither a marker string nor an object`);
+    }
+  }
+  return errors;
+}
+
 // Validates catalogDir. priorDir, when given, is the committed copy of catalog/ before this build.
 export async function runValidate({ catalogDir, flagsReport, priorDir, root = REPO_ROOT }) {
   const errors = [];
@@ -262,6 +316,7 @@ export async function runValidate({ catalogDir, flagsReport, priorDir, root = RE
   }
   errors.push(...presetErrors(teamsByLeague));
   errors.push(...overrideResolutionErrors(overrides, teamsByLeague));
+  errors.push(...streamsFileErrors(path.join(root, 'streams'), teamsByLeague));
 
   const report = readJson(path.join(catalogDir, 'probe-report.json'));
   if (report) {
