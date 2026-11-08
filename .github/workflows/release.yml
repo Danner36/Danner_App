@@ -18,8 +18,45 @@ env:
   RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
 
 jobs:
+  # v0 and v1 tags hold neither the suites ci.yml runs nor the certificate file, and they are built
+  # against the v1 Worker, so a run of this file on such a tag makes none of the v2 checks.
+  ci:
+    name: Tests for the tag
+    if: ${{ !startsWith(inputs.release_tag || github.ref_name, 'v0.') && !startsWith(inputs.release_tag || github.ref_name, 'v1.') }}
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: refs/tags/${{ inputs.release_tag || github.ref_name }}
+
+  checks:
+    name: Release checks
+    needs: ci
+    if: ${{ !cancelled() && (needs.ci.result == 'success' || needs.ci.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check Worker health
+        if: needs.ci.result == 'success'
+        env:
+          WORKER_URL: ${{ secrets.EXPO_PUBLIC_DANNER_WORKER_URL }}
+        shell: bash
+        run: |
+          if [ -z "$WORKER_URL" ]; then
+            echo '::error::Secret EXPO_PUBLIC_DANNER_WORKER_URL is empty.'
+            exit 1
+          fi
+          # Only the status code reaches the log, so the Worker origin is never printed.
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 --retry 3 --retry-delay 5 --retry-all-errors "${WORKER_URL%/}/health" 2>/dev/null || true)"
+          if [ "$status" != '200' ]; then
+            echo "::error::The Worker /health route answered ${status:-nothing}, not 200."
+            exit 1
+          fi
+
   android:
     name: Build Android APK
+    needs: checks
+    # GitHub's implicit success() also fails on a skipped job further up the chain, which ci is for
+    # v0 and v1 tags, so this condition and the one on the release job name their results.
+    if: ${{ !cancelled() && needs.checks.result == 'success' }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -75,6 +112,26 @@ jobs:
       - name: Name APK
         run: cp android/app/build/outputs/apk/release/app-release.apk ../Danner-Apps-Android.apk
 
+      # A changed certificate makes the phones refuse the update, and uninstalling wipes their data.
+      - name: Verify signing certificate
+        if: ${{ !startsWith(env.RELEASE_TAG, 'v0.') && !startsWith(env.RELEASE_TAG, 'v1.') }}
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(tr -d '[:space:]' < release/android-signing-cert.sha256)"
+          if [[ ! "$expected" =~ ^[0-9a-f]{64}$ ]]; then
+            echo '::error::release/android-signing-cert.sha256 is not one lowercase SHA-256.'
+            exit 1
+          fi
+          build_tools="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -n 1)"
+          certs="$("${build_tools}apksigner" verify --print-certs Danner-Apps-Android.apk)"
+          actual="$(awk -F': ' '/certificate SHA-256 digest/ {print tolower($2)}' <<<"$certs" | sort -u)"
+          if [ "$actual" != "$expected" ]; then
+            echo '::error::The APK signing certificate does not match release/android-signing-cert.sha256.'
+            exit 1
+          fi
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -84,6 +141,8 @@ jobs:
 
   ios:
     name: Build SideStore IPA
+    needs: checks
+    if: ${{ !cancelled() && needs.checks.result == 'success' }}
     runs-on: macos-latest
     defaults:
       run:
@@ -182,9 +241,12 @@ jobs:
     needs:
       - android
       - ios
+    if: ${{ !cancelled() && needs.android.result == 'success' && needs.ios.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      draft: ${{ steps.latest.outputs.draft }}
     steps:
       - name: Check out source
         uses: actions/checkout@v5
@@ -217,11 +279,31 @@ jobs:
           cd release-assets
           sha256sum Danner-Apps-Android.apk Danner-Apps-iOS.ipa > SHA256SUMS.txt
 
-      - name: Decide Latest
+      - name: Decide draft and Latest
         id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
+          # A new major version stays a draft until the owner has installed it and publishes it by
+          # hand. A failed lookup stops the job, so it cannot publish such a release by accident.
+          published_tag="$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" --jq .tag_name)"
+          published_major="${published_tag#v}"
+          published_major="${published_major%%.*}"
+          if [[ ! "$published_major" =~ ^[0-9]+$ ]]; then
+            echo "::error::The latest published release has an unexpected tag."
+            exit 1
+          fi
+          tag_major="${RELEASE_TAG#v}"
+          tag_major="${tag_major%%.*}"
+          if [ "$tag_major" -gt "$published_major" ]; then
+            echo "::notice::$RELEASE_TAG is a new major version, so it is created as a draft."
+            echo "draft=true" >> "$GITHUB_OUTPUT"
+            echo "flag=--draft" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "draft=false" >> "$GITHUB_OUTPUT"
           # Tag names come from the remote, so the shallow checkout does not limit them.
           highest="$(git ls-remote --tags --refs origin \
             | sed 's#^.*refs/tags/##' \
@@ -238,7 +320,7 @@ jobs:
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-          LATEST_FLAG: ${{ steps.latest.outputs.flag }}
+          PUBLISH_FLAG: ${{ steps.latest.outputs.flag }}
         run: >-
           gh release create "${RELEASE_TAG}"
           release-assets/Danner-Apps-Android.apk
@@ -248,6 +330,6 @@ jobs:
           release-assets/version-manifest.json
           release-assets/sidestore-source.json
           --verify-tag
-          "${LATEST_FLAG}"
+          "${PUBLISH_FLAG}"
           --title "Danner Apps ${RELEASE_TAG}"
           --notes-file release/RELEASE_NOTES.md
