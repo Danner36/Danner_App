@@ -40,6 +40,16 @@ class DannerAppUpdateModule : Module() {
       activityInForeground = false
     }
 
+    AsyncFunction("getInstallTimes") {
+      val context = appContext.reactContext?.applicationContext
+        ?: throw IllegalStateException("The app context is not available.")
+      val info = context.packageManager.getPackageInfo(context.packageName, 0)
+      mapOf(
+        "firstInstallTime" to info.firstInstallTime.toDouble(),
+        "lastUpdateTime" to info.lastUpdateTime.toDouble(),
+      )
+    }
+
     AsyncFunction("installApk") { url: String, sha256: String, promise: Promise ->
       val context = (appContext.reactContext ?: appContext.currentActivity)?.applicationContext
       if (context == null) {

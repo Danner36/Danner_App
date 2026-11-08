@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -6,11 +6,19 @@ import {
   Image,
   Linking,
   Platform,
-  Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
+  type LayoutChangeEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { TeamKey } from '../leagues/types.ts';
+import { backfillLogos } from '../logos/logoStore';
+import { TeamLogo } from '../logos/TeamLogo';
+import { moveTile, removeTile } from '../selection/ops.ts';
+import type { SelectionChange } from '../selection/store';
+import type { Tile } from '../selection/types.ts';
 import {
   getActiveReleaseApkInstall,
   installReleaseApk,
@@ -30,19 +38,49 @@ import {
   sideStoreInstallUrl,
   type VersionManifest,
 } from './appUpdate';
+import { hubCellPosition, hubLayout } from './hubGrid.ts';
+import { HubTile, PlusTileContent } from './HubTile';
 import { getProvisioningWarning } from './provisioningWarning';
+import {
+  tileActionsFor,
+  TileActionsSheet,
+  type SheetAction,
+  type TileActionName,
+} from './TileActionsSheet';
+
+const SAVE_FAILED_TITLE = 'Not saved';
+const SAVE_FAILED_MESSAGE = 'The change could not be saved on this phone. Try again.';
+const READ_ONLY_MESSAGE = 'Your teams could not be read. Close the app and open it again.';
 
 export function HubScreen({
-  onOpenCyclones,
-  onOpenGuardians,
-  onOpenPatriots,
+  applyChange,
+  onChangeSports,
+  onOpenPicker,
+  onOpenTeam,
   onOpenTvLocation,
+  onTileRemoved,
+  readOnly,
+  retryLoad,
+  tiles,
 }: {
-  onOpenCyclones: () => void;
-  onOpenGuardians: () => void;
-  onOpenPatriots: () => void;
+  applyChange: (change: SelectionChange) => Promise<boolean>;
+  onChangeSports: (schoolKey: TeamKey) => void;
+  onOpenPicker: () => void;
+  onOpenTeam: (key: TeamKey) => void;
   onOpenTvLocation: () => void;
+  onTileRemoved: (key: TeamKey) => void;
+  readOnly: boolean;
+  retryLoad: () => Promise<boolean>;
+  tiles: readonly Tile[];
 }) {
+  const [size, setSize] = useState<{ height: number; width: number } | undefined>();
+  const insets = useSafeAreaInsets();
+  const [sheetTile, setSheetTile] = useState<Tile | undefined>();
+  // The update prompt stays away while the actions sheet or a confirmation is open.
+  const overlayOpen = useRef(false);
+  const setOverlayOpen = useCallback((open: boolean) => {
+    overlayOpen.current = open;
+  }, []);
   const [provisioningExpiration, setProvisioningExpiration] = useState<
     number | undefined
   >();
@@ -78,6 +116,23 @@ export function HubScreen({
     };
   }, [readProvisioningExpiration]);
 
+  const tilesRef = useRef(tiles);
+  tilesRef.current = tiles;
+
+  // A read-only session writes nothing, logos included.
+  useEffect(() => {
+    if (readOnly) {
+      return;
+    }
+    void backfillLogos(tilesRef.current);
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        void backfillLogos(tilesRef.current);
+      }
+    });
+    return () => subscription.remove();
+  }, [readOnly]);
+
   // Update checks run when the hub mounts and whenever the app becomes active again. Prompt,
   // message, and install state live in this effect and in module scope rather than in render
   // state, so an install finishing never starts another check by itself.
@@ -90,6 +145,7 @@ export function HubScreen({
     function updateBlocked(): boolean {
       return (
         !hubMounted ||
+        overlayOpen.current ||
         promptVisible ||
         messageVisible ||
         checkInFlight ||
@@ -183,7 +239,7 @@ export function HubScreen({
         updateBlocked() ||
         !shouldOfferAppUpdate({
           embeddedVersion,
-          hubVisible: hubMounted,
+          hubVisible: hubMounted && !overlayOpen.current,
           remoteVersion: manifest.version,
           signingWarningVisible: signingWarningVisible(),
         })
@@ -243,133 +299,283 @@ export function HubScreen({
     currentTime,
   );
 
-  return (
-    <View style={styles.menuScreen}>
-      {provisioningWarning ? (
-        <View accessibilityRole="alert" style={styles.menuExpiryWarning}>
-          <Text style={styles.menuExpiryWarningTitle}>
-            {provisioningWarning.title}
-          </Text>
-          <Text style={styles.menuExpiryWarningInstruction}>
-            {provisioningWarning.instruction}
-          </Text>
-        </View>
-      ) : updateDownloading ? (
-        <View style={styles.menuExpiryWarning}>
-          <ActivityIndicator
-            accessibilityLabel={APP_UPDATE_DOWNLOADING}
-            color="#1F6F55"
-            size="small"
-          />
-        </View>
-      ) : null}
+  const onLayout = useCallback((event: LayoutChangeEvent) => {
+    const { height, width } = event.nativeEvent.layout;
+    setSize((current) =>
+      current?.height === height && current.width === width
+        ? current
+        : { height, width },
+    );
+  }, []);
 
-      <Image
-        accessibilityLabel="Danner logo"
-        resizeMode="contain"
-        source={require('../assets/ic_launcher_danner.jpg')}
-        style={styles.menuLogo}
-      />
+  const applyTileChange = useCallback(
+    async (change: SelectionChange): Promise<boolean> => {
+      const saved = await applyChange(change);
+      if (!saved) {
+        Alert.alert(SAVE_FAILED_TITLE, SAVE_FAILED_MESSAGE);
+      }
+      return saved;
+    },
+    [applyChange],
+  );
 
-      <View style={styles.subAppGrid}>
-        <View style={styles.subAppRow}>
-          <Pressable
-            accessibilityLabel="Cleveland Guardians"
-            accessibilityHint="Opens Guardians scores, record, schedule, and authorized live video"
-            accessibilityRole="button"
-            onPress={onOpenGuardians}
-            style={({ pressed }) => [
-              styles.subAppTile,
-              pressed && styles.subAppTilePressed,
-            ]}
-          >
-            <Image
-              resizeMode="cover"
-              source={require('../assets/cleveland-guardians-logo.jpg')}
-              style={styles.subAppLogoContained}
-            />
-          </Pressable>
+  const confirmRemove = useCallback(
+    (tile: Tile) => {
+      setOverlayOpen(true);
+      Alert.alert(`Remove ${tile.team.name}?`, 'It will be removed from the hub.', [
+        {
+          onPress: () => setOverlayOpen(false),
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          onPress: () => {
+            setOverlayOpen(false);
+            void applyTileChange((current, now) =>
+              removeTile(current, tile.key, now),
+            ).then((saved) => {
+              if (saved) {
+                onTileRemoved(tile.key);
+              }
+            });
+          },
+          style: 'destructive',
+          text: 'Remove',
+        },
+      ]);
+    },
+    [applyTileChange, onTileRemoved, setOverlayOpen],
+  );
 
-          <Pressable
-            accessibilityLabel="New England Patriots"
-            accessibilityHint="Opens Patriots scores, record, schedule, and authorized live video"
-            accessibilityRole="button"
-            onPress={onOpenPatriots}
-            style={({ pressed }) => [
-              styles.subAppTile,
-              pressed && styles.subAppTilePressed,
-            ]}
-          >
-            <Image
-              resizeMode="cover"
-              source={require('../assets/new-england-patriots-logo.jpg')}
-              style={styles.subAppLogoContained}
-            />
-          </Pressable>
-        </View>
+  const runTileAction = useCallback(
+    (tile: Tile, action: TileActionName) => {
+      if (action === 'remove') {
+        confirmRemove(tile);
+      } else if (action === 'sports') {
+        onChangeSports(tile.key);
+      } else {
+        void applyTileChange((current, now) =>
+          moveTile(current, tile.key, action, now),
+        );
+      }
+    },
+    [applyTileChange, confirmRemove, onChangeSports],
+  );
 
-        <View style={styles.subAppRow}>
-          <Pressable
-            accessibilityLabel="Iowa State Cyclones"
-            accessibilityHint="Opens Cyclones scores, records, schedule, and authorized live video"
-            accessibilityRole="button"
-            onPress={onOpenCyclones}
-            style={({ pressed }) => [
-              styles.subAppTile,
-              pressed && styles.subAppTilePressed,
-            ]}
-          >
-            <Image
-              resizeMode="cover"
-              source={require('../assets/iowa-state-cyclones-logo.jpg')}
-              style={styles.subAppLogoContained}
-            />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="TV Location"
-            accessibilityHint="Opens the YouTube TV location setup"
-            accessibilityRole="button"
+  const closeSheet = useCallback(() => {
+    setOverlayOpen(false);
+    setSheetTile(undefined);
+  }, [setOverlayOpen]);
+
+  const openPlus = useCallback(() => {
+    if (!readOnly) {
+      onOpenPicker();
+      return;
+    }
+    void retryLoad().then((stillReadOnly) => {
+      if (stillReadOnly) {
+        Alert.alert('Teams', READ_ONLY_MESSAGE);
+      } else {
+        onOpenPicker();
+      }
+    });
+  }, [onOpenPicker, readOnly, retryLoad]);
+
+  const actionsFor = (tile: Tile, index: number): SheetAction[] =>
+    tileActionsFor({
+      first: index === 0,
+      isSchool: tile.kind === 'school',
+      last: index === tiles.length - 1,
+    });
+
+  const busy = provisioningWarning !== undefined || updateDownloading;
+  const layout = size
+    ? hubLayout({
+        cells: tiles.length + 2,
+        height: size.height,
+        insetLeft: insets.left,
+        insetRight: insets.right,
+        topBusy: busy,
+        width: size.width,
+      })
+    : undefined;
+
+  const cell = (index: number, content: ReactElement, key: string) =>
+    layout ? (
+      <View
+        key={key}
+        style={[
+          styles.cell,
+          hubCellPosition(layout, index),
+          { height: layout.tile, width: layout.tile },
+        ]}
+      >
+        {content}
+      </View>
+    ) : null;
+
+  const cells = layout
+    ? [
+        ...tiles.map((tile, index) => {
+          const actions = actionsFor(tile, index);
+          const enabled = actions.filter((action) => !action.disabled);
+          return cell(
+            index,
+            <HubTile
+              accessibilityActions={
+                readOnly
+                  ? undefined
+                  : enabled.map((action) => ({
+                      label: action.label,
+                      name: action.name,
+                    }))
+              }
+              hint={`Opens ${tile.team.nickname} scores, record, schedule, and authorized live video`}
+              label={tile.team.name}
+              onAccessibilityAction={
+                readOnly
+                  ? undefined
+                  : (name) => runTileAction(tile, name as TileActionName)
+              }
+              onLongPress={
+                readOnly
+                  ? undefined
+                  : () => {
+                      setOverlayOpen(true);
+                      setSheetTile(tile);
+                    }
+              }
+              onPress={() => onOpenTeam(tile.key)}
+              size={layout.tile}
+            >
+              <TeamLogo size={layout.tile} team={tile.team} tileKey={tile.key} />
+            </HubTile>,
+            tile.key,
+          );
+        }),
+        cell(
+          tiles.length,
+          <HubTile
+            hint="Opens the YouTube TV location setup"
+            label="TV Location"
             onPress={onOpenTvLocation}
-            style={({ pressed }) => [
-              styles.subAppTile,
-              pressed && styles.subAppTilePressed,
-            ]}
+            size={layout.tile}
           >
             <Image
               resizeMode="cover"
               source={require('../assets/youtube-tv-logo-vecteezy.jpg')}
-              style={styles.subAppLogoFill}
+              style={styles.fill}
             />
-          </Pressable>
+          </HubTile>,
+          'tv-location',
+        ),
+        cell(
+          tiles.length + 1,
+          <HubTile
+            hint="Opens the team picker"
+            label="Add team"
+            onPress={openPlus}
+            size={layout.tile}
+          >
+            <PlusTileContent size={layout.tile} />
+          </HubTile>,
+          'add-team',
+        ),
+      ]
+    : null;
+
+  return (
+    <View onLayout={onLayout} style={styles.menuScreen}>
+      {layout && (provisioningWarning || updateDownloading) ? (
+        <View
+          accessibilityRole={provisioningWarning ? 'alert' : undefined}
+          style={[styles.menuExpiryWarning, layout.warning]}
+        >
+          {provisioningWarning ? (
+            <>
+              <Text style={styles.menuExpiryWarningTitle}>
+                {provisioningWarning.title}
+              </Text>
+              <Text style={styles.menuExpiryWarningInstruction}>
+                {provisioningWarning.instruction}
+              </Text>
+            </>
+          ) : (
+            <ActivityIndicator
+              accessibilityLabel={APP_UPDATE_DOWNLOADING}
+              color="#1F6F55"
+              size="small"
+            />
+          )}
         </View>
-      </View>
+      ) : null}
+
+      {layout ? (
+        <Image
+          accessibilityLabel="Danner logo"
+          resizeMode="contain"
+          source={require('../assets/ic_launcher_danner.jpg')}
+          style={[
+            styles.menuLogo,
+            {
+              borderRadius: layout.logo.size * LOGO_RADIUS_RATIO,
+              height: layout.logo.size,
+              left: layout.logo.left,
+              top: layout.logo.top,
+              width: layout.logo.size,
+            },
+          ]}
+        />
+      ) : null}
+
+      {layout?.scrollFrame ? (
+        <ScrollView style={[styles.absolute, layout.scrollFrame]}>
+          <View style={{ height: layout.grid.height + 16 }}>
+            <View style={[styles.absolute, layout.grid]}>{cells}</View>
+          </View>
+        </ScrollView>
+      ) : layout ? (
+        <View style={[styles.absolute, layout.grid]}>{cells}</View>
+      ) : null}
+
+      {sheetTile ? (
+        <TileActionsSheet
+          actions={actionsFor(
+            sheetTile,
+            tiles.findIndex((tile) => tile.key === sheetTile.key),
+          )}
+          onAction={(action) => {
+            const tile = sheetTile;
+            closeSheet();
+            runTileAction(tile, action);
+          }}
+          onClose={closeSheet}
+          title={sheetTile.team.name}
+        />
+      ) : null}
     </View>
   );
 }
 
+const LOGO_RADIUS_RATIO = 34 / 210;
+
 const styles = StyleSheet.create({
-  menuScreen: {
-    backgroundColor: '#F7F7F2',
-    flex: 1,
-    position: 'relative',
+  absolute: {
+    position: 'absolute',
+  },
+  cell: {
+    position: 'absolute',
+  },
+  fill: {
+    height: '100%',
+    width: '100%',
   },
   menuLogo: {
-    borderRadius: 34,
-    height: 210,
-    left: '50%',
-    marginLeft: -105,
-    marginTop: -105,
     position: 'absolute',
-    top: '33.333%',
-    width: 210,
   },
   menuExpiryWarning: {
     alignItems: 'center',
-    left: 24,
     position: 'absolute',
-    right: 24,
-    top: '33.333%',
-    transform: [{ translateY: -158 }],
   },
   menuExpiryWarningInstruction: {
     color: '#5A4137',
@@ -384,46 +590,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
   },
-  subAppGrid: {
-    alignItems: 'center',
-    gap: 28,
-    left: 0,
-    marginTop: -115.2,
-    position: 'absolute',
-    right: 0,
-    top: '66.667%',
-  },
-  subAppRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 28,
-    justifyContent: 'center',
-  },
-  subAppTile: {
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderColor: '#A9CEBB',
-    borderRadius: 14,
-    borderWidth: 2,
-    elevation: 2,
-    height: 101.2,
-    overflow: 'hidden',
-    shadowColor: '#15354A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 9,
-    width: 101.2,
-  },
-  subAppTilePressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
-  },
-  subAppLogoFill: {
-    height: '100%',
-    width: '100%',
-  },
-  subAppLogoContained: {
-    height: '100%',
-    width: '100%',
+  menuScreen: {
+    backgroundColor: '#F7F7F2',
+    flex: 1,
+    position: 'relative',
   },
 });

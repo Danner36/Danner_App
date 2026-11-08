@@ -3,7 +3,6 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
-  Image,
   Platform,
   Pressable,
   RefreshControl,
@@ -16,6 +15,7 @@ import { adapterFor } from '../leagues/registry.ts';
 import type { LeagueAdapter, LivePoll } from '../leagues/types.ts';
 import { AudioPlayer } from '../playback/AudioPlayer';
 import { StreamPlayer } from '../playback/StreamPlayer';
+import { TeamLogo } from '../logos/TeamLogo';
 import { adapterKeysForTile } from '../selection/presets.ts';
 import type { Tile } from '../selection/types.ts';
 import { fetchSources, type SourcesOptions } from '../streams/fetchSources.ts';
@@ -31,10 +31,10 @@ import type { TeamGame, TeamSnapshot } from './engine/types.ts';
 import { streamsPollWindowOpen } from './engine/videoWindow.ts';
 import { FeaturedGameSlot, type LoadFn } from './FeaturedGameCard';
 import { HeroRecords } from './HeroRecords';
-import { heroLogoFor } from './heroLogo';
 import { ScheduleList } from './ScheduleList';
 import { teamAccent } from './theme';
 
+const HERO_LOGO_SIZE = 118;
 const REFRESH_INTERVAL_MS = 60_000;
 // The schedule query spans the rest of the season, so it is by far the heaviest call here. Live
 // scores come from the five-second poll, and the game list and record barely move.
@@ -321,7 +321,6 @@ export function TeamScreen({
   }, [onBack, selectedStream]);
 
   const closeStream = useCallback(() => setSelectedStream(undefined), []);
-  const heroLogo = heroLogoFor(tile.key);
 
   return (
     <View style={styles.screen}>
@@ -356,14 +355,9 @@ export function TeamScreen({
           </View>
 
           <View style={styles.hero}>
-            {heroLogo !== undefined ? (
-              <Image
-                accessibilityLabel={team.name}
-                resizeMode="cover"
-                source={heroLogo}
-                style={styles.heroLogo}
-              />
-            ) : null}
+            <View accessibilityLabel={team.name} accessible style={styles.heroLogo}>
+              <TeamLogo size={HERO_LOGO_SIZE} team={team} tileKey={tile.key} />
+            </View>
             <Text accessibilityRole="header" style={styles.heroTitle}>
               {team.nickname}
             </Text>
@@ -507,8 +501,9 @@ const styles = StyleSheet.create({
   },
   heroLogo: {
     borderRadius: 22,
-    height: 118,
-    width: 118,
+    height: HERO_LOGO_SIZE,
+    overflow: 'hidden',
+    width: HERO_LOGO_SIZE,
   },
   heroTitle: {
     color: '#0B2B4C',

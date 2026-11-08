@@ -1,57 +1,80 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import {
   SafeAreaProvider,
   SafeAreaView,
 } from 'react-native-safe-area-context';
 import { HubScreen } from './hub/HubScreen';
-import {
-  CYCLONES_TILE,
-  GUARDIANS_TILE,
-  PATRIOTS_TILE,
-  PRESET_TILES,
-} from './selection/presets.ts';
+import type { TeamKey } from './leagues/types.ts';
+import { deleteLogo } from './logos/logoStore';
+import { TeamPickerScreen, type PickerStart } from './picker/TeamPickerScreen';
+import { findTile } from './selection/ops.ts';
+import { removeSourcesCache, useSelectionStore } from './selection/store';
 import { TeamScreen } from './team/TeamScreen';
 import { TvLocationScreen } from './tvLocation/TvLocationScreen';
 
+// Held until the selection has loaded, so a family phone never flashes the fresh-install hub.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
 type Route =
   | { name: 'hub' }
-  | { name: 'team'; tileKey: string }
+  | { name: 'team'; tileKey: TeamKey }
+  | { name: 'picker'; start?: PickerStart }
   | { name: 'tv-location' };
 
 export default function App() {
+  const store = useSelectionStore();
   const [route, setRoute] = useState<Route>({ name: 'hub' });
+
+  useEffect(() => {
+    if (store.loaded) {
+      SplashScreen.hideAsync().catch(() => undefined);
+    }
+  }, [store.loaded]);
 
   const openHub = useCallback(() => {
     setRoute({ name: 'hub' });
   }, []);
 
+  const clearTileData = useCallback((key: TeamKey) => {
+    void removeSourcesCache(key);
+    void deleteLogo(key);
+  }, []);
+
   const tile =
-    route.name === 'team'
-      ? PRESET_TILES.find((candidate) => candidate.key === route.tileKey)
-      : undefined;
+    route.name === 'team' ? findTile(store.selection, route.tileKey) : undefined;
 
   return (
     <SafeAreaProvider>
       <StatusBar style="dark" />
       <SafeAreaView edges={['top', 'bottom']} style={styles.systemSafeArea}>
-        {tile ? (
+        {!store.loaded ? null : tile ? (
           <TeamScreen key={tile.key} onBack={openHub} tile={tile} />
         ) : route.name === 'tv-location' ? (
           <TvLocationScreen onBackToMenu={openHub} />
+        ) : route.name === 'picker' ? (
+          <TeamPickerScreen
+            applyChange={store.apply}
+            onClose={openHub}
+            onTileRemoved={clearTileData}
+            selection={store.selection}
+            start={route.start}
+          />
         ) : (
           <HubScreen
-            onOpenCyclones={() =>
-              setRoute({ name: 'team', tileKey: CYCLONES_TILE.key })
+            applyChange={store.apply}
+            onChangeSports={(schoolKey) =>
+              setRoute({ name: 'picker', start: { schoolKey } })
             }
-            onOpenGuardians={() =>
-              setRoute({ name: 'team', tileKey: GUARDIANS_TILE.key })
-            }
-            onOpenPatriots={() =>
-              setRoute({ name: 'team', tileKey: PATRIOTS_TILE.key })
-            }
+            onOpenPicker={() => setRoute({ name: 'picker' })}
+            onOpenTeam={(tileKey) => setRoute({ name: 'team', tileKey })}
             onOpenTvLocation={() => setRoute({ name: 'tv-location' })}
+            onTileRemoved={clearTileData}
+            readOnly={store.readOnly}
+            retryLoad={store.reload}
+            tiles={store.selection.tiles}
           />
         )}
       </SafeAreaView>
