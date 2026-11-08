@@ -1,0 +1,6 @@
+# Python 3.13 on Windows. Install with:
+#   python -m pip install -r requirements.txt
+#   python -m pip install --no-deps ipsw-parser pyimg4
+# pyimg4 pulls in lzfse/pylzss, which need a C compiler; the shim/ folder stands in for them.
+pymobiledevice3>=11.2.0
+pycryptodome

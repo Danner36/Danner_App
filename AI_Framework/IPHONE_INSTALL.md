@@ -173,10 +173,15 @@ After iTunes:
 
 If the list is empty: unlock the phone, replug USB, `Refresh Devices`, confirm the service. Do not start with Microsoft Store iTunes.
 
+## Diagnostics from this PC
+
+[scripts/iphone-harness/README.md](../scripts/iphone-harness/README.md) is the USB diagnostic harness (pymobiledevice3, no admin, no taps): device status, SideStore's own refresh logs with the real expiry, live log watching during a charger plug-in, screenshots, and launch tests. Run `status`, `console-pull`, and `console-summary` before touching iLoader. The 2026-10-09 investigation is in [scripts/iphone-harness/FINDINGS-2026-10-09.md](../scripts/iphone-harness/FINDINGS-2026-10-09.md).
+
 ## Recovery
 
 | Symptom | Action |
 |---------|--------|
+| `"Danner Apps" Is No Longer Available` or `"SideStore" Is No Longer Available` on launch | The 7-day profile expired. Check the refresh history with the harness. If SideStore's logs show `Your session has expired. Please log in.`, SideStore's Apple token died and only a sign-in inside SideStore fixes it; no charger plug or Shortcut can. Then iLoader `SideStore (Nightly)` to re-sign SideStore in place, SideStore sign-in, LocalDevVPN Connect, `Refresh All`. |
 | iLoader device list empty | Apple website iTunes + running Mobile Device service + unlocked Trust + `Refresh Devices` |
 | iLoader session logged out | `Sign in` on the saved login |
 | Pairing modal stuck | Unlock, Trust, passcode |

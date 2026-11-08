@@ -66,3 +66,6 @@ workers/**/.wrangler/
 !.cursor/rules/
 .cursor/rules/*
 !.cursor/rules/ai-rules-first.mdc
+
+# iPhone harness local output (pulled device logs contain the Apple Account email)
+scripts/iphone-harness/out/
