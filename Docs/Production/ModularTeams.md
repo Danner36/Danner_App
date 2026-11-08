@@ -1,5 +1,5 @@
 Status: ACTIVE
-Phase: Approved plan. Phases 0, 1, 2a, 2b, 3, 4 and 5 are merged, and Phase 6 is in progress without Phase 1b (see Phase 6). Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
+Phase: Approved plan. Phases 0, 1, 2a, 2b, 3, 4 and 5 are merged. Phase 6 shipped as `v2.0.1` on 2026-11-08 without Phase 1b (see Phase 6): steps 1 to 7 are done, step 8 is done except the `worker-deploy.yml` `push` trigger and `worker-health.yml`, which are not built, and step 9 waits on the owner deleting the old secrets. Revised 2026-11-02 for the paid Apple Developer Program (Decided 20) and 2026-11-03 for the basketball arena board; O21-O27 await the owner
 
 # Modular teams plan
 
@@ -1115,6 +1115,8 @@ Every cherry-picked commit is also on `main`. Phase 5 starts after 2b (it needs 
 **Phase 6: Cutover**
 
 Owner decision, 2026-11-08: `v2.0.0` ships before Phase 1b, because no family phone depends on the iPhone app today. It overrides the Phase 1b dependency below. The release carries the unsigned IPA and `sidestore-source.json` as `release.yml` builds them today, so `v2.0.0` has no TestFlight upload, `Pilot` or `Everyone` step, `testflight-distribute.yml` run or iPhone physical check (O16). iPhones still on `v1.x` lose Play and Get video at step 6 until they update through SideStore. The owner tests the published release live on Android in place of the step 5 draft install. Phase 1b stays planned for when the owner buys the Apple program, and it then starts from the latest `v2.x` tag instead of `v1.5.0`.
+
+Progress: steps 1 to 7 are done on 2026-11-08 as `v2.0.1`, with `v2.0.0` a failed tag that has no release and the iPhone distribution parts of steps 4, 5 and 7 not applied, per the owner decision above. Step 8 is done except the `push` trigger on `worker-deploy.yml` and `worker-health.yml`, which are not built. Step 9 waits on the owner deleting the old secrets.
 
 1. Confirm the Phase 2b secrets and the PAT check, and that the Phase 1b and Phase 3-5 exits are met.
 2. Pick a day with an evening game for an in-season preset or catalog team, and start in the morning.

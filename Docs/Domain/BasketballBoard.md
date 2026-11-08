@@ -5,7 +5,7 @@ Phase: MVP
 
 A gym-style board for a live basketball game: a center panel with both team names, the scores, the game clock, the phase, the period, team fouls, bonus pills and the last foul, and each team's five players with jersey (`#`), fouls (`FL`) and points (`PTS`). Team names are text; the board carries no logos or other branding.
 
-The Cyclones featured card draws it for a live men's or women's basketball game, as the card's last item, after the Play and Listen row and Get video. It is not drawn before the game is Live or after Final: the countdown comes before, and the Final recap keeps its score box. Football keeps its own board.
+A school tile's featured card draws it for a live men's or women's basketball game, as the card's last item, after the Play and Listen row and Get video. It is not drawn before the game is Live or after Final: the countdown comes before, and the Final recap keeps its score box. Football keeps its own board.
 
 ## Code
 
@@ -82,7 +82,7 @@ The live summary poll and the schedule refresh share one board per featured game
 
 The board's inner width is W = min(window width, 720) − 76; the board reaches 12 dp into the card's padding. `split` (236 ≤ W < 612, phones in portrait): the center panel spans the board and the two tables sit side by side under it. `arena` (W ≥ 612): away table, center panel and home table in one row. `stacked` (W < 236): center panel, then each table at full width. With `players` off the board is the center panel alone, scaled to the full width in every mode. Nothing scrolls sideways.
 
-Away is left and home right. The followed team gets a 4 dp cardinal stripe; the opponent's stripe is its ESPN color at 3:1 or more against the panel, else its alternate color, else `#C7D2DD`. Colors live in `arenaTokens.ts`: navy `#07264A` panel, black `#05070A` wells, amber `#FFCF4A` score, clock and points digits, white stat digits, 12 dp labels, system tabular digits.
+Away is left and home right. The followed team gets a 4 dp stripe in its accent color; the opponent's stripe is its ESPN color at 3:1 or more against the panel, else its alternate color, else `#C7D2DD`. Colors live in `arenaTokens.ts`: navy `#07264A` panel, black `#05070A` wells, amber `#FFCF4A` score, clock and points digits, white stat digits, 12 dp labels, system tabular digits.
 
 ## States
 
@@ -101,4 +101,4 @@ Three elements, the center panel and each table, each read one spoken summary wi
 
 ## Tests
 
-`npm run test:scoreboards` runs the parser on 17 trimmed archived ESPN games under `tests/scoreboards/archived/` and synthetic summaries, and the layout and text modules. `npm run test:cyclones:snapshot` covers the Cyclones summary, schedule and merge paths on the `live-basketball` harness fixture, which `npm run test:cyclones:android:live-basketball` opens on an emulator.
+`npm run test:scoreboards` runs the parser on 17 trimmed archived ESPN games under `tests/scoreboards/archived/` and synthetic summaries, and the layout and text modules. `npm run test:team-engine` covers the summary, schedule and merge paths on the `live-basketball` harness fixture, which `npm run test:team:android -- --team ncaa-66 --scenario live-basketball` opens on an emulator.

@@ -11,7 +11,7 @@ exposed no usable media URL.
 TV send now relays the page's own HLS playlist from the phone and passes the provider's
 segments through untouched, which reaches the receiver at the original resolution with no
 projection permission, no encoder, and no battery cost. Every approved page in
-team streams file reports a media URL, so the converter was never reached, and it
+a team streams file reports a media URL, so the converter was never reached, and it
 never had a physical TV pass. It is kept because a future source may expose no URL at all.
 
 ## Contents
@@ -45,11 +45,12 @@ never had a physical TV pass. It is kept because a future source may expose no U
 5. Re-add `start`, `stop`, and `getStatus` to both `DannerLiveHlsModule` files, and
    `startLiveHls` / `stopLiveHls` / `getLiveHlsStatus` to
    `app/modules/danner-live-hls/src/index.ts`.
-6. Re-add the capture fallback to `GuardiansTvRouteButton`, which needs the runtime
+6. Re-add the capture fallback to `app/playback/TvRouteButton.tsx`, which needs the runtime
    permission request and the player-view crop measurement it used to pass to `start`.
-7. Move `tests/*.mjs` back to `tests/guardians/` and restore their
-   `test:guardians:android:live-hls` and `test:guardians:android:cast-convert` scripts in
+7. Move `tests/*.mjs` to `tests/team-harness/`, which holds `server.mjs`, and add
+   `test:playback:android:live-hls` and `test:playback:android:cast-convert` scripts to
    `app/package.json`. Both harnesses resolve `../../app/` and `./server.mjs` relative to
-   their own directory, so they only run from `tests/guardians/`.
+   their own directory and still request `/guardians` fixture routes, so point those at the
+   team-key routes.
 
 Git history for these files is under their former module and test paths.

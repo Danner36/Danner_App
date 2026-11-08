@@ -80,7 +80,7 @@ USB puts Danner Apps on the iPhone. SideStore `+` of the same IPA is still requi
 ## INSIDE DANNER APPS
 
 1. Open Danner Apps.
-2. Confirm the Danner logo and both app buttons appear.
+2. Confirm the Danner logo, the YouTube TV button, and `+` appear.
 
 ## NEW VERSION ON IPHONE
 

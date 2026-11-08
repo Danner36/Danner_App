@@ -66,6 +66,8 @@ When the Worker origin and app key are in the build, the empty window shows **Ge
 | 401 | `Get video is not authorized.` |
 | Anything else | `Get video could not start.` |
 
+The Worker checks the app key and the team against the catalog, then starts `.github/workflows/stream-pipeline.yml` through `repository_dispatch` type `team-get-video`. `scripts/stream-pipeline/` finds a stream for that game and commits the entry to the team's streams file.
+
 Final codes `too_early`, `game_over`, `no_game` and `blocked` show a plain sentence for that case. Leaving the screen during a run and coming back picks the progress up again from the next poll.
 
 ## Playback kinds

@@ -17,7 +17,7 @@ Shared Expo SDK 57 `Danner Apps` project for Android and iPhone.
 - `selection/` holds the tile types, the three presets, the tile operations, loading and migration, seeding, and the on-phone store.
 - `tvLocation/` is the four-step YouTube TV location flow and bundled map.
 - `modules/` holds native Expo modules only, not product screens.
-- `assets/` holds shared logos, splash art, and the generated offline map HTML.
+- `assets/` holds the Danner and YouTube TV logos, splash art, and the generated offline map HTML. Team logos are not bundled; `logos/` downloads them from the ESPN URLs in the catalog.
 - `scripts/` rebuilds the offline map data.
 - `plugins/` holds Expo config plugins. `withGoogleCastNative` marks Nearby Wi-Fi `neverForLocation`. The official Cast plugin owns init and the pinned framework version.
 
@@ -31,6 +31,7 @@ npm run typecheck
 npx expo install --check
 npm run android
 npx expo export --platform ios
+npm run test:all
 npm run test:leagues
 npm run test:team-engine
 npm run test:imports
@@ -68,6 +69,7 @@ Use `npm run ios` on macOS to create a native iPhone build. `npx expo export --p
 - `modules/danner-live-hls/` relays a sports web player's own HLS, DASH, or MP4 stream from a phone origin for Cast.
 - `eas.json` retains internal-distribution development, preview, and production profiles; Android profiles produce APKs. Family iPhones use SideStore and a free dedicated Apple Account instead of paid ad hoc distribution.
 - `metro.config.js` packages the generated offline HTML map as an app asset.
+- Builds that use the Worker read `EXPO_PUBLIC_DANNER_WORKER_URL` and `EXPO_PUBLIC_DANNER_APP_KEY`.
 - `android/` and `ios/` are generated locally and ignored.
 
 Android native metadata uses package `com.example.location_helper`, minimum SDK 29, and compile and target SDK 36. Release builds set version and versionCode from the GitHub tag. Local builds without `RELEASE_TAG` stay version `1.0` and code 1.

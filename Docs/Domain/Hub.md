@@ -14,7 +14,7 @@ The hub is logo-only. Tiles are the selected teams in stored order, then TV Loca
 | First install, reinstall, new phone | TV Location, `+` |
 | Upgraded from `v1.x` and seeded | Guardians, Patriots, Cyclones, TV Location, `+` |
 
-A team tile shows the bundled preset art, else the cached logo on white, else the abbreviation in bold on the team's accent color. Its label is the team's full name. `+` is labelled `Add team`.
+A team tile shows the team's ESPN logo, contained on white with 12% padding, from the file `app/logos/logoStore.ts` cached on the phone, else the abbreviation in bold on the team's accent color. Every logo URL comes from the catalog. Its label is the team's full name. `+` is labelled `Add team`.
 
 A long press opens the tile actions: `Move to front`, `Move earlier`, `Move later`, `Change sports` (schools only), `Remove from hub` with a confirmation, and `Cancel`. The same actions are exposed as accessibility actions. There is no drag reorder. Removing a tile deletes its stream cache and logo file.
 
@@ -32,13 +32,13 @@ A hub holds at most 30 team tiles. At the cap, `+` stays and the picker shows `H
 
 | Step | Content |
 |---|---|
-| 1. Add a team | One row per league or college sport. A row appears only when the build has its adapter and the catalog marks it `pickable` |
+| 1. Add a team | One row per league or college sport: MLB, NFL, NCAA football, NCAA men's basketball, and NCAA women's basketball. A row appears only when the build has its adapter and the catalog marks it `pickable`, so other leagues stay hidden until their probes and fixtures pass (`catalog/`, `tests/leagues/`) |
 | 2. Team or school | Search over name, nickname, location and abbreviation, ignoring case and accents. `retired` and `hidden` entries are not offered. A pro team on the hub shows `On hub` and is disabled. A school on the hub shows `On hub` with its sports and opens step 3 |
 | 3. Sports (schools only) | One checkbox per sport the catalog offers, plus any sport already on the tile. A sport in `retiredSports` is not offered. Pre-checked: the sports on the tile plus the sport picked in step 1. Unchecking every sport asks whether to remove the tile |
 
 A pro team always has its own tile. Sports from one school share one tile: adding a sport merges into it, removing one keeps the tile, and the tile goes away with its last sport.
 
-`app/picker/catalogSnapshot.json` is the catalog bundled for offline use, written from `catalog/` by `npm run build:catalog-snapshot`. A build from a checkout with no `catalog/` carries the committed empty snapshot: it compiles and runs, and the picker reads the catalog from the network and says the team list is not available when it cannot. The script writes nothing when `catalog/` is missing or unusable, and the release checks fail while the snapshot is empty. Each file is replaced by its `danner.catalog.v1` copy when that copy has a newer `generatedAt`. The copy refreshes when the picker opens and it is older than 24 hours, from the Worker's `/catalog` routes and then raw GitHub. A refresh updates the stored tiles' display data by key and never their order or sports.
+`app/picker/catalogSnapshot.json` is the catalog bundled for offline use, written from `catalog/` by `npm run build:catalog-snapshot`. The script writes nothing when `catalog/` is missing or unusable, and `ci.yml`, which a v2 release requires, fails when the committed snapshot holds no catalog. With no snapshot catalog the app compiles and runs, and the picker reads the catalog from the network and says the team list is not available when it cannot. Each file is replaced by its `danner.catalog.v1` copy when that copy has a newer `generatedAt`. The copy refreshes when the picker opens and it is older than 24 hours, from the Worker's `/catalog` routes and then raw GitHub. A refresh updates the stored tiles' display data by key and never their order or sports.
 
 ## Phone storage
 
@@ -46,7 +46,7 @@ A pro team always has its own tile. Sports from one school share one tile: addin
 |---|---|
 | `danner.selection.v1` | `{schema: 1, tiles, updatedAt}`. Removing every tile stores `tiles: []`, so an absent key means never initialized |
 | `danner.seed.v1` | `{decision, signal, at, appVersion}`, written once |
-| `danner.install.v1` | Written by `v1.5.x` builds. Read at seeding and never written here |
+| `danner.install.v1` | A `v1.x` install marker. Read at seeding and never written by this app |
 | `danner.sources.<TeamKey>.v1` | Last valid streams document |
 | `danner.catalog.v1` | `{files: {<name>: {etag, fetchedAt, text}}}` |
 | `danner.logos.v1` | `{<TeamKey>: {href, name}}`, with `name` = `logos/<TeamKey>.png` |
@@ -66,7 +66,7 @@ Seeding runs only when `danner.selection.v1` and `danner.seed.v1` are both absen
 | 2 | Android `lastUpdateTime` minus `firstInstallTime` over 60 s | Presets, signal `install-times` |
 | None | | Empty, decision `fresh` |
 
-An iPhone updated from `v1.5.x` holds at least `danner.install.v1` and seeds through layer 1. iPhone has no layer 2. A phone the signals miss adds its teams through the picker.
+An iPhone updated from `v1.x` seeds through layer 1 when it holds any of those keys. iPhone has no layer 2. An Android update within 60 s of the first install does not meet layer 2 and does not seed. A phone the signals miss adds its teams through the picker.
 
 Seeding writes `danner.selection.v1`, then `danner.seed.v1`, and only after both succeed removes the three v1 sources keys. It never writes a TV key and never touches `danner.install.v1`.
 

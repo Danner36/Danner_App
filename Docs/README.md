@@ -2,7 +2,7 @@
 
 ## Scope
 
-Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior, visual specification, shared stack, production work, validation status, and legacy APK reference material.
+Product intent, current hub, team screen, and TV Location behavior, visual specification, shared stack, production work, validation status, and legacy APK reference material.
 
 ## Subfolders
 
@@ -11,7 +11,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 - `Technical/` contains the Expo architecture and build commands.
 - `Art/` contains the current accessible visual system and packaged media.
 - `Production/` contains current capability, delivery, and validation status, plus the approved modular-teams plan.
-- `Archive/` contains records of replaced designs. `Archive/FixedTeams/` records the fixed three-team design at commit `823d2be`. `Archive/IphoneSideStore/` records the SideStore iPhone distribution at commit `19740af`.
+- `Archive/` contains records pinned to a commit. `Archive/FixedTeams/` records the fixed three-team design at commit `823d2be`. `Archive/IphoneSideStore/` records the SideStore iPhone distribution at commit `19740af`; SideStore remains the current iPhone path, described in `AI_Framework/IPHONE_INSTALL.md`.
 
 ## Source of truth
 
@@ -29,7 +29,7 @@ Product intent, current Guardians, Patriots, Cyclones, and TV Location behavior,
 | Current test and build status | [Production/Validation.md](Production/Validation.md) |
 | Modular teams delivery plan | [Production/ModularTeams.md](Production/ModularTeams.md) |
 | Fixed three-team design (archived, `823d2be`) | [Archive/FixedTeams/README.md](Archive/FixedTeams/README.md) |
-| SideStore iPhone distribution (archived, `19740af`) | [Archive/IphoneSideStore/README.md](Archive/IphoneSideStore/README.md) |
+| SideStore iPhone distribution snapshot (`19740af`) | [Archive/IphoneSideStore/README.md](Archive/IphoneSideStore/README.md) |
 | Physical iPhone install (Windows) | [../AI_Framework/IPHONE_INSTALL.md](../AI_Framework/IPHONE_INSTALL.md) |
 | Family iPhone setup card | [../release/IPHONE_SETUP.md](../release/IPHONE_SETUP.md) |
 | Legacy APK inventory | [../reference/Apk_Inventory.md](../reference/Apk_Inventory.md) |

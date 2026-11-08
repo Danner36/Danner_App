@@ -24,11 +24,11 @@ Completed:
 - LocalDevVPN `Connect` on Wi-Fi (VPN Allow + passcode on the iPhone).
 - SideStore signed in with the dedicated Apple Account. `Refresh All` showed SideStore at `7 DAYS`.
 - iLoader `Import IPA` left Danner Apps on the phone but **not** in SideStore `My Apps`. SideStore `+` of `Danner-Apps-iOS.ipa` registered it. Both apps then showed `7 DAYS`.
-- Danner Apps hub opened with the Danner logo, Guardians tile left, TV Location tile right. Guardians loaded live MLB data. TV Location opened from the right tile.
+- On `v1.3.0`, the Danner Apps hub opened with the Danner logo, a team screen loaded live MLB data, and TV Location opened from its tile.
 - Shortcuts shortcut `Refresh SideStore`: Start LocalDevVPN → Wait 20 seconds → Refresh All Apps → Wait 60 seconds → Stop LocalDevVPN. Personal automation: When this iPhone is connected to power, Run Immediately, notify off, run `Refresh SideStore`.
 - 2026-08-28 12:26: charger plug ran that shortcut. On-screen result was all apps refreshed. LocalDevVPN showed a new `Connected at 12:26 PM` then Disconnected. SideStore My Apps still showed Danner Apps and SideStore at `7 DAYS`.
 
-The eight-day unattended locked-phone renewal path remains unproven. iPhone Cast of the local live playlist remains unproven.
+The eight-day unattended locked-phone renewal path remains unproven. iPhone Cast of the local live playlist remains unproven. No iPhone has run v2.
 
 ## What the agent can and cannot do
 
@@ -47,7 +47,7 @@ The agent cannot: tap Trust, enter the iPhone passcode, toggle Developer Mode, t
 7. After restart: Settings → Privacy & Security → Developer Mode → on → restart when iOS asks → confirm Developer Mode.
 8. Install Danner Apps by the USB iLoader path, then register it in SideStore with `+` (required for `7 DAYS` even after USB install).
 9. iPhone: LocalDevVPN `Connect` → Allow VPN → passcode. SideStore: same Apple Account → My Apps → refresh / `7 DAYS`.
-10. Open Danner Apps. Confirm the Danner logo and both hub tiles.
+10. Open Danner Apps. Confirm the Danner logo, the YouTube TV tile, and `+`.
 11. Build the `Refresh SideStore` shortcut and charger automation on that iPhone (Shortcuts do not copy from another phone).
 12. Prove one charger plug: Wi-Fi on, unplug, plug in, `Always Allow` if asked. Confirm the all-apps-refreshed result and LocalDevVPN connected-then-disconnected.
 
@@ -143,6 +143,8 @@ Fallback (also required for phones still on a build without the checker, includi
 2. SideStore `My Apps` → `+` → the new IPA.
 
 Optional: add the SideStore source `https://github.com/Danner36/Danner_App/releases/latest/download/sidestore-source.json` so SideStore's own Updates tab can also see new IPAs.
+
+An iPhone on `v1.x` has no Play or Get video until it updates to v2.
 
 Charger resign still uses `Refresh All Apps` on whatever build SideStore has registered. `Refresh All` does not fetch GitHub updates.
 

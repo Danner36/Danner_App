@@ -14,10 +14,10 @@ Phase: MVP
 ## Native integrations
 
 - `expo-video` plays approved direct HTTPS media, or an explicitly opted-in HTTP source, through the platform-native Android and iOS media stacks with caching disabled. iPhone native controls include AirPlay for those URLs.
-- `react-native-google-cast` supplies a Cast button for `direct` Guardians sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that relays the page-reported HLS, DASH, or MP4 URL through `modules/danner-live-hls/` and Casts the relay URL on Android and iPhone. HLS segment hints follow the relay's detected segment format. Pages that report no media cannot be sent. `youtube` sources stay phone-only.
-- `react-native-webview` hosts isolated approved Guardians player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages report an Android Chrome user agent, enable WKWebView AirPlay, and opt in HTML5 video and audio tags; YouTube embeds are not injected.
+- `react-native-google-cast` supplies a Cast button for `direct` sources. The default receiver `CC1AD845` loads the JSON playback URL. `web` sources use a header TV control that relays the page-reported HLS, DASH, or MP4 URL through `modules/danner-live-hls/` and Casts the relay URL on Android and iPhone. HLS segment hints follow the relay's detected segment format. Pages that report no media cannot be sent. `youtube` sources stay phone-only.
+- `react-native-webview` hosts isolated approved player pages with exact-host navigation and popup interception, plus YouTube TV verification and its browser-level coordinate injection. Cleartext page navigation and mixed HTTP resources are enabled only for a source that sets `allowInsecureHttp: true`. Isolated `web` entries load the exact JSON page URL with no player-library detection. On iPhone those pages report an Android Chrome user agent, enable WKWebView AirPlay, and opt in HTML5 video and audio tags; YouTube embeds are not injected.
 - A second isolated WebView renders the bundled canvas-based U.S. map and performs local city search without an online map service.
-- `@react-native-async-storage/async-storage` persists the selected map point and the last valid GitHub Guardians, Patriots, and Cyclones source documents.
+- `@react-native-async-storage/async-storage` persists the tile selection, the seeding record, the selected map points, the catalog copy, the logo index, and each team's last valid streams document.
 - `expo-asset` installs and opens the generated offline map HTML on Android and iOS.
 - `expo-file-system` keeps downloaded team logos in the document directory, which survives in-place updates.
 - `react-native-safe-area-context` preserves readable system-bar insets.
@@ -26,6 +26,7 @@ Phase: MVP
 - `expo-build-properties` sets Android minimum, compile, and target SDK versions and enables the native cleartext-traffic capability. The source allowlist still rejects HTTP unless the individual entry opts in.
 - `modules/danner-provisioning-profile/` is an Apple-only local Expo module. Its Swift implementation extracts the embedded provisioning plist and returns the real `ExpirationDate`; the menu reads it at launch and whenever the app becomes active. A one-minute timer only advances the displayed remaining time.
 - `modules/danner-live-hls/` is a local Expo module on Android and iPhone. It relays the page's own HLS, DASH, or MP4 stream from the first free port in 8108–8127 on the phone's LAN address, under a random session token with signed media URLs, and passes media bytes through unchanged. Android keeps the relay alive with the screen off through a `connectedDevice` foreground service. The screen-capture converter is archived under `reference/screen-capture-hls/` and is not built.
+- `modules/danner-webview-cookies/` is a local Expo module for TV Location on Android and iPhone. It clears the YouTube session and reports the signed-in state from cookie names, and on Android it writes the WebView cookie store to disk.
 
 iOS declares ATS media, WebView, and local-network exceptions so opted-in home-network sources can load, plus the local-network usage message displayed by iOS and `UIBackgroundModes` audio for AirPlay routing. These native capabilities do not bypass the app's per-source validation or exact-host navigation gate.
 
@@ -44,7 +45,7 @@ Release builds bake the GitHub tag into the Android version name and version cod
 
 | Path | Role |
 |------|------|
-| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / preset team screen / TV Location routes |
+| `app/App.tsx` | Thin shell: SafeArea, status bar, and hub / team screen / picker / TV Location routes |
 | `app/hub/` | Logo-only menu, grid math, tiles and tile actions, iPhone signing-warning text, and GitHub-release update prompt |
 | `app/picker/` | Team picker, catalog snapshot, catalog cache and parser |
 | `app/logos/` | Team logo download, index, and the shared `TeamLogo` |
@@ -62,18 +63,25 @@ Release builds bake the GitHub tag into the Android version name and version cod
 | `app/modules/danner-app-update/` | Android-only GitHub APK download, SHA-256 check, and system PackageInstaller |
 | `app/modules/danner-provisioning-profile/` | iOS embedded-profile expiration reader used by the final-48-hour main-menu warning |
 | `app/modules/danner-live-hls/` | Phone-side relay of a web player's own HLS, DASH, or MP4 stream for Cast |
+| `app/modules/danner-webview-cookies/` | TV Location sign-out, sign-in state, and Android cookie flush |
 | `app/metro.config.js` | Adds generated HTML to Metro's packaged asset types |
 | `app/scripts/build-offline-map.mjs` | Rebuilds compact nationwide map data from official Census sources and renders `app/scripts/offline-us-map.template.html` into the bundled map page |
-| `app/assets/` | Expo launcher, splash, sub-app logo, and generated offline map assets |
+| `app/assets/` | Expo launcher, splash, YouTube TV tile logo, and generated offline map assets |
 | `app/android/` | Locally generated and ignored native project |
-| `workers/team-worker/` | Cloudflare Worker that checks the app key and the team against the catalog, starts the stream pipeline for one game, and serves `GET /streams` and `GET /catalog` |
-| `.github/workflows/release.yml` | Tag-triggered Android and iPhone builds plus GitHub Release publication after both artifacts pass |
+| `workers/team-worker/` | Cloudflare Worker that checks the app key and the team against the catalog, starts the stream pipeline for one game, and serves `GET /streams` and `GET /catalog`. Deployed by hand through `worker-deploy.yml` to the frozen Cloudflare name `guardians-get-video` |
+| `scripts/stream-pipeline/` | Finds a stream for one team's game and publishes it to that team's streams file |
+| `scripts/team-catalog/` | Builds, validates, and probes the committed team catalog |
+| `catalog/` | Committed team catalog that the Worker allowlist, the pipeline, and the picker read |
+| `.github/workflows/release.yml` | Tag-triggered Android APK and unsigned SideStore IPA builds plus GitHub Release publication after both artifacts pass. A new major version is a draft that the owner publishes; minor and patch versions publish directly |
+| `.github/workflows/ci.yml` | Typecheck, every pure suite, the catalog snapshot check, and an unsigned iPhone build when native code changes |
+| `.github/workflows/worker-deploy.yml` | Hand-started staging or production Worker deploy |
+| `.github/workflows/team-catalog.yml` | Hand-started catalog probe, build, and live capture |
 | `.github/workflows/stream-pipeline.yml` | Get video extract and publish jobs for one team's game, started by `repository_dispatch` type `team-get-video` |
 | `tests/team-harness/` | Repo-only fixture server and device drivers: today/ready/delayed/live/final/live-basketball/get-video per team key |
 | `tests/team-engine/`, `tests/leagues/`, `tests/imports/` | Pure engine, adapter, and import suites |
 | `tests/playback/` | Cast discovery, Cast web, and Back navigation drivers |
 | `release/` | Required GitHub release set, update manifests, and portable iPhone first-install and recovery card linking to official LocalDevVPN, SideStore, iLoader, and Danner release locations |
-| `reference/` | Legacy APK and its technical inventory |
+| `reference/` | Legacy APK and its technical inventory, and the unbuilt screen-capture converter |
 | `tests/app-update/` | Release-tag compare, manifest parse, and update-asset writer |
 | `tests/offline-map/` | Pin coordinates, city labels, and offline city search against the bundled Census place list |
 
@@ -89,6 +97,7 @@ npx expo install --check
 npm run android
 npm run ios
 npx expo export --platform ios
+npm run test:all
 npm run test:leagues
 npm run test:team-engine
 npm run test:imports
@@ -102,6 +111,10 @@ cd android
 .\gradlew.bat app:assembleRelease
 ```
 
+`npm run test:all` runs the pure suites. The other suites are `npm test` in `scripts/stream-pipeline/`, `node --test "workers/team-worker/test/*.test.mjs"`, and `node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test "scripts/team-catalog/test/*.test.mjs"` from the repository root.
+
+Builds that use the Worker read `EXPO_PUBLIC_DANNER_WORKER_URL` and `EXPO_PUBLIC_DANNER_APP_KEY`.
+
 `npm run ios` requires macOS for a native simulator or device build. The intended family-device route is an IPA installed and renewed through SideStore with a free dedicated Apple Account. SideStore requires Wi-Fi for renewal, but the phone does not need to be on the owner's home network; cellular data alone is insufficient.
 
-The app is distributed only by direct installation. The local Gradle release uses the generated development keystore and is suitable for emulator or internal validation. A pushed `v*` tag builds an Android APK and unsigned iPhone device IPA on GitHub-hosted platform toolchains. SideStore applies the free Apple Account signature when it installs the IPA. The release is created only after both builds succeed and contains both artifacts, checksums, `release/IPHONE_SETUP.md`, `version-manifest.json`, and `sidestore-source.json`. The hub compares that manifest to the baked release version and can offer an in-place Android install or a SideStore IPA handoff. The guide points to official third-party download locations instead of duplicating their binaries. LocalDevVPN is installed from the Apple App Store and does not consume a free SideStore app slot. SideStore and Danner Apps consume two sideloaded app slots. The iPhone renewal automation, real profile warning, and physical update-prompt confirmation require device validation; no Danner app-store artifact or submission is part of this project.
+The app is distributed only by direct installation. The local Gradle release uses the generated development keystore and is suitable for emulator or internal validation. A pushed `v*` tag builds an Android APK and unsigned iPhone device IPA on GitHub-hosted platform toolchains. SideStore applies the free Apple Account signature when it installs the IPA. The release is created only after both builds succeed and contains both artifacts, checksums, `release/IPHONE_SETUP.md`, `version-manifest.json`, and `sidestore-source.json`. A new major version is created as a draft that the owner publishes; minor and patch versions publish directly. The hub compares that manifest to the baked release version and can offer an in-place Android install or a SideStore IPA handoff. The guide points to official third-party download locations instead of duplicating their binaries. LocalDevVPN is installed from the Apple App Store and does not consume a free SideStore app slot. SideStore and Danner Apps consume two sideloaded app slots. The iPhone renewal automation, real profile warning, and physical update-prompt confirmation require device validation. A paid Apple Developer path is Phase 1b of `Docs/Production/ModularTeams.md` and is not built.

@@ -11,7 +11,7 @@ The adapter requests preseason, regular-season, and playoff lists (`seasontype` 
 
 The hero record is regular-season W–L, or W–L–T when ties exist. It stays `0–0` until a regular-season game is Final. A Final whose score does not parse stays out of the record. Bye weeks have no row.
 
-Official dates are the America/New_York calendar date of kickoff. They only label which day a hand-written streams entry belongs to and are never displayed. A game without a kickoff time is an all-day game on that date and shows `Time TBA`.
+Official dates are the America/New_York calendar date of kickoff. They only label which day a streams entry belongs to and are never displayed. A game without a kickoff time is an all-day game on that date and shows `Time TBA`.
 
 ## Live board
 
