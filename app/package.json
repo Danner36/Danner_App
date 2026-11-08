@@ -42,7 +42,9 @@
     "test:provisioning-warning": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/provisioning-warning/run.mjs",
     "test:app-update": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/app-update/run.mjs",
     "test:scoreboards": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/scoreboards/run.mjs",
-    "test:all": "npm run test:guardians:snapshot && npm run test:patriots:snapshot && npm run test:cyclones:snapshot && npm run test:offline-map && npm run test:provisioning-warning && npm run test:app-update && npm run test:scoreboards",
+    "test:tv-location": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON ../tests/tv-location/run.mjs",
+    "test:tv-location:android": "node ../tests/tv-location/run-android.mjs",
+    "test:all": "npm run test:guardians:snapshot && npm run test:patriots:snapshot && npm run test:cyclones:snapshot && npm run test:offline-map && npm run test:tv-location && npm run test:provisioning-warning && npm run test:app-update && npm run test:scoreboards",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
