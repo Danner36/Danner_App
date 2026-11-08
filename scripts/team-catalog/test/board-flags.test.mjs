@@ -5,7 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
-import { compareFlags, evaluateBoardFlags, flagEvidence, newestLiveCapture } from '../board-flags.mjs';
+import {
+  compareFlags,
+  evaluateBoardFlags,
+  FLAG_CONTRADICTION_EXIT,
+  flagEvidence,
+  newestLiveCapture,
+  runFlagCheck,
+} from '../board-flags.mjs';
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
@@ -74,6 +81,29 @@ test('compareFlags fails a flag that is on without evidence and notes evidence w
   assert.equal(offWithEvidence.agrees, true);
   assert.deepEqual(offWithEvidence.offWithEvidence, ['players']);
   assert.equal(offWithEvidence.polls, 2);
+});
+
+test('the flag check refuses a weak capture for an adapter whose flags are on', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-flags-'));
+  try {
+    writePoll(root, 'ncaa-mens-basketball', '500', 1, livePoll('2026-11-10T00:00:00.000Z'));
+    const lines = [];
+    assert.equal(await runFlagCheck({ adapter: 'ncaa/mens-basketball', log: (line) => lines.push(line), root }), FLAG_CONTRADICTION_EXIT);
+    assert.equal(FLAG_CONTRADICTION_EXIT, 2);
+    assert.match(lines[0], /capture 500 has no evidence for .*players/);
+
+    // Women's flags are all off, so a weak capture contradicts nothing.
+    writePoll(root, 'ncaa-womens-basketball', '501', 1, livePoll('2026-11-10T00:00:00.000Z'));
+    assert.equal(await runFlagCheck({ adapter: 'ncaa/womens-basketball', log: () => {}, root }), 0);
+    // An adapter without board flags has nothing to contradict.
+    assert.equal(await runFlagCheck({ adapter: 'nfl', log: () => {}, root }), 0);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('the flag check passes the committed men\'s capture', async () => {
+  assert.equal(await runFlagCheck({ adapter: 'ncaa/mens-basketball', log: () => {}, root: REPO_ROOT }), 0);
 });
 
 test('flagEvidence with no polls supports nothing', () => {

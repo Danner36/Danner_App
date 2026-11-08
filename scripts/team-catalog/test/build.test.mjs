@@ -159,6 +159,25 @@ test('append-only keeps a missing sport in sports and lists it in retiredSports'
   assert.equal(Object.hasOwn(restored, 'retiredSports'), false);
 });
 
+test('a school with no fresh conference keeps its committed one', () => {
+  const previous = [
+    { conference: 'Big 12', key: 'ncaa-1', sports: ['football'] },
+    { conference: 'SEC', key: 'ncaa-2', sports: ['football'] },
+  ];
+  const merged = applyAppendOnly(
+    [
+      { key: 'ncaa-1', sports: ['football'] },
+      { conference: 'ACC', key: 'ncaa-2', sports: ['football'] },
+    ],
+    previous,
+    {},
+  );
+  assert.equal(merged[0].conference, 'Big 12');
+  assert.equal(merged[1].conference, 'ACC');
+  const [none] = applyAppendOnly([{ key: 'ncaa-3', sports: ['football'] }], [{ key: 'ncaa-3', sports: ['football'] }], {});
+  assert.equal(Object.hasOwn(none, 'conference'), false);
+});
+
 test('only an override remove drops an entry', () => {
   const previous = [{ key: 'nfl-1', name: 'One' }, { key: 'nfl-2', name: 'Two' }];
   const merged = applyAppendOnly([], previous, { 'nfl-1': { remove: true } });
@@ -215,6 +234,52 @@ test('preset guards report a missing, retired or wrong team', () => {
   ]);
 });
 
+test('preset guards reject a guarded sport listed in retiredSports', () => {
+  const retired = presetTeams();
+  retired.ncaa[0].retiredSports = ['womens-basketball'];
+  assert.deepEqual(presetErrors(retired), ['preset ncaa-66 sport womens-basketball is retired']);
+});
+
+test('a preset sport that vanishes after the first commit fails the build', async () => {
+  const root = tempRoot();
+  try {
+    const catalogDir = path.join(root, 'catalog');
+    const reportFile = path.join(catalogDir, 'probe-report.json');
+    mkdirSync(catalogDir, { recursive: true });
+    const options = { catalogDir, log: () => {}, reportFile, root, selected: Object.keys(ADAPTERS) };
+    assert.equal((await runBuild({ ...options, fetchJson: buildFetch() })).code, 0);
+    const before = readFileSync(path.join(catalogDir, 'teams/ncaa.json'), 'utf8');
+
+    const lists = schoolLists();
+    const result = await runBuild({
+      ...options,
+      fetchJson: buildFetch({ mens: [...lists.mens.filter((team) => team.id !== '66'), espnTeam(109, 'School 109 Tigers', 'Tigers')] }),
+    });
+    assert.equal(result.code, 1);
+    assert.match(result.errors.join(), /preset ncaa-66 sport mens-basketball is retired/);
+    assert.equal(readFileSync(path.join(catalogDir, 'teams/ncaa.json'), 'utf8'), before);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('presets pass with nothing pickable', async () => {
+  const root = tempRoot();
+  try {
+    const catalogDir = path.join(root, 'catalog');
+    const reportFile = path.join(catalogDir, 'probe-report.json');
+    mkdirSync(catalogDir, { recursive: true });
+    const result = await runBuild({ catalogDir, fetchJson: buildFetch(), log: () => {}, reportFile, root, selected: Object.keys(ADAPTERS) });
+    assert.equal(result.code, 0);
+    const leagues = JSON.parse(readFileSync(path.join(catalogDir, 'leagues.json'), 'utf8')).leagues;
+    assert.equal(leagues[0].pickable, false);
+    assert.equal(leagues[1].pickable, false);
+    assert.ok(leagues[2].sports.every((sport) => sport.pickable === false));
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
 test('nickname guard rejects a preset whose nickname changed', () => {
   const renamed = presetTeams();
   renamed.mlb[0].nickname = 'Indians';
@@ -232,14 +297,48 @@ test('nextPickable is sticky and needs both a passing probe and fixtures', () =>
   assert.equal(nextPickable({ hasFixtures: false, previous: true, probePassed: false }), true);
 });
 
-test('fixturesExist needs a file under tests/leagues/<adapter>', () => {
+function writeFixtures(root, adapterDir, { expected = '[{"key":"g"}]', omit = [] } = {}) {
+  const dir = path.join(root, 'tests/leagues', adapterDir);
+  mkdirSync(dir, { recursive: true });
+  const files = { 'expected-games.json': expected, 'schedule-2026-2.json': '{}', 'summary.json': '{}', 'teams.json': '{}' };
+  for (const [name, text] of Object.entries(files)) {
+    if (!omit.includes(name)) {
+      writeFileSync(path.join(dir, name), text);
+    }
+  }
+}
+
+test('fixturesExist needs probe captures and a non-empty expected TeamGame list', () => {
   const root = tempRoot();
   try {
+    assert.equal(fixturesExist(root, 'nfl'), false);
+    writeFixtures(root, 'nfl');
+    assert.equal(fixturesExist(root, 'nfl'), true);
+    for (const missing of ['teams.json', 'summary.json', 'schedule-2026-2.json', 'expected-games.json']) {
+      const other = tempRoot();
+      writeFixtures(other, 'nfl', { omit: [missing] });
+      assert.equal(fixturesExist(other, 'nfl'), false, `without ${missing}`);
+      rmSync(other, { force: true, recursive: true });
+    }
+    for (const expected of ['[]', '{}', 'not json']) {
+      const other = tempRoot();
+      writeFixtures(other, 'nfl', { expected });
+      assert.equal(fixturesExist(other, 'nfl'), false, `expected-games.json ${expected}`);
+      rmSync(other, { force: true, recursive: true });
+    }
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('a live capture alone does not count as fixtures', () => {
+  const root = tempRoot();
+  try {
+    const eventDir = path.join(root, 'tests/leagues/ncaa-mens-basketball/captures/1');
+    mkdirSync(eventDir, { recursive: true });
+    writeFileSync(path.join(eventDir, '001.json.gz'), 'x');
+    writeFileSync(path.join(eventDir, 'REPORT.md'), 'x');
     assert.equal(fixturesExist(root, 'ncaa/mens-basketball'), false);
-    mkdirSync(path.join(root, 'tests/leagues/ncaa-mens-basketball/captures/1'), { recursive: true });
-    assert.equal(fixturesExist(root, 'ncaa/mens-basketball'), false);
-    writeFileSync(path.join(root, 'tests/leagues/ncaa-mens-basketball/captures/1/REPORT.md'), 'x');
-    assert.equal(fixturesExist(root, 'ncaa/mens-basketball'), true);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }
@@ -274,8 +373,10 @@ test('runBuild writes the league and team files and a second run keeps generated
     mkdirSync(catalogDir);
     const reportFile = path.join(catalogDir, 'probe-report.json');
     writeFileSync(reportFile, JSON.stringify(passingReport()));
-    mkdirSync(path.join(root, 'tests/leagues/nfl/captures/1'), { recursive: true });
-    writeFileSync(path.join(root, 'tests/leagues/nfl/captures/1/poll.json'), '{}');
+    writeFixtures(root, 'nfl');
+    // A live capture without probe captures and expected games leaves the sport not pickable.
+    mkdirSync(path.join(root, 'tests/leagues/ncaa-mens-basketball/captures/1'), { recursive: true });
+    writeFileSync(path.join(root, 'tests/leagues/ncaa-mens-basketball/captures/1/REPORT.md'), 'x');
 
     const lines = [];
     const first = await runBuild({

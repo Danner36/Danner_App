@@ -590,9 +590,11 @@ function readRawPoll(rawDir, pollIndex) {
 // Polls the summary and the Core situation every POLL_INTERVAL_MS. Every poll is stored gzipped
 // under <out>/raw/<adapter>/<event>/. The loop stops after the first poll in state "post", once
 // MAX_MINUTES have passed, or after MAX_SUMMARY_FAILURES summary failures in a row; a Core
-// situation failure is recorded and never stops it. The selected polls, trimmed, and REPORT.md are
-// written to a staging directory renamed to <out>/tests/leagues/<adapter>/captures/<event>/. An
-// event already in the repository's captures folder is not polled again.
+// situation failure is recorded and never stops it. When at least one poll was in progress, the
+// selected polls, trimmed, and REPORT.md are written to a staging directory renamed to
+// <out>/tests/leagues/<adapter>/captures/<event>/, including for a run that ended early. A run
+// with no in-progress poll keeps only its raw polls and does not count as captured. An event
+// already in the repository's captures folder is not polled again.
 export async function runCapture({
   env = process.env,
   fetchJson: getJson = fetchJson,
@@ -676,6 +678,10 @@ export async function runCapture({
   if (selected.length === 0) {
     log('capture: no summary received; nothing committed');
     return 1;
+  }
+  if (!polls.some((poll) => poll.ok && poll.state === 'in')) {
+    log('capture: no in-progress poll; nothing committed');
+    return 0;
   }
 
   const stagingDir = `${finalDir}.partial`;

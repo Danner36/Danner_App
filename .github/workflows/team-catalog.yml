@@ -66,6 +66,7 @@ jobs:
           path: scripts/team-catalog/.probe-output
           retention-days: 14
           if-no-files-found: ignore
+          include-hidden-files: true
 
   build:
     name: Build, validate and commit the catalog
@@ -74,12 +75,9 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: write
-      issues: write
     concurrency:
       group: team-catalog-build
       cancel-in-progress: false
-    env:
-      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       # Credentials stay persisted in this job only, for the push of the catalog commit.
       - name: Check out main
@@ -137,11 +135,43 @@ jobs:
           echo "::error::Catalog commit was not pushed after 3 attempts."
           exit 1
 
-      - name: Open an issue for probe or build failures
-        if: ${{ !cancelled() }}
+  report-issue:
+    name: Open an issue for probe or build failures
+    needs: [probe, build]
+    # A live-capture run skips probe, so there is nothing here to report.
+    if: ${{ !cancelled() && needs.probe.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      # A failed download leaves no report, which issue.mjs reports.
+      - name: Download probe report
+        continue-on-error: true
+        uses: actions/download-artifact@v5
+        with:
+          name: probe-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/probe-report
+
+      - name: Open an issue when needed
         env:
-          BUILD_OUTCOME: ${{ (steps.build.outcome == 'failure' || steps.validate.outcome == 'failure') && 'failure' || 'success' }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROBE_RESULT: ${{ needs.probe.result }}
+          REPORT_FILE: ${{ runner.temp }}/probe-report/probe-report.json
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: node scripts/team-catalog/issue.mjs
 
   live-find:
@@ -242,6 +272,11 @@ jobs:
           ref: main
           fetch-depth: 1
 
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
       - name: Download capture
         uses: actions/download-artifact@v5
         with:
@@ -275,6 +310,20 @@ jobs:
           fi
           mkdir -p "$dest_parent"
           cp -R "$source_dir" "$dest_parent/"
+          if node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/team-catalog/board-flags.mjs --adapter "$ADAPTER"; then
+            flag_check=0
+          else
+            flag_check=$?
+          fi
+          if [ "$flag_check" -eq 2 ]; then
+            rm -rf "$dest"
+            echo "::notice::Capture ${adapter_dir} ${EVENT} not committed: it lacks evidence for a board flag that is on. The artifact keeps it for 14 days."
+            exit 0
+          fi
+          if [ "$flag_check" -ne 0 ]; then
+            echo "::error::Board flag check failed."
+            exit "$flag_check"
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- "$dest"

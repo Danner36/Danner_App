@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { LEAGUE_ROWS } from '../leagues.mjs';
-import { appendOnlyErrors, runValidate, validateLeagues, validateOverrides, validateReport, validateTeam, validateTeamsDocument } from '../validate.mjs';
+import { appendOnlyErrors, overrideResolutionErrors, runValidate, validateLeagues, validateOverrides, validateReport, validateTeam, validateTeamsDocument } from '../validate.mjs';
 
 function goodPro() {
   return {
@@ -126,6 +126,15 @@ test('overrides accept only allowed fields and team keys', () => {
   assert.match(validateOverrides([]).join(), /object keyed/);
 });
 
+test('overrides must resolve to a real entry; a remove target may already be gone', () => {
+  const teams = { mlb: [goodMlb()], ncaa: [goodSchool()], nfl: [goodPro()] };
+  assert.deepEqual(overrideResolutionErrors({ 'mlb-5': { nickname: 'G' }, 'nfl-99': { remove: true } }, teams), []);
+  assert.deepEqual(overrideResolutionErrors({ 'nfl-99': { nickname: 'X' } }, teams), [
+    'overrides: nfl-99 does not resolve to a catalog entry',
+  ]);
+  assert.deepEqual(overrideResolutionErrors({ 'nba-1': { remove: true } }, teams), ['overrides: nba-1 names an unknown league']);
+});
+
 test('the report must keep network and shape errors apart', () => {
   const good = {
     adapters: {
@@ -179,6 +188,21 @@ test('runValidate passes a complete catalog and runs the preset guards', async (
 
     writeCatalog(catalogDir, { nfl: [{ ...goodPro(), key: 'nfl-18', espnId: '18', nickname: 'Other' }] });
     assert.deepEqual(await runValidate({ catalogDir, flagsReport: AGREEING_FLAGS, root }), ['preset nfl-17 is missing']);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('runValidate rejects a retired preset sport and an unresolved override', async () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-validate-'));
+  try {
+    const catalogDir = path.join(root, 'catalog');
+    writeCatalog(catalogDir, { ncaa: [{ ...goodSchool(), retiredSports: ['football'] }] });
+    writeFileSync(path.join(catalogDir, 'overrides.json'), JSON.stringify({ 'nfl-99': { hidden: true } }));
+    assert.deepEqual(await runValidate({ catalogDir, flagsReport: AGREEING_FLAGS, root }), [
+      'preset ncaa-66 sport football is retired',
+      'overrides: nfl-99 does not resolve to a catalog entry',
+    ]);
   } finally {
     rmSync(root, { force: true, recursive: true });
   }

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
-import { ISSUE_TITLE, issueBody, openIssue } from '../issue.mjs';
+import { ISSUE_TITLE, issueBody, jobFailed, openIssue, readReport } from '../issue.mjs';
 
+const CLEAN = { adapters: { mlb: { passed: true } } };
 const FAILING = {
   adapters: {
     mlb: { networkErrors: [], passed: true, shapeErrors: [] },
@@ -9,9 +13,8 @@ const FAILING = {
   },
 };
 
-test('issueBody is null when the probe and build are clean', () => {
-  assert.equal(issueBody({ buildOutcome: 'success', report: { adapters: { mlb: { passed: true } } } }), null);
-  assert.equal(issueBody({ report: null }), null);
+test('issueBody is null when both jobs succeeded and the report is clean', () => {
+  assert.equal(issueBody({ buildResult: 'success', probeResult: 'success', report: CLEAN }), null);
 });
 
 test('issueBody lists failing adapters with network and shape errors apart', () => {
@@ -22,9 +25,45 @@ test('issueBody lists failing adapters with network and shape errors apart', () 
   assert.doesNotMatch(body, /## mlb/);
 });
 
-test('issueBody reports a failed build even with a clean probe', () => {
-  const body = issueBody({ buildOutcome: 'failure', report: { adapters: {} } });
-  assert.match(body, /build or validate step failed/);
+test('issueBody reports a failed build, including a failed push or report download', () => {
+  const body = issueBody({ buildResult: 'failure', report: CLEAN });
+  assert.match(body, /build job ended with result failure/);
+  assert.match(body, /commit push/);
+  assert.match(body, /report download/);
+});
+
+test('issueBody reports a failed or timed-out probe with no report', () => {
+  const failed = issueBody({ buildResult: 'skipped', probeResult: 'failure', report: null });
+  assert.match(failed, /probe job ended with result failure/);
+  assert.match(failed, /probe report could not be read/);
+  assert.doesNotMatch(failed, /build job/);
+  assert.match(issueBody({ buildResult: 'skipped', probeResult: 'cancelled', report: null }), /result cancelled/);
+});
+
+test('issueBody reports an unreadable report even when both jobs succeeded', () => {
+  assert.match(issueBody({ report: null }), /probe report could not be read/);
+});
+
+test('jobFailed treats only success and skipped as not failed', () => {
+  assert.equal(jobFailed('success'), false);
+  assert.equal(jobFailed('skipped'), false);
+  assert.equal(jobFailed(undefined), false);
+  assert.equal(jobFailed('failure'), true);
+  assert.equal(jobFailed('cancelled'), true);
+});
+
+test('readReport returns null for an absent or corrupt file', () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'team-catalog-issue-'));
+  try {
+    const file = path.join(root, 'report.json');
+    assert.equal(readReport(file), null);
+    writeFileSync(file, '{not json');
+    assert.equal(readReport(file), null);
+    writeFileSync(file, '{"adapters":{}}');
+    assert.deepEqual(readReport(file), { adapters: {} });
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
 });
 
 test('openIssue creates one issue and skips when one is open', () => {

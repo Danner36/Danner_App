@@ -1,7 +1,7 @@
 // Builds catalog/leagues.json and catalog/teams/<league>.json from ESPN and statsapi. The allowlist
 // is append-only: an entry or sport that disappears from ESPN stays with `retired` until
 // catalog/overrides.json removes it. A guard failure writes nothing and exits non-zero.
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchJson, parseArgs } from './http.mjs';
@@ -200,7 +200,8 @@ export function shrinkErrors(leagueKey, freshCounts, previousTeams) {
 
 // Merges a league's fresh entries with its committed entries. Fresh entries win. A committed entry
 // missing from fresh stays with `retired: true`. A sport missing from a present school stays in
-// `sports` and is listed in `retiredSports`. Entries named by an override `remove` are dropped.
+// `sports` and is listed in `retiredSports`. A school the fresh standings give no conference keeps
+// its committed one. Entries named by an override `remove` are dropped.
 export function applyAppendOnly(freshEntries, previousTeams, overrides) {
   const merged = new Map(freshEntries.map((entry) => [entry.key, entry]));
   for (const previous of previousTeams) {
@@ -216,6 +217,9 @@ export function applyAppendOnly(freshEntries, previousTeams, overrides) {
     if (disappeared.length > 0) {
       current.sports = orderedSports([...(current.sports ?? []), ...disappeared]);
       current.retiredSports = orderedSports(disappeared);
+    }
+    if (!current.conference && previous.conference) {
+      current.conference = previous.conference;
     }
   }
   return [...merged.values()];
@@ -309,22 +313,38 @@ export function presetErrors(teamsByLeague) {
     for (const sport of guard.sports ?? []) {
       if (!(entry.sports ?? []).includes(sport)) {
         errors.push(`preset ${guard.key} is missing sport ${sport}`);
+      } else if ((entry.retiredSports ?? []).includes(sport)) {
+        errors.push(`preset ${guard.key} sport ${sport} is retired`);
       }
     }
   }
   return errors;
 }
 
-// Whether committed fixtures exist for an adapter under tests/leagues/.
+function holdsExpectedGames(file) {
+  try {
+    const games = JSON.parse(readFileSync(file, 'utf8'));
+    return Array.isArray(games) && games.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Whether committed fixtures exist for an adapter under tests/leagues/<adapter>/: the probe
+// captures, named as probe.mjs writes them (teams.json, summary.json, schedule-<year>-<type>.json),
+// plus the expected TeamGame[] in expected-games.json. Live captures under captures/ do not count.
 export function fixturesExist(root, adapter) {
   const dir = path.join(root, 'tests', 'leagues', adapterDirName(adapter));
-  const hasFile = (current) =>
-    existsSync(current) &&
-    readdirSync(current).some((name) => {
-      const full = path.join(current, name);
-      return statSync(full).isDirectory() ? hasFile(full) : true;
-    });
-  return hasFile(dir);
+  if (!existsSync(dir)) {
+    return false;
+  }
+  const names = readdirSync(dir);
+  return (
+    names.includes('teams.json') &&
+    names.includes('summary.json') &&
+    names.some((name) => /^schedule-\d{4}-\d+\.json$/.test(name)) &&
+    holdsExpectedGames(path.join(dir, 'expected-games.json'))
+  );
 }
 
 // Sticky pickable: a previously pickable league or sport stays on; otherwise it turns on when its

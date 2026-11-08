@@ -171,6 +171,22 @@ export function validateOverrides(overrides) {
   return errors;
 }
 
+// Every override must name a known league, and every override other than `remove` must name a
+// real entry. A `remove` target is legitimately absent once a build has applied it.
+export function overrideResolutionErrors(overrides, teamsByLeague) {
+  const errors = [];
+  const leagues = new Set(LEAGUE_ROWS.map((row) => row.key));
+  for (const [key, value] of Object.entries(overrides ?? {})) {
+    const league = key.split('-')[0];
+    if (!leagues.has(league)) {
+      errors.push(`overrides: ${key} names an unknown league`);
+    } else if (value?.remove !== true && teamsByLeague[league] && !teamsByLeague[league].some((entry) => entry.key === key)) {
+      errors.push(`overrides: ${key} does not resolve to a catalog entry`);
+    }
+  }
+  return errors;
+}
+
 // The report must keep network and shape errors apart for every adapter and check.
 export function validateReport(report) {
   const errors = [];
@@ -245,6 +261,7 @@ export async function runValidate({ catalogDir, flagsReport, priorDir, root = RE
     }
   }
   errors.push(...presetErrors(teamsByLeague));
+  errors.push(...overrideResolutionErrors(overrides, teamsByLeague));
 
   const report = readJson(path.join(catalogDir, 'probe-report.json'));
   if (report) {

@@ -4,11 +4,15 @@
 // supports it is only noted, because turning a flag on is an owner-approved app change.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { gunzipSync } from 'node:zlib';
 import { basketballBoardFromSummary } from '../../app/leagues/espn/basketballBoard.ts';
 import { BASKETBALL_ADAPTER_KEYS, basketballRulesFor } from '../../app/leagues/espn/basketballRules.ts';
+import { parseArgs } from './http.mjs';
 import { adapterDirName } from './leagues.mjs';
 
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+export const FLAG_CONTRADICTION_EXIT = 2;
 const SUBSTITUTION_TYPE_ID = '584';
 const ON_FLOOR = 'floor';
 const PLAYER_FLAGS = { bonus: true, lastFoul: true, players: true, rebounds: true, teamFouls: true };
@@ -182,4 +186,27 @@ export async function evaluateBoardFlags(root, { boardFromSummary = basketballBo
     report[adapter] = compareFlags(appRules.flags, evidence, newest);
   }
   return report;
+}
+
+// Checks one adapter with the checkout's captures as they stand. Returns FLAG_CONTRADICTION_EXIT
+// when a flag that is on has no evidence in the newest capture, else 0. An adapter without board
+// flags returns 0.
+export async function runFlagCheck({ adapter, log = console.log, options, root = REPO_ROOT }) {
+  const entry = (await evaluateBoardFlags(root, options))[adapter];
+  if (!entry || entry.agrees) {
+    log(`board-flags: ${adapter} agrees`);
+    return 0;
+  }
+  log(`board-flags: ${adapter} capture ${entry.newestCapture ?? 'none'} has no evidence for ${entry.onWithoutEvidence.join(', ')}`);
+  return FLAG_CONTRADICTION_EXIT;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const { adapter } = parseArgs(process.argv.slice(2));
+  if (typeof adapter !== 'string') {
+    console.log('usage: node board-flags.mjs --adapter <adapter key>');
+    process.exitCode = 1;
+  } else {
+    process.exitCode = await runFlagCheck({ adapter });
+  }
 }

@@ -902,3 +902,74 @@ test('the scheduled path stays idle while scripts/espn-capture exists', async ()
     rmSync(root, { force: true, recursive: true });
   }
 });
+
+test('a run with no in-progress poll writes no capture and does not count as captured', async () => {
+  const root = tempRoot();
+  try {
+    const out = path.join(root, 'tmp');
+    const lines = [];
+    const final = okSummary({ clock: '0:00', detail: 'Final', name: 'STATUS_FINAL', period: 2, plays: 80, state: 'post' });
+    const espn = fakeEspn({ summaries: [final] });
+    const clock = fakeClock();
+    const code = await runCapture({
+      env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800002', LIVE_OUT: out },
+      fetchJson: espn.fetchJson,
+      log: (line) => lines.push(line),
+      now: clock.now,
+      root,
+      sleep: clock.sleep,
+    });
+    assert.equal(code, 0);
+    assert.equal(espn.calls.summary, 1);
+    assert.equal(existsSync(captureDir(out, 'ncaa/mens-basketball', '401800002')), false);
+    assert.equal(existsSync(`${captureDir(out, 'ncaa/mens-basketball', '401800002')}.partial`), false);
+    assert.equal(capturedEvents(out, 'ncaa/mens-basketball').size, 0);
+    assert.ok(lines.includes('capture: no in-progress poll; nothing committed'));
+    // The raw polls stay for the artifact.
+    assert.ok(existsSync(path.join(out, 'raw', 'ncaa-mens-basketball', '401800002', '001.json.gz')));
+
+    const pregame = fakeEspn({
+      summaries: [okSummary({ clock: '20:00', detail: 'Scheduled', name: 'STATUS_SCHEDULED', period: 0, state: 'pre' })],
+    });
+    const pregameClock = fakeClock();
+    assert.equal(
+      await runCapture({
+        env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800003', LIVE_OUT: out, MAX_MINUTES: '10' },
+        fetchJson: pregame.fetchJson,
+        log: () => {},
+        now: pregameClock.now,
+        root,
+        sleep: pregameClock.sleep,
+      }),
+      0,
+    );
+    assert.equal(existsSync(captureDir(out, 'ncaa/mens-basketball', '401800003')), false);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
+
+test('a capture with in-progress polls that ended early is kept', async () => {
+  const root = tempRoot();
+  try {
+    const out = path.join(root, 'tmp');
+    const live = okSummary({ clock: '5:00', detail: '5:00 - 1st Half', name: 'STATUS_IN_PROGRESS', period: 1, state: 'in' });
+    const espn = fakeEspn({ summaries: [live, ...Array(10).fill(FAILED)] });
+    const clock = fakeClock();
+    assert.equal(
+      await runCapture({
+        env: { ADAPTER: 'ncaa/mens-basketball', EVENT: '401800004', LIVE_OUT: out },
+        fetchJson: espn.fetchJson,
+        log: () => {},
+        now: clock.now,
+        root,
+        sleep: clock.sleep,
+      }),
+      0,
+    );
+    assert.deepEqual(readdirSync(captureDir(out, 'ncaa/mens-basketball', '401800004')).sort(), ['001.json.gz', 'REPORT.md']);
+    assert.deepEqual([...capturedEvents(out, 'ncaa/mens-basketball')], ['401800004']);
+  } finally {
+    rmSync(root, { force: true, recursive: true });
+  }
+});
