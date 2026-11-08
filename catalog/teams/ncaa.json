@@ -1,0 +1,7200 @@
+{
+  "generatedAt": "2026-11-08T18:10:18.452Z",
+  "league": "ncaa",
+  "schemaVersion": 1,
+  "teams": [
+    {
+      "key": "ncaa-2000",
+      "espnId": "2000",
+      "name": "Abilene Christian Wildcats",
+      "nickname": "Wildcats",
+      "location": "Abilene Christian",
+      "abbreviation": "ACU",
+      "color": "#592d82",
+      "alternateColor": "#b1b3b3",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2000.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "abilene-christian-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2005",
+      "espnId": "2005",
+      "name": "Air Force Falcons",
+      "nickname": "Falcons",
+      "location": "Air Force",
+      "abbreviation": "AF",
+      "color": "#003594",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2005.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "air-force-falcons"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2006",
+      "espnId": "2006",
+      "name": "Akron Zips",
+      "nickname": "Zips",
+      "location": "Akron",
+      "abbreviation": "AKR",
+      "color": "#041e42",
+      "alternateColor": "#c5b783",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2006.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "akron-zips"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2010",
+      "espnId": "2010",
+      "name": "Alabama A&M Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Alabama A&M",
+      "abbreviation": "AAMU",
+      "color": "#790000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2010.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "alabama-am-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-333",
+      "espnId": "333",
+      "name": "Alabama Crimson Tide",
+      "nickname": "Crimson Tide",
+      "location": "Alabama",
+      "abbreviation": "ALA",
+      "color": "#9e1b32",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "alabama-crimson-tide"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2011",
+      "espnId": "2011",
+      "name": "Alabama State Hornets",
+      "nickname": "Hornets",
+      "location": "Alabama State",
+      "abbreviation": "ALST",
+      "color": "#e9a900",
+      "alternateColor": "#0a0a0a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2011.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "alabama-state-hornets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2016",
+      "espnId": "2016",
+      "name": "Alcorn State Braves",
+      "nickname": "Braves",
+      "location": "Alcorn State",
+      "abbreviation": "ALCN",
+      "color": "#4b0058",
+      "alternateColor": "#46166a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2016.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "alcorn-state-braves"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-44",
+      "espnId": "44",
+      "name": "American University Eagles",
+      "nickname": "Eagles",
+      "location": "American University",
+      "abbreviation": "AMER",
+      "color": "#c41130",
+      "alternateColor": "#c8102e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/44.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "american-university-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2026",
+      "espnId": "2026",
+      "name": "App State Mountaineers",
+      "nickname": "Mountaineers",
+      "location": "App State",
+      "abbreviation": "APP",
+      "color": "#000000",
+      "alternateColor": "#ffcd00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2026.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "app-state-mountaineers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-9",
+      "espnId": "9",
+      "name": "Arizona State Sun Devils",
+      "nickname": "Sun Devils",
+      "location": "Arizona State",
+      "abbreviation": "ASU",
+      "color": "#ffc627",
+      "alternateColor": "#8c1d40",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/9.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "arizona-state-sun-devils"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-12",
+      "espnId": "12",
+      "name": "Arizona Wildcats",
+      "nickname": "Wildcats",
+      "location": "Arizona",
+      "abbreviation": "ARIZ",
+      "color": "#cc0033",
+      "alternateColor": "#003366",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/12.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "arizona-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2029",
+      "espnId": "2029",
+      "name": "Arkansas-Pine Bluff Golden Lions",
+      "nickname": "Golden Lions",
+      "location": "Arkansas-Pine Bluff",
+      "abbreviation": "UAPB",
+      "color": "#e0aa0f",
+      "alternateColor": "#eaaa00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2029.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "arkansas-pine-bluff-golden-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-8",
+      "espnId": "8",
+      "name": "Arkansas Razorbacks",
+      "nickname": "Razorbacks",
+      "location": "Arkansas",
+      "abbreviation": "ARK",
+      "color": "#a32136",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/8.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "arkansas-razorbacks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2032",
+      "espnId": "2032",
+      "name": "Arkansas State Red Wolves",
+      "nickname": "Red Wolves",
+      "location": "Arkansas State",
+      "abbreviation": "ARST",
+      "color": "#cc092f",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2032.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "arkansas-state-red-wolves"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-349",
+      "espnId": "349",
+      "name": "Army Black Knights",
+      "nickname": "Black Knights",
+      "location": "Army",
+      "abbreviation": "ARMY",
+      "color": "#000000",
+      "alternateColor": "#d3bc8d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/349.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "army-black-knights"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2",
+      "espnId": "2",
+      "name": "Auburn Tigers",
+      "nickname": "Tigers",
+      "location": "Auburn",
+      "abbreviation": "AUB",
+      "color": "#002b5c",
+      "alternateColor": "#f26522",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "auburn-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2046",
+      "espnId": "2046",
+      "name": "Austin Peay Governors",
+      "nickname": "Governors",
+      "location": "Austin Peay",
+      "abbreviation": "APSU",
+      "color": "#8e0b0b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2046.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "austin-peay-governors"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2050",
+      "espnId": "2050",
+      "name": "Ball State Cardinals",
+      "nickname": "Cardinals",
+      "location": "Ball State",
+      "abbreviation": "BALL",
+      "color": "#ba0c2f",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2050.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "ball-state-cardinals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-239",
+      "espnId": "239",
+      "name": "Baylor Bears",
+      "nickname": "Bears",
+      "location": "Baylor",
+      "abbreviation": "BAY",
+      "color": "#154734",
+      "alternateColor": "#ffb81c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/239.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "baylor-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-91",
+      "espnId": "91",
+      "name": "Bellarmine Knights",
+      "nickname": "Knights",
+      "location": "Bellarmine",
+      "abbreviation": "BELL",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/91.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "bellarmine-knights"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2057",
+      "espnId": "2057",
+      "name": "Belmont Bruins",
+      "nickname": "Bruins",
+      "location": "Belmont",
+      "abbreviation": "BEL",
+      "color": "#182142",
+      "alternateColor": "#c9262d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2057.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "belmont-bruins"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2065",
+      "espnId": "2065",
+      "name": "Bethune-Cookman Wildcats",
+      "nickname": "Wildcats",
+      "location": "Bethune-Cookman",
+      "abbreviation": "BCU",
+      "color": "#7b1831",
+      "alternateColor": "#e9aa12",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2065.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "bethune-cookman-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2066",
+      "espnId": "2066",
+      "name": "Binghamton Bearcats",
+      "nickname": "Bearcats",
+      "location": "Binghamton",
+      "abbreviation": "BING",
+      "color": "#00614A",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2066.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "binghamton-bearcats"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-68",
+      "espnId": "68",
+      "name": "Boise State Broncos",
+      "nickname": "Broncos",
+      "location": "Boise State",
+      "abbreviation": "BOIS",
+      "color": "#0033a0",
+      "alternateColor": "#d64309",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/68.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "boise-state-broncos"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-103",
+      "espnId": "103",
+      "name": "Boston College Eagles",
+      "nickname": "Eagles",
+      "location": "Boston College",
+      "abbreviation": "BC",
+      "color": "#8c2232",
+      "alternateColor": "#dbcca6",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/103.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "boston-college-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-104",
+      "espnId": "104",
+      "name": "Boston University Terriers",
+      "nickname": "Terriers",
+      "location": "Boston University",
+      "abbreviation": "BU",
+      "color": "#cc0000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/104.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "boston-university-terriers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-189",
+      "espnId": "189",
+      "name": "Bowling Green Falcons",
+      "nickname": "Falcons",
+      "location": "Bowling Green",
+      "abbreviation": "BGSU",
+      "color": "#fd5000",
+      "alternateColor": "#4f2c1d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/189.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "bowling-green-falcons"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-71",
+      "espnId": "71",
+      "name": "Bradley Braves",
+      "nickname": "Braves",
+      "location": "Bradley",
+      "abbreviation": "BRAD",
+      "color": "#b70002",
+      "alternateColor": "#c0c0c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/71.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "bradley-braves"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-225",
+      "espnId": "225",
+      "name": "Brown Bears",
+      "nickname": "Bears",
+      "location": "Brown",
+      "abbreviation": "BRWN",
+      "color": "#411e09",
+      "alternateColor": "#949300",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/225.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "brown-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2803",
+      "espnId": "2803",
+      "name": "Bryant Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Bryant",
+      "abbreviation": "BRY",
+      "color": "#000000",
+      "alternateColor": "#9f8343",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2803.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "bryant-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2083",
+      "espnId": "2083",
+      "name": "Bucknell Bison",
+      "nickname": "Bison",
+      "location": "Bucknell",
+      "abbreviation": "BUCK",
+      "color": "#000060",
+      "alternateColor": "#00316e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2083.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "bucknell-bison"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2084",
+      "espnId": "2084",
+      "name": "Buffalo Bulls",
+      "nickname": "Bulls",
+      "location": "Buffalo",
+      "abbreviation": "BUF",
+      "color": "#005bbb",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2084.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "buffalo-bulls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2086",
+      "espnId": "2086",
+      "name": "Butler Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Butler",
+      "abbreviation": "BTLR",
+      "color": "#0d1361",
+      "alternateColor": "#00a3e0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2086.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "butler-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-252",
+      "espnId": "252",
+      "name": "BYU Cougars",
+      "nickname": "Cougars",
+      "location": "BYU",
+      "abbreviation": "BYU",
+      "color": "#0047ba",
+      "alternateColor": "#002e5d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/252.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "byu-cougars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2856",
+      "espnId": "2856",
+      "name": "California Baptist Lancers",
+      "nickname": "Lancers",
+      "location": "California Baptist",
+      "abbreviation": "CBU",
+      "color": "#000080",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2856.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "california-baptist-lancers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-25",
+      "espnId": "25",
+      "name": "California Golden Bears",
+      "nickname": "Golden Bears",
+      "location": "California",
+      "abbreviation": "CAL",
+      "color": "#041e42",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/25.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "california-golden-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-13",
+      "espnId": "13",
+      "name": "Cal Poly Mustangs",
+      "nickname": "Mustangs",
+      "location": "Cal Poly",
+      "abbreviation": "CP",
+      "color": "#1E4D2B",
+      "alternateColor": "#eed897",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/13.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "cal-poly-mustangs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2934",
+      "espnId": "2934",
+      "name": "Cal State Bakersfield Roadrunners",
+      "nickname": "Roadrunners",
+      "location": "Cal State Bakersfield",
+      "abbreviation": "CSUB",
+      "color": "#003BAB",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2934.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "cal-state-bakersfield-roadrunners"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2239",
+      "espnId": "2239",
+      "name": "Cal State Fullerton Titans",
+      "nickname": "Titans",
+      "location": "Cal State Fullerton",
+      "abbreviation": "CSUF",
+      "color": "#003767",
+      "alternateColor": "#ff8300",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2239.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "cal-state-fullerton-titans"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2463",
+      "espnId": "2463",
+      "name": "Cal State Northridge Matadors",
+      "nickname": "Matadors",
+      "location": "Cal State Northridge",
+      "abbreviation": "CSUN",
+      "color": "#b50000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2463.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "cal-state-northridge-matadors"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2097",
+      "espnId": "2097",
+      "name": "Campbell Fighting Camels",
+      "nickname": "Fighting Camels",
+      "location": "Campbell",
+      "abbreviation": "CAM",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2097.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "campbell-fighting-camels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2099",
+      "espnId": "2099",
+      "name": "Canisius Golden Griffins",
+      "nickname": "Golden Griffins",
+      "location": "Canisius",
+      "abbreviation": "CAN",
+      "color": "#004a81",
+      "alternateColor": "#dda50f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2099.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "canisius-golden-griffins"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2110",
+      "espnId": "2110",
+      "name": "Central Arkansas Bears",
+      "nickname": "Bears",
+      "location": "Central Arkansas",
+      "abbreviation": "CARK",
+      "color": "#a7a9ac",
+      "alternateColor": "#8e959a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2110.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "central-arkansas-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2115",
+      "espnId": "2115",
+      "name": "Central Connecticut Blue Devils",
+      "nickname": "Blue Devils",
+      "location": "Central Connecticut",
+      "abbreviation": "CCSU",
+      "color": "#1B49A2",
+      "alternateColor": "#d1d5d8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2115.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "central-connecticut-blue-devils"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2117",
+      "espnId": "2117",
+      "name": "Central Michigan Chippewas",
+      "nickname": "Chippewas",
+      "location": "Central Michigan",
+      "abbreviation": "CMU",
+      "color": "#4c0027",
+      "alternateColor": "#fbab18",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2117.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "central-michigan-chippewas"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-232",
+      "espnId": "232",
+      "name": "Charleston Cougars",
+      "nickname": "Cougars",
+      "location": "Charleston",
+      "abbreviation": "COFC",
+      "color": "#7a2531",
+      "alternateColor": "#9e8959",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/232.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "charleston-cougars"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2127",
+      "espnId": "2127",
+      "name": "Charleston Southern Buccaneers",
+      "nickname": "Buccaneers",
+      "location": "Charleston Southern",
+      "abbreviation": "CHSO",
+      "color": "#2e3192",
+      "alternateColor": "#ded090",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2127.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "charleston-southern-buccaneers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2429",
+      "espnId": "2429",
+      "name": "Charlotte 49ers",
+      "nickname": "49ers",
+      "location": "Charlotte",
+      "abbreviation": "CLT",
+      "color": "#005035",
+      "alternateColor": "#a49665",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2429.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "charlotte-49ers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-236",
+      "espnId": "236",
+      "name": "Chattanooga Mocs",
+      "nickname": "Mocs",
+      "location": "Chattanooga",
+      "abbreviation": "UTC",
+      "color": "#00386b",
+      "alternateColor": "#dca71d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/236.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "chattanooga-mocs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2130",
+      "espnId": "2130",
+      "name": "Chicago State Cougars",
+      "nickname": "Cougars",
+      "location": "Chicago State",
+      "abbreviation": "CHST",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2130.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "chicago-state-cougars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2132",
+      "espnId": "2132",
+      "name": "Cincinnati Bearcats",
+      "nickname": "Bearcats",
+      "location": "Cincinnati",
+      "abbreviation": "CIN",
+      "color": "#000000",
+      "alternateColor": "#e00122",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2132.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "cincinnati-bearcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-228",
+      "espnId": "228",
+      "name": "Clemson Tigers",
+      "nickname": "Tigers",
+      "location": "Clemson",
+      "abbreviation": "CLEM",
+      "color": "#f56600",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "clemson-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-325",
+      "espnId": "325",
+      "name": "Cleveland State Vikings",
+      "nickname": "Vikings",
+      "location": "Cleveland State",
+      "abbreviation": "CLE",
+      "color": "#006633",
+      "alternateColor": "#231f20",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/325.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "cleveland-state-vikings"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-324",
+      "espnId": "324",
+      "name": "Coastal Carolina Chanticleers",
+      "nickname": "Chanticleers",
+      "location": "Coastal Carolina",
+      "abbreviation": "CCU",
+      "color": "#006f71",
+      "alternateColor": "#a27752",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/324.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "coastal-carolina-chanticleers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2142",
+      "espnId": "2142",
+      "name": "Colgate Raiders",
+      "nickname": "Raiders",
+      "location": "Colgate",
+      "abbreviation": "COLG",
+      "color": "#821019",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2142.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "colgate-raiders"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-38",
+      "espnId": "38",
+      "name": "Colorado Buffaloes",
+      "nickname": "Buffaloes",
+      "location": "Colorado",
+      "abbreviation": "COLO",
+      "color": "#cfb87c",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/38.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "colorado-buffaloes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-36",
+      "espnId": "36",
+      "name": "Colorado State Rams",
+      "nickname": "Rams",
+      "location": "Colorado State",
+      "abbreviation": "CSU",
+      "color": "#004c23",
+      "alternateColor": "#c8c372",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/36.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "colorado-state-rams"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-171",
+      "espnId": "171",
+      "name": "Columbia Lions",
+      "nickname": "Lions",
+      "location": "Columbia",
+      "abbreviation": "COLU",
+      "color": "#7ba4db",
+      "alternateColor": "#183863",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/171.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "columbia-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2154",
+      "espnId": "2154",
+      "name": "Coppin State Eagles",
+      "nickname": "Eagles",
+      "location": "Coppin State",
+      "abbreviation": "COPP",
+      "color": "#2e3192",
+      "alternateColor": "#ffd204",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2154.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "coppin-state-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-172",
+      "espnId": "172",
+      "name": "Cornell Big Red",
+      "nickname": "Big Red",
+      "location": "Cornell",
+      "abbreviation": "COR",
+      "color": "#b31b1b",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/172.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "cornell-big-red"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-156",
+      "espnId": "156",
+      "name": "Creighton Bluejays",
+      "nickname": "Bluejays",
+      "location": "Creighton",
+      "abbreviation": "CREI",
+      "color": "#005ca9",
+      "alternateColor": "#6cadde",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/156.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "creighton-bluejays"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-159",
+      "espnId": "159",
+      "name": "Dartmouth Big Green",
+      "nickname": "Big Green",
+      "location": "Dartmouth",
+      "abbreviation": "DART",
+      "color": "#005730",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/159.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "dartmouth-big-green"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2166",
+      "espnId": "2166",
+      "name": "Davidson Wildcats",
+      "nickname": "Wildcats",
+      "location": "Davidson",
+      "abbreviation": "DAV",
+      "color": "#000000",
+      "alternateColor": "#e51837",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2166.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "davidson-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2168",
+      "espnId": "2168",
+      "name": "Dayton Flyers",
+      "nickname": "Flyers",
+      "location": "Dayton",
+      "abbreviation": "DAY",
+      "color": "#004B8D",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2168.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "dayton-flyers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-48",
+      "espnId": "48",
+      "name": "Delaware Blue Hens",
+      "nickname": "Blue Hens",
+      "location": "Delaware",
+      "abbreviation": "DEL",
+      "color": "#00539f",
+      "alternateColor": "#ffd200",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/48.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "delaware-blue-hens"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2169",
+      "espnId": "2169",
+      "name": "Delaware State Hornets",
+      "nickname": "Hornets",
+      "location": "Delaware State",
+      "abbreviation": "DSU",
+      "color": "#009cdb",
+      "alternateColor": "#d51c28",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2169.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "delaware-state-hornets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2172",
+      "espnId": "2172",
+      "name": "Denver Pioneers",
+      "nickname": "Pioneers",
+      "location": "Denver",
+      "abbreviation": "DEN",
+      "color": "#98002e",
+      "alternateColor": "#a8996e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2172.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "denver-pioneers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-305",
+      "espnId": "305",
+      "name": "DePaul Blue Demons",
+      "nickname": "Blue Demons",
+      "location": "DePaul",
+      "abbreviation": "DEP",
+      "color": "#2d649c",
+      "alternateColor": "#ce1125",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/305.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "depaul-blue-demons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2174",
+      "espnId": "2174",
+      "name": "Detroit Mercy Titans",
+      "nickname": "Titans",
+      "location": "Detroit Mercy",
+      "abbreviation": "DETM",
+      "color": "#165b9e",
+      "alternateColor": "#d31733",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2174.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "detroit-mercy-titans"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2181",
+      "espnId": "2181",
+      "name": "Drake Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Drake",
+      "abbreviation": "DRKE",
+      "color": "#005596",
+      "alternateColor": "#bec0c2",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2181.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "drake-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2182",
+      "espnId": "2182",
+      "name": "Drexel Dragons",
+      "nickname": "Dragons",
+      "location": "Drexel",
+      "abbreviation": "DREX",
+      "color": "#020260",
+      "alternateColor": "#ffd65a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2182.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "drexel-dragons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-150",
+      "espnId": "150",
+      "name": "Duke Blue Devils",
+      "nickname": "Blue Devils",
+      "location": "Duke",
+      "abbreviation": "DUKE",
+      "color": "#00539b",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/150.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "duke-blue-devils"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2184",
+      "espnId": "2184",
+      "name": "Duquesne Dukes",
+      "nickname": "Dukes",
+      "location": "Duquesne",
+      "abbreviation": "DUQ",
+      "color": "#002D62",
+      "alternateColor": "#b90b2e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2184.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "duquesne-dukes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-151",
+      "espnId": "151",
+      "name": "East Carolina Pirates",
+      "nickname": "Pirates",
+      "location": "East Carolina",
+      "abbreviation": "ECU",
+      "color": "#582c83",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/151.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "east-carolina-pirates"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2197",
+      "espnId": "2197",
+      "name": "Eastern Illinois Panthers",
+      "nickname": "Panthers",
+      "location": "Eastern Illinois",
+      "abbreviation": "EIU",
+      "color": "#000000",
+      "alternateColor": "#bebab9",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2197.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "eastern-illinois-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2198",
+      "espnId": "2198",
+      "name": "Eastern Kentucky Colonels",
+      "nickname": "Colonels",
+      "location": "Eastern Kentucky",
+      "abbreviation": "EKU",
+      "color": "#660819",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2198.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "eastern-kentucky-colonels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2199",
+      "espnId": "2199",
+      "name": "Eastern Michigan Eagles",
+      "nickname": "Eagles",
+      "location": "Eastern Michigan",
+      "abbreviation": "EMU",
+      "color": "#006938",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2199.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "eastern-michigan-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-331",
+      "espnId": "331",
+      "name": "Eastern Washington Eagles",
+      "nickname": "Eagles",
+      "location": "Eastern Washington",
+      "abbreviation": "EWU",
+      "color": "#a10022",
+      "alternateColor": "#abb4bc",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/331.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "eastern-washington-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2193",
+      "espnId": "2193",
+      "name": "East Tennessee State Buccaneers",
+      "nickname": "Buccaneers",
+      "location": "East Tennessee State",
+      "abbreviation": "ETSU",
+      "color": "#002d61",
+      "alternateColor": "#ffc423",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2193.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "east-tennessee-state-buccaneers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2837",
+      "espnId": "2837",
+      "name": "East Texas A&M Lions",
+      "nickname": "Lions",
+      "location": "East Texas A&M",
+      "abbreviation": "ETAM",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2837.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "east-texas-am-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2210",
+      "espnId": "2210",
+      "name": "Elon Phoenix",
+      "nickname": "Phoenix",
+      "location": "Elon",
+      "abbreviation": "ELON",
+      "color": "#020303",
+      "alternateColor": "#b59a57",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2210.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "elon-phoenix"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-339",
+      "espnId": "339",
+      "name": "Evansville Purple Aces",
+      "nickname": "Purple Aces",
+      "location": "Evansville",
+      "abbreviation": "EVAN",
+      "color": "#663399",
+      "alternateColor": "#ef6f00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/339.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "evansville-purple-aces"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2217",
+      "espnId": "2217",
+      "name": "Fairfield Stags",
+      "nickname": "Stags",
+      "location": "Fairfield",
+      "abbreviation": "FAIR",
+      "color": "#000000",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2217.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "fairfield-stags"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-161",
+      "espnId": "161",
+      "name": "Fairleigh Dickinson Knights",
+      "nickname": "Knights",
+      "location": "Fairleigh Dickinson",
+      "abbreviation": "FDU",
+      "color": "#72293c",
+      "alternateColor": "#28334a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/161.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "fairleigh-dickinson-knights"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-50",
+      "espnId": "50",
+      "name": "Florida A&M Rattlers",
+      "nickname": "Rattlers",
+      "location": "Florida A&M",
+      "abbreviation": "FAMU",
+      "color": "#F89728",
+      "alternateColor": "#00843d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/50.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "florida-am-rattlers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2226",
+      "espnId": "2226",
+      "name": "Florida Atlantic Owls",
+      "nickname": "Owls",
+      "location": "Florida Atlantic",
+      "abbreviation": "FAU",
+      "color": "#003366",
+      "alternateColor": "#cc0000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2226.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "florida-atlantic-owls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-57",
+      "espnId": "57",
+      "name": "Florida Gators",
+      "nickname": "Gators",
+      "location": "Florida",
+      "abbreviation": "FLA",
+      "color": "#0021a5",
+      "alternateColor": "#fa4616",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/57.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "florida-gators"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-526",
+      "espnId": "526",
+      "name": "Florida Gulf Coast Eagles",
+      "nickname": "Eagles",
+      "location": "Florida Gulf Coast",
+      "abbreviation": "FGCU",
+      "color": "#00885a",
+      "alternateColor": "#076c3b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/526.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "florida-gulf-coast-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2229",
+      "espnId": "2229",
+      "name": "Florida International Panthers",
+      "nickname": "Panthers",
+      "location": "Florida International",
+      "abbreviation": "FIU",
+      "color": "#091f3f",
+      "alternateColor": "#c3993f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2229.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "florida-international-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-52",
+      "espnId": "52",
+      "name": "Florida State Seminoles",
+      "nickname": "Seminoles",
+      "location": "Florida State",
+      "abbreviation": "FSU",
+      "color": "#782f40",
+      "alternateColor": "#ceb888",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/52.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "florida-state-seminoles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2230",
+      "espnId": "2230",
+      "name": "Fordham Rams",
+      "nickname": "Rams",
+      "location": "Fordham",
+      "abbreviation": "FOR",
+      "color": "#830032",
+      "alternateColor": "#909090",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2230.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "fordham-rams"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-278",
+      "espnId": "278",
+      "name": "Fresno State Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Fresno State",
+      "abbreviation": "FRES",
+      "color": "#b1102b",
+      "alternateColor": "#13284c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/278.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "fresno-state-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-231",
+      "espnId": "231",
+      "name": "Furman Paladins",
+      "nickname": "Paladins",
+      "location": "Furman",
+      "abbreviation": "FUR",
+      "color": "#582c83",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/231.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "furman-paladins"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2241",
+      "espnId": "2241",
+      "name": "Gardner-Webb Runnin' Bulldogs",
+      "nickname": "Runnin' Bulldogs",
+      "location": "Gardner-Webb",
+      "abbreviation": "GWEB",
+      "color": "#c12535",
+      "alternateColor": "#909090",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2241.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "gardner-webb-runnin-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2244",
+      "espnId": "2244",
+      "name": "George Mason Patriots",
+      "nickname": "Patriots",
+      "location": "George Mason",
+      "abbreviation": "GMU",
+      "color": "#016600",
+      "alternateColor": "#ecb010",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2244.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "george-mason-patriots"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-46",
+      "espnId": "46",
+      "name": "Georgetown Hoyas",
+      "nickname": "Hoyas",
+      "location": "Georgetown",
+      "abbreviation": "GTWN",
+      "color": "#110E42",
+      "alternateColor": "#001c58",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/46.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "georgetown-hoyas"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-45",
+      "espnId": "45",
+      "name": "George Washington Revolutionaries",
+      "nickname": "Revolutionaries",
+      "location": "George Washington",
+      "abbreviation": "GW",
+      "color": "#002843",
+      "alternateColor": "#e8d2a1",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/45.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "george-washington-revolutionaries"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-61",
+      "espnId": "61",
+      "name": "Georgia Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Georgia",
+      "abbreviation": "UGA",
+      "color": "#ba0c2f",
+      "alternateColor": "#2c2a29",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "georgia-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-290",
+      "espnId": "290",
+      "name": "Georgia Southern Eagles",
+      "nickname": "Eagles",
+      "location": "Georgia Southern",
+      "abbreviation": "GASO",
+      "color": "#041e42",
+      "alternateColor": "#a3aaae",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/290.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "georgia-southern-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2247",
+      "espnId": "2247",
+      "name": "Georgia State Panthers",
+      "nickname": "Panthers",
+      "location": "Georgia State",
+      "abbreviation": "GAST",
+      "color": "#0039a6",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2247.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "georgia-state-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-59",
+      "espnId": "59",
+      "name": "Georgia Tech Yellow Jackets",
+      "nickname": "Yellow Jackets",
+      "location": "Georgia Tech",
+      "abbreviation": "GT",
+      "color": "#b3a369",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/59.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "georgia-tech-yellow-jackets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2250",
+      "espnId": "2250",
+      "name": "Gonzaga Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Gonzaga",
+      "abbreviation": "GONZ",
+      "color": "#041e42",
+      "alternateColor": "#c8102e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2250.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "gonzaga-bulldogs"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2755",
+      "espnId": "2755",
+      "name": "Grambling Tigers",
+      "nickname": "Tigers",
+      "location": "Grambling",
+      "abbreviation": "GRAM",
+      "color": "#ee8601",
+      "alternateColor": "#ffd10a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2755.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "grambling-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2253",
+      "espnId": "2253",
+      "name": "Grand Canyon Lopes",
+      "nickname": "Lopes",
+      "location": "Grand Canyon",
+      "abbreviation": "GCU",
+      "color": "#522398",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2253.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "grand-canyon-lopes"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2739",
+      "espnId": "2739",
+      "name": "Green Bay Phoenix",
+      "nickname": "Phoenix",
+      "location": "Green Bay",
+      "abbreviation": "GB",
+      "color": "#006633",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2739.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "green-bay-phoenix"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2261",
+      "espnId": "2261",
+      "name": "Hampton Pirates",
+      "nickname": "Pirates",
+      "location": "Hampton",
+      "abbreviation": "HAMP",
+      "color": "#0067AC",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2261.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "hampton-pirates"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-108",
+      "espnId": "108",
+      "name": "Harvard Crimson",
+      "nickname": "Crimson",
+      "location": "Harvard",
+      "abbreviation": "HARV",
+      "color": "#990000",
+      "alternateColor": "#dbdbdb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/108.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "harvard-crimson"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-62",
+      "espnId": "62",
+      "name": "Hawai'i Rainbow Warriors",
+      "nickname": "Rainbow Warriors",
+      "location": "Hawai'i",
+      "abbreviation": "HAW",
+      "color": "#005737",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/62.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "hawaii-rainbow-warriors"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2272",
+      "espnId": "2272",
+      "name": "High Point Panthers",
+      "nickname": "Panthers",
+      "location": "High Point",
+      "abbreviation": "HPU",
+      "color": "#330072",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2272.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "high-point-panthers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2275",
+      "espnId": "2275",
+      "name": "Hofstra Pride",
+      "nickname": "Pride",
+      "location": "Hofstra",
+      "abbreviation": "HOF",
+      "color": "#003594",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2275.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "hofstra-pride"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-107",
+      "espnId": "107",
+      "name": "Holy Cross Crusaders",
+      "nickname": "Crusaders",
+      "location": "Holy Cross",
+      "abbreviation": "HC",
+      "color": "#582c83",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/107.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "holy-cross-crusaders"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2277",
+      "espnId": "2277",
+      "name": "Houston Christian Huskies",
+      "nickname": "Huskies",
+      "location": "Houston Christian",
+      "abbreviation": "HCU",
+      "color": "#00539c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2277.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "houston-christian-huskies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-248",
+      "espnId": "248",
+      "name": "Houston Cougars",
+      "nickname": "Cougars",
+      "location": "Houston",
+      "abbreviation": "HOU",
+      "color": "#c8102e",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/248.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "houston-cougars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-47",
+      "espnId": "47",
+      "name": "Howard Bison",
+      "nickname": "Bison",
+      "location": "Howard",
+      "abbreviation": "HOW",
+      "color": "#003a63",
+      "alternateColor": "#e51937",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/47.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "howard-bison"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-304",
+      "espnId": "304",
+      "name": "Idaho State Bengals",
+      "nickname": "Bengals",
+      "location": "Idaho State",
+      "abbreviation": "IDST",
+      "color": "#ef8c00",
+      "alternateColor": "#e9a126",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/304.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "idaho-state-bengals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-70",
+      "espnId": "70",
+      "name": "Idaho Vandals",
+      "nickname": "Vandals",
+      "location": "Idaho",
+      "abbreviation": "IDHO",
+      "color": "#000000",
+      "alternateColor": "#8c6e4a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/70.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "idaho-vandals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-356",
+      "espnId": "356",
+      "name": "Illinois Fighting Illini",
+      "nickname": "Fighting Illini",
+      "location": "Illinois",
+      "abbreviation": "ILL",
+      "color": "#ff5f05",
+      "alternateColor": "#13294b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/356.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "illinois-fighting-illini"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2287",
+      "espnId": "2287",
+      "name": "Illinois State Redbirds",
+      "nickname": "Redbirds",
+      "location": "Illinois State",
+      "abbreviation": "ILST",
+      "color": "#CE1126",
+      "alternateColor": "#ffe716",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2287.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "illinois-state-redbirds"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2916",
+      "espnId": "2916",
+      "name": "Incarnate Word Cardinals",
+      "nickname": "Cardinals",
+      "location": "Incarnate Word",
+      "abbreviation": "UIW",
+      "color": "#000000",
+      "alternateColor": "#080808",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2916.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "incarnate-word-cardinals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-84",
+      "espnId": "84",
+      "name": "Indiana Hoosiers",
+      "nickname": "Hoosiers",
+      "location": "Indiana",
+      "abbreviation": "IU",
+      "color": "#970310",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/84.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "indiana-hoosiers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-282",
+      "espnId": "282",
+      "name": "Indiana State Sycamores",
+      "nickname": "Sycamores",
+      "location": "Indiana State",
+      "abbreviation": "INST",
+      "color": "#00669a",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/282.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "indiana-state-sycamores"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-314",
+      "espnId": "314",
+      "name": "Iona Gaels",
+      "nickname": "Gaels",
+      "location": "Iona",
+      "abbreviation": "IONA",
+      "color": "#6f2c3e",
+      "alternateColor": "#f0ab00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/314.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "iona-gaels"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2294",
+      "espnId": "2294",
+      "name": "Iowa Hawkeyes",
+      "nickname": "Hawkeyes",
+      "location": "Iowa",
+      "abbreviation": "IOWA",
+      "color": "#231f20",
+      "alternateColor": "#fcd116",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2294.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "iowa-hawkeyes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-66",
+      "espnId": "66",
+      "name": "Iowa State Cyclones",
+      "nickname": "Cyclones",
+      "location": "Iowa State",
+      "abbreviation": "ISU",
+      "color": "#ae192d",
+      "alternateColor": "#ffc72a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/66.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "iowa-state-cyclones"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-85",
+      "espnId": "85",
+      "name": "IU Indianapolis Jaguars",
+      "nickname": "Jaguars",
+      "location": "IU Indianapolis",
+      "abbreviation": "IUIN",
+      "color": "#A81F30",
+      "alternateColor": "#d59f0f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/85.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "iu-indianapolis-jaguars"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2296",
+      "espnId": "2296",
+      "name": "Jackson State Tigers",
+      "nickname": "Tigers",
+      "location": "Jackson State",
+      "abbreviation": "JKST",
+      "color": "#123297",
+      "alternateColor": "#b5b7ba",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2296.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "jackson-state-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-294",
+      "espnId": "294",
+      "name": "Jacksonville Dolphins",
+      "nickname": "Dolphins",
+      "location": "Jacksonville",
+      "abbreviation": "JAX",
+      "color": "#00523e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/294.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "jacksonville-dolphins"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-55",
+      "espnId": "55",
+      "name": "Jacksonville State Gamecocks",
+      "nickname": "Gamecocks",
+      "location": "Jacksonville State",
+      "abbreviation": "JXST",
+      "color": "#cc0000",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/55.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "jacksonville-state-gamecocks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-256",
+      "espnId": "256",
+      "name": "James Madison Dukes",
+      "nickname": "Dukes",
+      "location": "James Madison",
+      "abbreviation": "JMU",
+      "color": "#450084",
+      "alternateColor": "#cbb677",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/256.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "james-madison-dukes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-140",
+      "espnId": "140",
+      "name": "Kansas City Roos",
+      "nickname": "Roos",
+      "location": "Kansas City",
+      "abbreviation": "KC",
+      "color": "#004b87",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/140.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "kansas-city-roos"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2305",
+      "espnId": "2305",
+      "name": "Kansas Jayhawks",
+      "nickname": "Jayhawks",
+      "location": "Kansas",
+      "abbreviation": "KU",
+      "color": "#0051ba",
+      "alternateColor": "#e8000d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2305.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "kansas-jayhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2306",
+      "espnId": "2306",
+      "name": "Kansas State Wildcats",
+      "nickname": "Wildcats",
+      "location": "Kansas State",
+      "abbreviation": "KSU",
+      "color": "#330a57",
+      "alternateColor": "#e2e3e4",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2306.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "kansas-state-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-338",
+      "espnId": "338",
+      "name": "Kennesaw State Owls",
+      "nickname": "Owls",
+      "location": "Kennesaw State",
+      "abbreviation": "KENN",
+      "color": "#fdbb30",
+      "alternateColor": "#0b1315",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/338.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "kennesaw-state-owls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2309",
+      "espnId": "2309",
+      "name": "Kent State Golden Flashes",
+      "nickname": "Golden Flashes",
+      "location": "Kent State",
+      "abbreviation": "KENT",
+      "color": "#002664",
+      "alternateColor": "#eaab00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2309.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "kent-state-golden-flashes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-96",
+      "espnId": "96",
+      "name": "Kentucky Wildcats",
+      "nickname": "Wildcats",
+      "location": "Kentucky",
+      "abbreviation": "UK",
+      "color": "#0033a0",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/96.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "kentucky-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-322",
+      "espnId": "322",
+      "name": "Lafayette Leopards",
+      "nickname": "Leopards",
+      "location": "Lafayette",
+      "abbreviation": "LAF",
+      "color": "#790000",
+      "alternateColor": "#a59474",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/322.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "lafayette-leopards"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2320",
+      "espnId": "2320",
+      "name": "Lamar Cardinals",
+      "nickname": "Cardinals",
+      "location": "Lamar",
+      "abbreviation": "LAM",
+      "color": "#000000",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2320.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "lamar-cardinals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2325",
+      "espnId": "2325",
+      "name": "La Salle Explorers",
+      "nickname": "Explorers",
+      "location": "La Salle",
+      "abbreviation": "LAS",
+      "color": "#003356",
+      "alternateColor": "#ffce00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2325.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "la-salle-explorers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2329",
+      "espnId": "2329",
+      "name": "Lehigh Mountain Hawks",
+      "nickname": "Mountain Hawks",
+      "location": "Lehigh",
+      "abbreviation": "LEH",
+      "color": "#6c2b2a",
+      "alternateColor": "#b69e70",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2329.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "lehigh-mountain-hawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2330",
+      "espnId": "2330",
+      "name": "Le Moyne Dolphins",
+      "nickname": "Dolphins",
+      "location": "Le Moyne",
+      "abbreviation": "LEM",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2330.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "le-moyne-dolphins"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2335",
+      "espnId": "2335",
+      "name": "Liberty Flames",
+      "nickname": "Flames",
+      "location": "Liberty",
+      "abbreviation": "LIB",
+      "color": "#0a254e",
+      "alternateColor": "#b72025",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2335.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "liberty-flames"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2815",
+      "espnId": "2815",
+      "name": "Lindenwood Lions",
+      "nickname": "Lions",
+      "location": "Lindenwood",
+      "abbreviation": "LIN",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2815.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "lindenwood-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-288",
+      "espnId": "288",
+      "name": "Lipscomb Bisons",
+      "nickname": "Bisons",
+      "location": "Lipscomb",
+      "abbreviation": "LIP",
+      "color": "#20366C",
+      "alternateColor": "#f6b734",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/288.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "lipscomb-bisons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2031",
+      "espnId": "2031",
+      "name": "Little Rock Trojans",
+      "nickname": "Trojans",
+      "location": "Little Rock",
+      "abbreviation": "LR",
+      "color": "#AD0000",
+      "alternateColor": "#898d8f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2031.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "little-rock-trojans"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-299",
+      "espnId": "299",
+      "name": "Long Beach State Beach",
+      "nickname": "Beach",
+      "location": "Long Beach State",
+      "abbreviation": "LBSU",
+      "color": "#000000",
+      "alternateColor": "#f1f2f3",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/299.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "long-beach-state-beach"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-112358",
+      "espnId": "112358",
+      "name": "Long Island University Sharks",
+      "nickname": "Sharks",
+      "location": "Long Island University",
+      "abbreviation": "LIU",
+      "color": "#50c9f7",
+      "alternateColor": "#ffbf00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/112358.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "long-island-university-sharks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2341",
+      "espnId": "2341",
+      "name": "Long Island University Sharks",
+      "nickname": "Sharks",
+      "location": "Long Island University",
+      "abbreviation": "LIU",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2341.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "long-island-university-sharks"
+      ],
+      "sports": [
+        "football"
+      ]
+    },
+    {
+      "key": "ncaa-2344",
+      "espnId": "2344",
+      "name": "Longwood Lancers",
+      "nickname": "Lancers",
+      "location": "Longwood",
+      "abbreviation": "LONG",
+      "color": "#003273",
+      "alternateColor": "#9ea2a3",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2344.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "longwood-lancers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-309",
+      "espnId": "309",
+      "name": "Louisiana Ragin' Cajuns",
+      "nickname": "Ragin' Cajuns",
+      "location": "Louisiana",
+      "abbreviation": "UL",
+      "color": "#ce181e",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/309.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "louisiana-ragin-cajuns"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2348",
+      "espnId": "2348",
+      "name": "Louisiana Tech Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Louisiana Tech",
+      "abbreviation": "LT",
+      "color": "#003087",
+      "alternateColor": "#cb333b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2348.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "louisiana-tech-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-97",
+      "espnId": "97",
+      "name": "Louisville Cardinals",
+      "nickname": "Cardinals",
+      "location": "Louisville",
+      "abbreviation": "LOU",
+      "color": "#c9001f",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/97.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "louisville-cardinals"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2350",
+      "espnId": "2350",
+      "name": "Loyola Chicago Ramblers",
+      "nickname": "Ramblers",
+      "location": "Loyola Chicago",
+      "abbreviation": "LUC",
+      "color": "#9d1244",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2350.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "loyola-chicago-ramblers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2352",
+      "espnId": "2352",
+      "name": "Loyola Maryland Greyhounds",
+      "nickname": "Greyhounds",
+      "location": "Loyola Maryland",
+      "abbreviation": "L-MD",
+      "color": "#76a7a0",
+      "alternateColor": "#c9cbca",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2352.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "loyola-maryland-greyhounds"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2351",
+      "espnId": "2351",
+      "name": "Loyola Marymount Lions",
+      "nickname": "Lions",
+      "location": "Loyola Marymount",
+      "abbreviation": "LMU",
+      "color": "#880029",
+      "alternateColor": "#00345b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2351.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "loyola-marymount-lions"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2443",
+      "espnId": "2443",
+      "name": "LSU New Orleans Privateers",
+      "nickname": "Privateers",
+      "location": "LSU New Orleans",
+      "abbreviation": "NOLA",
+      "color": "#461d7c",
+      "alternateColor": "#fdd023",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2443.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "lsu-new-orleans-privateers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-99",
+      "espnId": "99",
+      "name": "LSU Tigers",
+      "nickname": "Tigers",
+      "location": "LSU",
+      "abbreviation": "LSU",
+      "color": "#461d76",
+      "alternateColor": "#fdd023",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/99.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "lsu-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-311",
+      "espnId": "311",
+      "name": "Maine Black Bears",
+      "nickname": "Black Bears",
+      "location": "Maine",
+      "abbreviation": "ME",
+      "color": "#127dbe",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/311.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "maine-black-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2363",
+      "espnId": "2363",
+      "name": "Manhattan Jaspers",
+      "nickname": "Jaspers",
+      "location": "Manhattan",
+      "abbreviation": "MAN",
+      "color": "#4f8537",
+      "alternateColor": "#b5b7ba",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2363.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "manhattan-jaspers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2368",
+      "espnId": "2368",
+      "name": "Marist Red Foxes",
+      "nickname": "Red Foxes",
+      "location": "Marist",
+      "abbreviation": "MRST",
+      "color": "#e53730",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2368.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "marist-red-foxes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-269",
+      "espnId": "269",
+      "name": "Marquette Golden Eagles",
+      "nickname": "Golden Eagles",
+      "location": "Marquette",
+      "abbreviation": "MARQ",
+      "color": "#003366",
+      "alternateColor": "#ffcc00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/269.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "marquette-golden-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-276",
+      "espnId": "276",
+      "name": "Marshall Thundering Herd",
+      "nickname": "Thundering Herd",
+      "location": "Marshall",
+      "abbreviation": "MRSH",
+      "color": "#00b140",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/276.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "marshall-thundering-herd"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2379",
+      "espnId": "2379",
+      "name": "Maryland Eastern Shore Hawks",
+      "nickname": "Hawks",
+      "location": "Maryland Eastern Shore",
+      "abbreviation": "UMES",
+      "color": "#5c2301",
+      "alternateColor": "#b5b7ba",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2379.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "maryland-eastern-shore-hawks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-120",
+      "espnId": "120",
+      "name": "Maryland Terrapins",
+      "nickname": "Terrapins",
+      "location": "Maryland",
+      "abbreviation": "MD",
+      "color": "#ce1126",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/120.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "maryland-terrapins"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-113",
+      "espnId": "113",
+      "name": "Massachusetts Minutemen",
+      "nickname": "Minutemen",
+      "location": "Massachusetts",
+      "abbreviation": "MASS",
+      "color": "#881c1c",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/113.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "massachusetts-minutemen"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2377",
+      "espnId": "2377",
+      "name": "McNeese Cowboys",
+      "nickname": "Cowboys",
+      "location": "McNeese",
+      "abbreviation": "MCN",
+      "color": "#00529C",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2377.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "mcneese-cowboys"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-235",
+      "espnId": "235",
+      "name": "Memphis Tigers",
+      "nickname": "Tigers",
+      "location": "Memphis",
+      "abbreviation": "MEM",
+      "color": "#004991",
+      "alternateColor": "#8e908f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/235.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "memphis-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2382",
+      "espnId": "2382",
+      "name": "Mercer Bears",
+      "nickname": "Bears",
+      "location": "Mercer",
+      "abbreviation": "MER",
+      "color": "#ff7f29",
+      "alternateColor": "#080808",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2382.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "mercer-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2385",
+      "espnId": "2385",
+      "name": "Mercyhurst Lakers",
+      "nickname": "Lakers",
+      "location": "Mercyhurst",
+      "abbreviation": "MERC",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2385.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "mercyhurst-lakers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2771",
+      "espnId": "2771",
+      "name": "Merrimack Warriors",
+      "nickname": "Warriors",
+      "location": "Merrimack",
+      "abbreviation": "MRMK",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2771.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "merrimack-warriors"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2390",
+      "espnId": "2390",
+      "name": "Miami Hurricanes",
+      "nickname": "Hurricanes",
+      "location": "Miami",
+      "abbreviation": "MIA",
+      "color": "#f47423",
+      "alternateColor": "#035131",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2390.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "miami-hurricanes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-193",
+      "espnId": "193",
+      "name": "Miami (OH) RedHawks",
+      "nickname": "RedHawks",
+      "location": "Miami (OH)",
+      "abbreviation": "M-OH",
+      "color": "#c41230",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/193.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "miami-oh-redhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-127",
+      "espnId": "127",
+      "name": "Michigan State Spartans",
+      "nickname": "Spartans",
+      "location": "Michigan State",
+      "abbreviation": "MSU",
+      "color": "#173f35",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/127.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "michigan-state-spartans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-130",
+      "espnId": "130",
+      "name": "Michigan Wolverines",
+      "nickname": "Wolverines",
+      "location": "Michigan",
+      "abbreviation": "MICH",
+      "color": "#00274c",
+      "alternateColor": "#ffcb05",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/130.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "michigan-wolverines"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2393",
+      "espnId": "2393",
+      "name": "Middle Tennessee Blue Raiders",
+      "nickname": "Blue Raiders",
+      "location": "Middle Tennessee",
+      "abbreviation": "MTSU",
+      "color": "#036eb7",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2393.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "middle-tennessee-blue-raiders"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-270",
+      "espnId": "270",
+      "name": "Milwaukee Panthers",
+      "nickname": "Panthers",
+      "location": "Milwaukee",
+      "abbreviation": "MILW",
+      "color": "#000000",
+      "alternateColor": "#ffc20e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/270.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "milwaukee-panthers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-135",
+      "espnId": "135",
+      "name": "Minnesota Golden Gophers",
+      "nickname": "Golden Gophers",
+      "location": "Minnesota",
+      "abbreviation": "MINN",
+      "color": "#5e0a2f",
+      "alternateColor": "#fab41c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/135.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "minnesota-golden-gophers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-344",
+      "espnId": "344",
+      "name": "Mississippi State Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Mississippi State",
+      "abbreviation": "MSST",
+      "color": "#5d1725",
+      "alternateColor": "#c1c6c8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/344.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "mississippi-state-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2400",
+      "espnId": "2400",
+      "name": "Mississippi Valley State Delta Devils",
+      "nickname": "Delta Devils",
+      "location": "Mississippi Valley State",
+      "abbreviation": "MVSU",
+      "color": "#005328",
+      "alternateColor": "#cf2d34",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2400.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "mississippi-valley-state-delta-devils"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2623",
+      "espnId": "2623",
+      "name": "Missouri State Bears",
+      "nickname": "Bears",
+      "location": "Missouri State",
+      "abbreviation": "MOST",
+      "color": "#5e0009",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2623.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "missouri-state-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-142",
+      "espnId": "142",
+      "name": "Missouri Tigers",
+      "nickname": "Tigers",
+      "location": "Missouri",
+      "abbreviation": "MIZ",
+      "color": "#f1b82d",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/142.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "missouri-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2405",
+      "espnId": "2405",
+      "name": "Monmouth Hawks",
+      "nickname": "Hawks",
+      "location": "Monmouth",
+      "abbreviation": "MONM",
+      "color": "#051844",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2405.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "monmouth-hawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-149",
+      "espnId": "149",
+      "name": "Montana Grizzlies",
+      "nickname": "Grizzlies",
+      "location": "Montana",
+      "abbreviation": "MONT",
+      "color": "#751D4A",
+      "alternateColor": "#666666",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/149.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "montana-grizzlies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-147",
+      "espnId": "147",
+      "name": "Montana State Bobcats",
+      "nickname": "Bobcats",
+      "location": "Montana State",
+      "abbreviation": "MTST",
+      "color": "#00205c",
+      "alternateColor": "#bc955c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/147.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "montana-state-bobcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2413",
+      "espnId": "2413",
+      "name": "Morehead State Eagles",
+      "nickname": "Eagles",
+      "location": "Morehead State",
+      "abbreviation": "MORE",
+      "color": "#094FA3",
+      "alternateColor": "#fed91a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2413.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "morehead-state-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2415",
+      "espnId": "2415",
+      "name": "Morgan State Bears",
+      "nickname": "Bears",
+      "location": "Morgan State",
+      "abbreviation": "MORG",
+      "color": "#014786",
+      "alternateColor": "#f47937",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2415.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "morgan-state-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-116",
+      "espnId": "116",
+      "name": "Mount St. Mary's Mountaineers",
+      "nickname": "Mountaineers",
+      "location": "Mount St. Mary's",
+      "abbreviation": "MSM",
+      "color": "#005596",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/116.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "mount-st-marys-mountaineers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-93",
+      "espnId": "93",
+      "name": "Murray State Racers",
+      "nickname": "Racers",
+      "location": "Murray State",
+      "abbreviation": "MUR",
+      "color": "#002148",
+      "alternateColor": "#000e00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/93.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "murray-state-racers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2426",
+      "espnId": "2426",
+      "name": "Navy Midshipmen",
+      "nickname": "Midshipmen",
+      "location": "Navy",
+      "abbreviation": "NAVY",
+      "color": "#00225b",
+      "alternateColor": "#b5a67c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2426.png",
+      "conference": "Patriot",
+      "hrefNeedles": [
+        "navy-midshipmen"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-152",
+      "espnId": "152",
+      "name": "NC State Wolfpack",
+      "nickname": "Wolfpack",
+      "location": "NC State",
+      "abbreviation": "NCSU",
+      "color": "#cc0000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/152.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "nc-state-wolfpack"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-158",
+      "espnId": "158",
+      "name": "Nebraska Cornhuskers",
+      "nickname": "Cornhuskers",
+      "location": "Nebraska",
+      "abbreviation": "NEB",
+      "color": "#e31937",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/158.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "nebraska-cornhuskers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2440",
+      "espnId": "2440",
+      "name": "Nevada Wolf Pack",
+      "nickname": "Wolf Pack",
+      "location": "Nevada",
+      "abbreviation": "NEV",
+      "color": "#041e42",
+      "alternateColor": "#8a8d8f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2440.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "nevada-wolf-pack"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-160",
+      "espnId": "160",
+      "name": "New Hampshire Wildcats",
+      "nickname": "Wildcats",
+      "location": "New Hampshire",
+      "abbreviation": "UNH",
+      "color": "#004990",
+      "alternateColor": "#c3c4c6",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/160.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "new-hampshire-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2441",
+      "espnId": "2441",
+      "name": "New Haven Chargers",
+      "nickname": "Chargers",
+      "location": "New Haven",
+      "abbreviation": "NHVN",
+      "color": "#041e42",
+      "alternateColor": "#ffc425",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2441.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "new-haven-chargers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-167",
+      "espnId": "167",
+      "name": "New Mexico Lobos",
+      "nickname": "Lobos",
+      "location": "New Mexico",
+      "abbreviation": "UNM",
+      "color": "#ba0c2f",
+      "alternateColor": "#a7a8aa",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/167.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "new-mexico-lobos"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-166",
+      "espnId": "166",
+      "name": "New Mexico State Aggies",
+      "nickname": "Aggies",
+      "location": "New Mexico State",
+      "abbreviation": "NMSU",
+      "color": "#7e141b",
+      "alternateColor": "#231f20",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/166.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "new-mexico-state-aggies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-315",
+      "espnId": "315",
+      "name": "Niagara Purple Eagles",
+      "nickname": "Purple Eagles",
+      "location": "Niagara",
+      "abbreviation": "NIA",
+      "color": "#69207E",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/315.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "niagara-purple-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2447",
+      "espnId": "2447",
+      "name": "Nicholls Colonels",
+      "nickname": "Colonels",
+      "location": "Nicholls",
+      "abbreviation": "NICH",
+      "color": "#C41230",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2447.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "nicholls-colonels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2885",
+      "espnId": "2885",
+      "name": "NJIT Highlanders",
+      "nickname": "Highlanders",
+      "location": "NJIT",
+      "abbreviation": "NJIT",
+      "color": "#EE3024",
+      "alternateColor": "#df3e2e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2885.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "njit-highlanders"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2450",
+      "espnId": "2450",
+      "name": "Norfolk State Spartans",
+      "nickname": "Spartans",
+      "location": "Norfolk State",
+      "abbreviation": "NORF",
+      "color": "#0c8968",
+      "alternateColor": "#fdb813",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2450.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "norfolk-state-spartans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2453",
+      "espnId": "2453",
+      "name": "North Alabama Lions",
+      "nickname": "Lions",
+      "location": "North Alabama",
+      "abbreviation": "UNA",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2453.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "north-alabama-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2448",
+      "espnId": "2448",
+      "name": "North Carolina A&T Aggies",
+      "nickname": "Aggies",
+      "location": "North Carolina A&T",
+      "abbreviation": "NCAT",
+      "color": "#0505aa",
+      "alternateColor": "#004684",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2448.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "north-carolina-at-aggies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2428",
+      "espnId": "2428",
+      "name": "North Carolina Central Eagles",
+      "nickname": "Eagles",
+      "location": "North Carolina Central",
+      "abbreviation": "NCCU",
+      "color": "#880023",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2428.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "north-carolina-central-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-153",
+      "espnId": "153",
+      "name": "North Carolina Tar Heels",
+      "nickname": "Tar Heels",
+      "location": "North Carolina",
+      "abbreviation": "UNC",
+      "color": "#7bafd4",
+      "alternateColor": "#13294b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/153.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "north-carolina-tar-heels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-155",
+      "espnId": "155",
+      "name": "North Dakota Fighting Hawks",
+      "nickname": "Fighting Hawks",
+      "location": "North Dakota",
+      "abbreviation": "UND",
+      "color": "#00A26B",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/155.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "north-dakota-fighting-hawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2449",
+      "espnId": "2449",
+      "name": "North Dakota State Bison",
+      "nickname": "Bison",
+      "location": "North Dakota State",
+      "abbreviation": "NDSU",
+      "color": "#01402A",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2449.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "north-dakota-state-bison"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-111",
+      "espnId": "111",
+      "name": "Northeastern Huskies",
+      "nickname": "Huskies",
+      "location": "Northeastern",
+      "abbreviation": "NE",
+      "color": "#CC0001",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/111.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "northeastern-huskies"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2464",
+      "espnId": "2464",
+      "name": "Northern Arizona Lumberjacks",
+      "nickname": "Lumberjacks",
+      "location": "Northern Arizona",
+      "abbreviation": "NAU",
+      "color": "#003976",
+      "alternateColor": "#1b3069",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2464.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "northern-arizona-lumberjacks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2458",
+      "espnId": "2458",
+      "name": "Northern Colorado Bears",
+      "nickname": "Bears",
+      "location": "Northern Colorado",
+      "abbreviation": "UNCO",
+      "color": "#13558D",
+      "alternateColor": "#ffc533",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2458.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "northern-colorado-bears"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2459",
+      "espnId": "2459",
+      "name": "Northern Illinois Huskies",
+      "nickname": "Huskies",
+      "location": "Northern Illinois",
+      "abbreviation": "NIU",
+      "color": "#c8102e",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2459.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "northern-illinois-huskies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2460",
+      "espnId": "2460",
+      "name": "Northern Iowa Panthers",
+      "nickname": "Panthers",
+      "location": "Northern Iowa",
+      "abbreviation": "UNI",
+      "color": "#473282",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2460.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "northern-iowa-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-94",
+      "espnId": "94",
+      "name": "Northern Kentucky Norse",
+      "nickname": "Norse",
+      "location": "Northern Kentucky",
+      "abbreviation": "NKU",
+      "color": "#ffc82e",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/94.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "northern-kentucky-norse"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2454",
+      "espnId": "2454",
+      "name": "North Florida Ospreys",
+      "nickname": "Ospreys",
+      "location": "North Florida",
+      "abbreviation": "UNF",
+      "color": "#004B8D",
+      "alternateColor": "#babcbe",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2454.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "north-florida-ospreys"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-249",
+      "espnId": "249",
+      "name": "North Texas Mean Green",
+      "nickname": "Mean Green",
+      "location": "North Texas",
+      "abbreviation": "UNT",
+      "color": "#068f33",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/249.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "north-texas-mean-green"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2466",
+      "espnId": "2466",
+      "name": "Northwestern State Demons",
+      "nickname": "Demons",
+      "location": "Northwestern State",
+      "abbreviation": "NWST",
+      "color": "#492F91",
+      "alternateColor": "#ed6118",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2466.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "northwestern-state-demons"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-77",
+      "espnId": "77",
+      "name": "Northwestern Wildcats",
+      "nickname": "Wildcats",
+      "location": "Northwestern",
+      "abbreviation": "NU",
+      "color": "#492f92",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/77.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "northwestern-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-87",
+      "espnId": "87",
+      "name": "Notre Dame Fighting Irish",
+      "nickname": "Fighting Irish",
+      "location": "Notre Dame",
+      "abbreviation": "ND",
+      "color": "#062340",
+      "alternateColor": "#c99700",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/87.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "notre-dame-fighting-irish"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2473",
+      "espnId": "2473",
+      "name": "Oakland Golden Grizzlies",
+      "nickname": "Golden Grizzlies",
+      "location": "Oakland",
+      "abbreviation": "OAK",
+      "color": "#04091c",
+      "alternateColor": "#bc955c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2473.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "oakland-golden-grizzlies"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-195",
+      "espnId": "195",
+      "name": "Ohio Bobcats",
+      "nickname": "Bobcats",
+      "location": "Ohio",
+      "abbreviation": "OHIO",
+      "color": "#154734",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/195.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "ohio-bobcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-194",
+      "espnId": "194",
+      "name": "Ohio State Buckeyes",
+      "nickname": "Buckeyes",
+      "location": "Ohio State",
+      "abbreviation": "OSU",
+      "color": "#ba0c2f",
+      "alternateColor": "#a8adb4",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "ohio-state-buckeyes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-201",
+      "espnId": "201",
+      "name": "Oklahoma Sooners",
+      "nickname": "Sooners",
+      "location": "Oklahoma",
+      "abbreviation": "OU",
+      "color": "#990000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/201.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "oklahoma-sooners"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-197",
+      "espnId": "197",
+      "name": "Oklahoma State Cowboys",
+      "nickname": "Cowboys",
+      "location": "Oklahoma State",
+      "abbreviation": "OKST",
+      "color": "#fe5c00",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/197.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "oklahoma-state-cowboys"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-295",
+      "espnId": "295",
+      "name": "Old Dominion Monarchs",
+      "nickname": "Monarchs",
+      "location": "Old Dominion",
+      "abbreviation": "ODU",
+      "color": "#003768",
+      "alternateColor": "#a1d2f1",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/295.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "old-dominion-monarchs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-145",
+      "espnId": "145",
+      "name": "Ole Miss Rebels",
+      "nickname": "Rebels",
+      "location": "Ole Miss",
+      "abbreviation": "MISS",
+      "color": "#13294b",
+      "alternateColor": "#cf142b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/145.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "ole-miss-rebels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2437",
+      "espnId": "2437",
+      "name": "Omaha Mavericks",
+      "nickname": "Mavericks",
+      "location": "Omaha",
+      "abbreviation": "OMA",
+      "color": "#e3193e",
+      "alternateColor": "#474648",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2437.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "omaha-mavericks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-198",
+      "espnId": "198",
+      "name": "Oral Roberts Golden Eagles",
+      "nickname": "Golden Eagles",
+      "location": "Oral Roberts",
+      "abbreviation": "ORU",
+      "color": "#002462",
+      "alternateColor": "#dac792",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/198.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "oral-roberts-golden-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2483",
+      "espnId": "2483",
+      "name": "Oregon Ducks",
+      "nickname": "Ducks",
+      "location": "Oregon",
+      "abbreviation": "ORE",
+      "color": "#00934b",
+      "alternateColor": "#fff41b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2483.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "oregon-ducks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-204",
+      "espnId": "204",
+      "name": "Oregon State Beavers",
+      "nickname": "Beavers",
+      "location": "Oregon State",
+      "abbreviation": "ORST",
+      "color": "#dc4405",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/204.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "oregon-state-beavers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-279",
+      "espnId": "279",
+      "name": "Pacific Tigers",
+      "nickname": "Tigers",
+      "location": "Pacific",
+      "abbreviation": "PAC",
+      "color": "#F47820",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/279.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "pacific-tigers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-213",
+      "espnId": "213",
+      "name": "Penn State Nittany Lions",
+      "nickname": "Nittany Lions",
+      "location": "Penn State",
+      "abbreviation": "PSU",
+      "color": "#061440",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/213.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "penn-state-nittany-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-219",
+      "espnId": "219",
+      "name": "Pennsylvania Quakers",
+      "nickname": "Quakers",
+      "location": "Pennsylvania",
+      "abbreviation": "PENN",
+      "color": "#082A74",
+      "alternateColor": "#a6163d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/219.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "pennsylvania-quakers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2492",
+      "espnId": "2492",
+      "name": "Pepperdine Waves",
+      "nickname": "Waves",
+      "location": "Pepperdine",
+      "abbreviation": "PEPP",
+      "color": "#003A72",
+      "alternateColor": "#dc762f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2492.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "pepperdine-waves"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-221",
+      "espnId": "221",
+      "name": "Pittsburgh Panthers",
+      "nickname": "Panthers",
+      "location": "Pittsburgh",
+      "abbreviation": "PITT",
+      "color": "#003594",
+      "alternateColor": "#ffb81c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/221.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "pittsburgh-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2501",
+      "espnId": "2501",
+      "name": "Portland Pilots",
+      "nickname": "Pilots",
+      "location": "Portland",
+      "abbreviation": "PORT",
+      "color": "#330072",
+      "alternateColor": "#a8b3ba",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2501.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "portland-pilots"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2502",
+      "espnId": "2502",
+      "name": "Portland State Vikings",
+      "nickname": "Vikings",
+      "location": "Portland State",
+      "abbreviation": "PRST",
+      "color": "#00311e",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2502.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "portland-state-vikings"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2504",
+      "espnId": "2504",
+      "name": "Prairie View A&M Panthers",
+      "nickname": "Panthers",
+      "location": "Prairie View A&M",
+      "abbreviation": "PV",
+      "color": "#582c83",
+      "alternateColor": "#eaaa00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2504.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "prairie-view-am-panthers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2506",
+      "espnId": "2506",
+      "name": "Presbyterian Blue Hose",
+      "nickname": "Blue Hose",
+      "location": "Presbyterian",
+      "abbreviation": "PRES",
+      "color": "#194896",
+      "alternateColor": "#990134",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2506.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "presbyterian-blue-hose"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-163",
+      "espnId": "163",
+      "name": "Princeton Tigers",
+      "nickname": "Tigers",
+      "location": "Princeton",
+      "abbreviation": "PRIN",
+      "color": "#000000",
+      "alternateColor": "#ff6000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/163.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "princeton-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2507",
+      "espnId": "2507",
+      "name": "Providence Friars",
+      "nickname": "Friars",
+      "location": "Providence",
+      "abbreviation": "PROV",
+      "color": "#000000",
+      "alternateColor": "#a3a19e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2507.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "providence-friars"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2509",
+      "espnId": "2509",
+      "name": "Purdue Boilermakers",
+      "nickname": "Boilermakers",
+      "location": "Purdue",
+      "abbreviation": "PUR",
+      "color": "#ceb888",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2509.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "purdue-boilermakers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2870",
+      "espnId": "2870",
+      "name": "Purdue Fort Wayne Mastodons",
+      "nickname": "Mastodons",
+      "location": "Purdue Fort Wayne",
+      "abbreviation": "PFW",
+      "color": "#cfb991",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2870.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "purdue-fort-wayne-mastodons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2511",
+      "espnId": "2511",
+      "name": "Queens University Royals",
+      "nickname": "Royals",
+      "location": "Queens University",
+      "abbreviation": "QUC",
+      "color": "#192C66",
+      "alternateColor": "#857040",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2511.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "queens-university-royals"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2514",
+      "espnId": "2514",
+      "name": "Quinnipiac Bobcats",
+      "nickname": "Bobcats",
+      "location": "Quinnipiac",
+      "abbreviation": "QUIN",
+      "color": "#041B43",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2514.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "quinnipiac-bobcats"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2515",
+      "espnId": "2515",
+      "name": "Radford Highlanders",
+      "nickname": "Highlanders",
+      "location": "Radford",
+      "abbreviation": "RAD",
+      "color": "#BC1515",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2515.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "radford-highlanders"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-227",
+      "espnId": "227",
+      "name": "Rhode Island Rams",
+      "nickname": "Rams",
+      "location": "Rhode Island",
+      "abbreviation": "URI",
+      "color": "#091f3f",
+      "alternateColor": "#5ab3e8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/227.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "rhode-island-rams"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-242",
+      "espnId": "242",
+      "name": "Rice Owls",
+      "nickname": "Owls",
+      "location": "Rice",
+      "abbreviation": "RICE",
+      "color": "#00205b",
+      "alternateColor": "#c1c6c8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/242.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "rice-owls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-257",
+      "espnId": "257",
+      "name": "Richmond Spiders",
+      "nickname": "Spiders",
+      "location": "Richmond",
+      "abbreviation": "RICH",
+      "color": "#9e0712",
+      "alternateColor": "#b90b2e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/257.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "richmond-spiders"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2520",
+      "espnId": "2520",
+      "name": "Rider Broncs",
+      "nickname": "Broncs",
+      "location": "Rider",
+      "abbreviation": "RID",
+      "color": "#a80532",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2520.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "rider-broncs"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2523",
+      "espnId": "2523",
+      "name": "Robert Morris Colonials",
+      "nickname": "Colonials",
+      "location": "Robert Morris",
+      "abbreviation": "RMU",
+      "color": "#00214D",
+      "alternateColor": "#a21d2b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2523.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "robert-morris-colonials"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-164",
+      "espnId": "164",
+      "name": "Rutgers Scarlet Knights",
+      "nickname": "Scarlet Knights",
+      "location": "Rutgers",
+      "abbreviation": "RUTG",
+      "color": "#ce0e2d",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/164.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "rutgers-scarlet-knights"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-16",
+      "espnId": "16",
+      "name": "Sacramento State Hornets",
+      "nickname": "Hornets",
+      "location": "Sacramento State",
+      "abbreviation": "SAC",
+      "color": "#00573C",
+      "alternateColor": "#cdb97d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/16.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "sacramento-state-hornets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2529",
+      "espnId": "2529",
+      "name": "Sacred Heart Pioneers",
+      "nickname": "Pioneers",
+      "location": "Sacred Heart",
+      "abbreviation": "SHU",
+      "color": "#a40012",
+      "alternateColor": "#c29472",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2529.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "sacred-heart-pioneers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2603",
+      "espnId": "2603",
+      "name": "Saint Joseph's Hawks",
+      "nickname": "Hawks",
+      "location": "Saint Joseph's",
+      "abbreviation": "JOES",
+      "color": "#9e1b32",
+      "alternateColor": "#6c6f70",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2603.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "saint-josephs-hawks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-139",
+      "espnId": "139",
+      "name": "Saint Louis Billikens",
+      "nickname": "Billikens",
+      "location": "Saint Louis",
+      "abbreviation": "SLU",
+      "color": "#00539C",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/139.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "saint-louis-billikens"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2608",
+      "espnId": "2608",
+      "name": "Saint Mary's Gaels",
+      "nickname": "Gaels",
+      "location": "Saint Mary's",
+      "abbreviation": "SMC",
+      "color": "#d80024",
+      "alternateColor": "#003057",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2608.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "saint-marys-gaels"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2612",
+      "espnId": "2612",
+      "name": "Saint Peter's Peacocks",
+      "nickname": "Peacocks",
+      "location": "Saint Peter's",
+      "abbreviation": "SPU",
+      "color": "#004CC2",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2612.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "saint-peters-peacocks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2535",
+      "espnId": "2535",
+      "name": "Samford Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Samford",
+      "abbreviation": "SAM",
+      "color": "#005485",
+      "alternateColor": "#bc0023",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2535.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "samford-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2534",
+      "espnId": "2534",
+      "name": "Sam Houston Bearkats",
+      "nickname": "Bearkats",
+      "location": "Sam Houston",
+      "abbreviation": "SHSU",
+      "color": "#f56423",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2534.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "sam-houston-bearkats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-21",
+      "espnId": "21",
+      "name": "San Diego State Aztecs",
+      "nickname": "Aztecs",
+      "location": "San Diego State",
+      "abbreviation": "SDSU",
+      "color": "#a6192e",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/21.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "san-diego-state-aztecs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-301",
+      "espnId": "301",
+      "name": "San Diego Toreros",
+      "nickname": "Toreros",
+      "location": "San Diego",
+      "abbreviation": "USD",
+      "color": "#2f99d4",
+      "alternateColor": "#2f99d4",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/301.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "san-diego-toreros"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2539",
+      "espnId": "2539",
+      "name": "San Francisco Dons",
+      "nickname": "Dons",
+      "location": "San Francisco",
+      "abbreviation": "SF",
+      "color": "#005a36",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2539.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "san-francisco-dons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-23",
+      "espnId": "23",
+      "name": "San José State Spartans",
+      "nickname": "Spartans",
+      "location": "San José State",
+      "abbreviation": "SJSU",
+      "color": "#0038a8",
+      "alternateColor": "#ffb81a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/23.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "san-jose-state-spartans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2541",
+      "espnId": "2541",
+      "name": "Santa Clara Broncos",
+      "nickname": "Broncos",
+      "location": "Santa Clara",
+      "abbreviation": "SCU",
+      "color": "#690b0b",
+      "alternateColor": "#101010",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2541.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "santa-clara-broncos"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2547",
+      "espnId": "2547",
+      "name": "Seattle U Redhawks",
+      "nickname": "Redhawks",
+      "location": "Seattle U",
+      "abbreviation": "SEA",
+      "color": "#BF2E1A",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2547.png",
+      "conference": "WCC",
+      "hrefNeedles": [
+        "seattle-u-redhawks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2545",
+      "espnId": "2545",
+      "name": "SE Louisiana Lions",
+      "nickname": "Lions",
+      "location": "SE Louisiana",
+      "abbreviation": "SELA",
+      "color": "#215732",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2545.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "se-louisiana-lions"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2550",
+      "espnId": "2550",
+      "name": "Seton Hall Pirates",
+      "nickname": "Pirates",
+      "location": "Seton Hall",
+      "abbreviation": "HALL",
+      "color": "#0857B1",
+      "alternateColor": "#8a8d8f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2550.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "seton-hall-pirates"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2561",
+      "espnId": "2561",
+      "name": "Siena Saints",
+      "nickname": "Saints",
+      "location": "Siena",
+      "abbreviation": "SIE",
+      "color": "#037961",
+      "alternateColor": "#eea60f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2561.png",
+      "conference": "Metro",
+      "hrefNeedles": [
+        "siena-saints"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2565",
+      "espnId": "2565",
+      "name": "SIU Edwardsville Cougars",
+      "nickname": "Cougars",
+      "location": "SIU Edwardsville",
+      "abbreviation": "SIUE",
+      "color": "#eb1c23",
+      "alternateColor": "#080808",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2565.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "siu-edwardsville-cougars"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2567",
+      "espnId": "2567",
+      "name": "SMU Mustangs",
+      "nickname": "Mustangs",
+      "location": "SMU",
+      "abbreviation": "SMU",
+      "color": "#a80000",
+      "alternateColor": "#0033a1",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2567.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "smu-mustangs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-6",
+      "espnId": "6",
+      "name": "South Alabama Jaguars",
+      "nickname": "Jaguars",
+      "location": "South Alabama",
+      "abbreviation": "USA",
+      "color": "#00205b",
+      "alternateColor": "#bf0d3e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/6.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "south-alabama-jaguars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2579",
+      "espnId": "2579",
+      "name": "South Carolina Gamecocks",
+      "nickname": "Gamecocks",
+      "location": "South Carolina",
+      "abbreviation": "SC",
+      "color": "#73000a",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2579.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "south-carolina-gamecocks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2569",
+      "espnId": "2569",
+      "name": "South Carolina State Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "South Carolina State",
+      "abbreviation": "SCST",
+      "color": "#7d1315",
+      "alternateColor": "#104897",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2569.png",
+      "conference": "MEAC",
+      "hrefNeedles": [
+        "south-carolina-state-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2908",
+      "espnId": "2908",
+      "name": "South Carolina Upstate Spartans",
+      "nickname": "Spartans",
+      "location": "South Carolina Upstate",
+      "abbreviation": "UPST",
+      "color": "#008545",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2908.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "south-carolina-upstate-spartans"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-233",
+      "espnId": "233",
+      "name": "South Dakota Coyotes",
+      "nickname": "Coyotes",
+      "location": "South Dakota",
+      "abbreviation": "SDAK",
+      "color": "#CD1241",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/233.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "south-dakota-coyotes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2571",
+      "espnId": "2571",
+      "name": "South Dakota State Jackrabbits",
+      "nickname": "Jackrabbits",
+      "location": "South Dakota State",
+      "abbreviation": "SDST",
+      "color": "#0033a0",
+      "alternateColor": "#ffd100",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2571.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "south-dakota-state-jackrabbits"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2546",
+      "espnId": "2546",
+      "name": "Southeast Missouri State Redhawks",
+      "nickname": "Redhawks",
+      "location": "Southeast Missouri State",
+      "abbreviation": "SEMO",
+      "color": "#c8102e",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2546.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "southeast-missouri-state-redhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-79",
+      "espnId": "79",
+      "name": "Southern Illinois Salukis",
+      "nickname": "Salukis",
+      "location": "Southern Illinois",
+      "abbreviation": "SIU",
+      "color": "#85283D",
+      "alternateColor": "#c2c3c0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/79.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "southern-illinois-salukis"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-88",
+      "espnId": "88",
+      "name": "Southern Indiana Screaming Eagles",
+      "nickname": "Screaming Eagles",
+      "location": "Southern Indiana",
+      "abbreviation": "USI",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/88.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "southern-indiana-screaming-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2582",
+      "espnId": "2582",
+      "name": "Southern Jaguars",
+      "nickname": "Jaguars",
+      "location": "Southern",
+      "abbreviation": "SOU",
+      "color": "#004B97",
+      "alternateColor": "#ffc82d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2582.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "southern-jaguars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2572",
+      "espnId": "2572",
+      "name": "Southern Miss Golden Eagles",
+      "nickname": "Golden Eagles",
+      "location": "Southern Miss",
+      "abbreviation": "USM",
+      "color": "#ffc72c",
+      "alternateColor": "#231f20",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2572.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "southern-miss-golden-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-253",
+      "espnId": "253",
+      "name": "Southern Utah Thunderbirds",
+      "nickname": "Thunderbirds",
+      "location": "Southern Utah",
+      "abbreviation": "SUU",
+      "color": "#c72026",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/253.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "southern-utah-thunderbirds"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-58",
+      "espnId": "58",
+      "name": "South Florida Bulls",
+      "nickname": "Bulls",
+      "location": "South Florida",
+      "abbreviation": "USF",
+      "color": "#006747",
+      "alternateColor": "#cfc493",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/58.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "south-florida-bulls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-24",
+      "espnId": "24",
+      "name": "Stanford Cardinal",
+      "nickname": "Cardinal",
+      "location": "Stanford",
+      "abbreviation": "STAN",
+      "color": "#8c1515",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/24.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "stanford-cardinal"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-179",
+      "espnId": "179",
+      "name": "St. Bonaventure Bonnies",
+      "nickname": "Bonnies",
+      "location": "St. Bonaventure",
+      "abbreviation": "SBU",
+      "color": "#70261D",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/179.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "st-bonaventure-bonnies"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2617",
+      "espnId": "2617",
+      "name": "Stephen F. Austin Lumberjacks",
+      "nickname": "Lumberjacks",
+      "location": "Stephen F. Austin",
+      "abbreviation": "SFA",
+      "color": "#393996",
+      "alternateColor": "#bec0c2",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2617.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "stephen-f-austin-lumberjacks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-56",
+      "espnId": "56",
+      "name": "Stetson Hatters",
+      "nickname": "Hatters",
+      "location": "Stetson",
+      "abbreviation": "STET",
+      "color": "#0a5640",
+      "alternateColor": "#56854e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/56.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "stetson-hatters"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2599",
+      "espnId": "2599",
+      "name": "St. John's Red Storm",
+      "nickname": "Red Storm",
+      "location": "St. John's",
+      "abbreviation": "SJU",
+      "color": "#d10000",
+      "alternateColor": "#101010",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2599.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "st-johns-red-storm"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-284",
+      "espnId": "284",
+      "name": "Stonehill Skyhawks",
+      "nickname": "Skyhawks",
+      "location": "Stonehill",
+      "abbreviation": "STO",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/284.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "stonehill-skyhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2619",
+      "espnId": "2619",
+      "name": "Stony Brook Seawolves",
+      "nickname": "Seawolves",
+      "location": "Stony Brook",
+      "abbreviation": "STBK",
+      "color": "#990000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2619.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "stony-brook-seawolves"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2900",
+      "espnId": "2900",
+      "name": "St. Thomas Tommies",
+      "nickname": "Tommies",
+      "location": "St. Thomas",
+      "abbreviation": "STMN",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2900.png",
+      "conference": "Summit",
+      "hrefNeedles": [
+        "st-thomas-tommies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-183",
+      "espnId": "183",
+      "name": "Syracuse Orange",
+      "nickname": "Orange",
+      "location": "Syracuse",
+      "abbreviation": "SYR",
+      "color": "#000e54",
+      "alternateColor": "#ff431b",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/183.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "syracuse-orange"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2627",
+      "espnId": "2627",
+      "name": "Tarleton State Texans",
+      "nickname": "Texans",
+      "location": "Tarleton State",
+      "abbreviation": "TAR",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2627.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "tarleton-state-texans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2628",
+      "espnId": "2628",
+      "name": "TCU Horned Frogs",
+      "nickname": "Horned Frogs",
+      "location": "TCU",
+      "abbreviation": "TCU",
+      "color": "#4d1979",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2628.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "tcu-horned-frogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-218",
+      "espnId": "218",
+      "name": "Temple Owls",
+      "nickname": "Owls",
+      "location": "Temple",
+      "abbreviation": "TEM",
+      "color": "#a41e35",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/218.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "temple-owls"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2634",
+      "espnId": "2634",
+      "name": "Tennessee State Tigers",
+      "nickname": "Tigers",
+      "location": "Tennessee State",
+      "abbreviation": "TNST",
+      "color": "#171796",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2634.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "tennessee-state-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2635",
+      "espnId": "2635",
+      "name": "Tennessee Tech Golden Eagles",
+      "nickname": "Golden Eagles",
+      "location": "Tennessee Tech",
+      "abbreviation": "TNTC",
+      "color": "#5A4099",
+      "alternateColor": "#ffde00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2635.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "tennessee-tech-golden-eagles"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2633",
+      "espnId": "2633",
+      "name": "Tennessee Volunteers",
+      "nickname": "Volunteers",
+      "location": "Tennessee",
+      "abbreviation": "TENN",
+      "color": "#ff8200",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2633.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "tennessee-volunteers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-245",
+      "espnId": "245",
+      "name": "Texas A&M Aggies",
+      "nickname": "Aggies",
+      "location": "Texas A&M",
+      "abbreviation": "TA&M",
+      "color": "#500000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/245.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "texas-am-aggies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-357",
+      "espnId": "357",
+      "name": "Texas A&M-Corpus Christi Islanders",
+      "nickname": "Islanders",
+      "location": "Texas A&M-Corpus Christi",
+      "abbreviation": "AMCC",
+      "color": "#0067c5",
+      "alternateColor": "#007f3e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/357.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "texas-am-corpus-christi-islanders"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-251",
+      "espnId": "251",
+      "name": "Texas Longhorns",
+      "nickname": "Longhorns",
+      "location": "Texas",
+      "abbreviation": "TEX",
+      "color": "#af5c37",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/251.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "texas-longhorns"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2640",
+      "espnId": "2640",
+      "name": "Texas Southern Tigers",
+      "nickname": "Tigers",
+      "location": "Texas Southern",
+      "abbreviation": "TXSO",
+      "color": "#860038",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2640.png",
+      "conference": "SWAC",
+      "hrefNeedles": [
+        "texas-southern-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-326",
+      "espnId": "326",
+      "name": "Texas State Bobcats",
+      "nickname": "Bobcats",
+      "location": "Texas State",
+      "abbreviation": "TXST",
+      "color": "#501214",
+      "alternateColor": "#6a5638",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/326.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "texas-state-bobcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2641",
+      "espnId": "2641",
+      "name": "Texas Tech Red Raiders",
+      "nickname": "Red Raiders",
+      "location": "Texas Tech",
+      "abbreviation": "TTU",
+      "color": "#da291c",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2641.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "texas-tech-red-raiders"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2643",
+      "espnId": "2643",
+      "name": "The Citadel Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "The Citadel",
+      "abbreviation": "CIT",
+      "color": "#7badd3",
+      "alternateColor": "#002856",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2643.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "the-citadel-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2649",
+      "espnId": "2649",
+      "name": "Toledo Rockets",
+      "nickname": "Rockets",
+      "location": "Toledo",
+      "abbreviation": "TOL",
+      "color": "#0b2240",
+      "alternateColor": "#ffcd00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2649.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "toledo-rockets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-119",
+      "espnId": "119",
+      "name": "Towson Tigers",
+      "nickname": "Tigers",
+      "location": "Towson",
+      "abbreviation": "TOW",
+      "color": "#FFC229",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/119.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "towson-tigers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2653",
+      "espnId": "2653",
+      "name": "Troy Trojans",
+      "nickname": "Trojans",
+      "location": "Troy",
+      "abbreviation": "TROY",
+      "color": "#862633",
+      "alternateColor": "#b1b1b1",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2653.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "troy-trojans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2655",
+      "espnId": "2655",
+      "name": "Tulane Green Wave",
+      "nickname": "Green Wave",
+      "location": "Tulane",
+      "abbreviation": "TULN",
+      "color": "#006747",
+      "alternateColor": "#418fde",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2655.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "tulane-green-wave"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-202",
+      "espnId": "202",
+      "name": "Tulsa Golden Hurricane",
+      "nickname": "Golden Hurricane",
+      "location": "Tulsa",
+      "abbreviation": "TLSA",
+      "color": "#003595",
+      "alternateColor": "#d0b787",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/202.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "tulsa-golden-hurricane"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-5",
+      "espnId": "5",
+      "name": "UAB Blazers",
+      "nickname": "Blazers",
+      "location": "UAB",
+      "abbreviation": "UAB",
+      "color": "#1a5632",
+      "alternateColor": "#fdb913",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/5.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "uab-blazers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-399",
+      "espnId": "399",
+      "name": "UAlbany Great Danes",
+      "nickname": "Great Danes",
+      "location": "UAlbany",
+      "abbreviation": "UALB",
+      "color": "#3D2777",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/399.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "ualbany-great-danes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-302",
+      "espnId": "302",
+      "name": "UC Davis Aggies",
+      "nickname": "Aggies",
+      "location": "UC Davis",
+      "abbreviation": "UCD",
+      "color": "#002855",
+      "alternateColor": "#c3c4c6",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/302.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "uc-davis-aggies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2116",
+      "espnId": "2116",
+      "name": "UCF Knights",
+      "nickname": "Knights",
+      "location": "UCF",
+      "abbreviation": "UCF",
+      "color": "#000000",
+      "alternateColor": "#b4a169",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2116.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "ucf-knights"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-300",
+      "espnId": "300",
+      "name": "UC Irvine Anteaters",
+      "nickname": "Anteaters",
+      "location": "UC Irvine",
+      "abbreviation": "UCI",
+      "color": "#002B5C",
+      "alternateColor": "#fec52e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/300.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "uc-irvine-anteaters"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-26",
+      "espnId": "26",
+      "name": "UCLA Bruins",
+      "nickname": "Bruins",
+      "location": "UCLA",
+      "abbreviation": "UCLA",
+      "color": "#2774ae",
+      "alternateColor": "#f2a900",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/26.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "ucla-bruins"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-41",
+      "espnId": "41",
+      "name": "UConn Huskies",
+      "nickname": "Huskies",
+      "location": "UConn",
+      "abbreviation": "CONN",
+      "color": "#0c2340",
+      "alternateColor": "#a2aaad",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/41.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "uconn-huskies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-27",
+      "espnId": "27",
+      "name": "UC Riverside Highlanders",
+      "nickname": "Highlanders",
+      "location": "UC Riverside",
+      "abbreviation": "UCR",
+      "color": "#14234F",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/27.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "uc-riverside-highlanders"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-28",
+      "espnId": "28",
+      "name": "UC San Diego Tritons",
+      "nickname": "Tritons",
+      "location": "UC San Diego",
+      "abbreviation": "UCSD",
+      "color": "#000000",
+      "alternateColor": "#ffcd00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/28.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "uc-san-diego-tritons"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2540",
+      "espnId": "2540",
+      "name": "UC Santa Barbara Gauchos",
+      "nickname": "Gauchos",
+      "location": "UC Santa Barbara",
+      "abbreviation": "UCSB",
+      "color": "#1e1840",
+      "alternateColor": "#febc11",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2540.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "uc-santa-barbara-gauchos"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-82",
+      "espnId": "82",
+      "name": "UIC Flames",
+      "nickname": "Flames",
+      "location": "UIC",
+      "abbreviation": "UIC",
+      "color": "#001e62",
+      "alternateColor": "#d50032",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/82.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "uic-flames"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2433",
+      "espnId": "2433",
+      "name": "UL Monroe Warhawks",
+      "nickname": "Warhawks",
+      "location": "UL Monroe",
+      "abbreviation": "ULM",
+      "color": "#840029",
+      "alternateColor": "#fdb913",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2433.png",
+      "conference": "Sun Belt",
+      "hrefNeedles": [
+        "ul-monroe-warhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2349",
+      "espnId": "2349",
+      "name": "UMass Lowell River Hawks",
+      "nickname": "River Hawks",
+      "location": "UMass Lowell",
+      "abbreviation": "UML",
+      "color": "#00529C",
+      "alternateColor": "#cf1f2f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2349.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "umass-lowell-river-hawks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2378",
+      "espnId": "2378",
+      "name": "UMBC Retrievers",
+      "nickname": "Retrievers",
+      "location": "UMBC",
+      "abbreviation": "UMBC",
+      "color": "#000000",
+      "alternateColor": "#ad860a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2378.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "umbc-retrievers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2427",
+      "espnId": "2427",
+      "name": "UNC Asheville Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "UNC Asheville",
+      "abbreviation": "UNCA",
+      "color": "#003da5",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2427.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "unc-asheville-bulldogs"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2430",
+      "espnId": "2430",
+      "name": "UNC Greensboro Spartans",
+      "nickname": "Spartans",
+      "location": "UNC Greensboro",
+      "abbreviation": "UNCG",
+      "color": "#003559",
+      "alternateColor": "#ffd90a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2430.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "unc-greensboro-spartans"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-350",
+      "espnId": "350",
+      "name": "UNC Wilmington Seahawks",
+      "nickname": "Seahawks",
+      "location": "UNC Wilmington",
+      "abbreviation": "UNCW",
+      "color": "#00665e",
+      "alternateColor": "#ffda00",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/350.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "unc-wilmington-seahawks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2439",
+      "espnId": "2439",
+      "name": "UNLV Rebels",
+      "nickname": "Rebels",
+      "location": "UNLV",
+      "abbreviation": "UNLV",
+      "color": "#cf0a2c",
+      "alternateColor": "#cac8c8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2439.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "unlv-rebels"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-30",
+      "espnId": "30",
+      "name": "USC Trojans",
+      "nickname": "Trojans",
+      "location": "USC",
+      "abbreviation": "USC",
+      "color": "#9d2235",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/30.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "usc-trojans"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-328",
+      "espnId": "328",
+      "name": "Utah State Aggies",
+      "nickname": "Aggies",
+      "location": "Utah State",
+      "abbreviation": "USU",
+      "color": "#0f2439",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/328.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "utah-state-aggies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-3101",
+      "espnId": "3101",
+      "name": "Utah Tech Trailblazers",
+      "nickname": "Trailblazers",
+      "location": "Utah Tech",
+      "abbreviation": "UTU",
+      "color": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/3101.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "utah-tech-trailblazers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-254",
+      "espnId": "254",
+      "name": "Utah Utes",
+      "nickname": "Utes",
+      "location": "Utah",
+      "abbreviation": "UTAH",
+      "color": "#be0000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/254.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "utah-utes"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-3084",
+      "espnId": "3084",
+      "name": "Utah Valley Wolverines",
+      "nickname": "Wolverines",
+      "location": "Utah Valley",
+      "abbreviation": "UVU",
+      "color": "#004812",
+      "alternateColor": "#e1c736",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/3084.png",
+      "conference": "Big West",
+      "hrefNeedles": [
+        "utah-valley-wolverines"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-250",
+      "espnId": "250",
+      "name": "UT Arlington Mavericks",
+      "nickname": "Mavericks",
+      "location": "UT Arlington",
+      "abbreviation": "UTA",
+      "color": "#004b7c",
+      "alternateColor": "#f58024",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/250.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "ut-arlington-mavericks"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2638",
+      "espnId": "2638",
+      "name": "UTEP Miners",
+      "nickname": "Miners",
+      "location": "UTEP",
+      "abbreviation": "UTEP",
+      "color": "#ff8200",
+      "alternateColor": "#041e42",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2638.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "utep-miners"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2630",
+      "espnId": "2630",
+      "name": "UT Martin Skyhawks",
+      "nickname": "Skyhawks",
+      "location": "UT Martin",
+      "abbreviation": "UTM",
+      "color": "#FF6700",
+      "alternateColor": "#102a5c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2630.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "ut-martin-skyhawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-292",
+      "espnId": "292",
+      "name": "UT Rio Grande Valley Vaqueros",
+      "nickname": "Vaqueros",
+      "location": "UT Rio Grande Valley",
+      "abbreviation": "RGV",
+      "color": "#dc6000",
+      "alternateColor": "#e1732d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/292.png",
+      "conference": "Southland",
+      "hrefNeedles": [
+        "ut-rio-grande-valley-vaqueros"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2636",
+      "espnId": "2636",
+      "name": "UTSA Roadrunners",
+      "nickname": "Roadrunners",
+      "location": "UTSA",
+      "abbreviation": "UTSA",
+      "color": "#0c2340",
+      "alternateColor": "#f15a22",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2636.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "utsa-roadrunners"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2674",
+      "espnId": "2674",
+      "name": "Valparaiso Beacons",
+      "nickname": "Beacons",
+      "location": "Valparaiso",
+      "abbreviation": "VAL",
+      "color": "#794500",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2674.png",
+      "conference": "MVC",
+      "hrefNeedles": [
+        "valparaiso-beacons"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-238",
+      "espnId": "238",
+      "name": "Vanderbilt Commodores",
+      "nickname": "Commodores",
+      "location": "Vanderbilt",
+      "abbreviation": "VAN",
+      "color": "#000000",
+      "alternateColor": "#cfae70",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/238.png",
+      "conference": "SEC",
+      "hrefNeedles": [
+        "vanderbilt-commodores"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2670",
+      "espnId": "2670",
+      "name": "VCU Rams",
+      "nickname": "Rams",
+      "location": "VCU",
+      "abbreviation": "VCU",
+      "color": "#ffaf00",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2670.png",
+      "conference": "A-10",
+      "hrefNeedles": [
+        "vcu-rams"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-261",
+      "espnId": "261",
+      "name": "Vermont Catamounts",
+      "nickname": "Catamounts",
+      "location": "Vermont",
+      "abbreviation": "UVM",
+      "color": "#154734",
+      "alternateColor": "#ffc72c",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/261.png",
+      "conference": "Am. East",
+      "hrefNeedles": [
+        "vermont-catamounts"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-222",
+      "espnId": "222",
+      "name": "Villanova Wildcats",
+      "nickname": "Wildcats",
+      "location": "Villanova",
+      "abbreviation": "VILL",
+      "color": "#00205b",
+      "alternateColor": "#13b5ea",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/222.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "villanova-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-258",
+      "espnId": "258",
+      "name": "Virginia Cavaliers",
+      "nickname": "Cavaliers",
+      "location": "Virginia",
+      "abbreviation": "UVA",
+      "color": "#232d4b",
+      "alternateColor": "#f84c1e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/258.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "virginia-cavaliers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-259",
+      "espnId": "259",
+      "name": "Virginia Tech Hokies",
+      "nickname": "Hokies",
+      "location": "Virginia Tech",
+      "abbreviation": "VT",
+      "color": "#6a2c3e",
+      "alternateColor": "#cf4520",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/259.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "virginia-tech-hokies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2678",
+      "espnId": "2678",
+      "name": "VMI Keydets",
+      "nickname": "Keydets",
+      "location": "VMI",
+      "abbreviation": "VMI",
+      "color": "#ae122a",
+      "alternateColor": "#000000",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2678.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "vmi-keydets"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2681",
+      "espnId": "2681",
+      "name": "Wagner Seahawks",
+      "nickname": "Seahawks",
+      "location": "Wagner",
+      "abbreviation": "WAG",
+      "color": "#00483A",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2681.png",
+      "conference": "NEC",
+      "hrefNeedles": [
+        "wagner-seahawks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-154",
+      "espnId": "154",
+      "name": "Wake Forest Demon Deacons",
+      "nickname": "Demon Deacons",
+      "location": "Wake Forest",
+      "abbreviation": "WAKE",
+      "color": "#ceb888",
+      "alternateColor": "#2c2a29",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/154.png",
+      "conference": "ACC",
+      "hrefNeedles": [
+        "wake-forest-demon-deacons"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-264",
+      "espnId": "264",
+      "name": "Washington Huskies",
+      "nickname": "Huskies",
+      "location": "Washington",
+      "abbreviation": "WASH",
+      "color": "#33006f",
+      "alternateColor": "#e8d3a2",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/264.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "washington-huskies"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-265",
+      "espnId": "265",
+      "name": "Washington State Cougars",
+      "nickname": "Cougars",
+      "location": "Washington State",
+      "abbreviation": "WSU",
+      "color": "#a60f2d",
+      "alternateColor": "#4d4d4d",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/265.png",
+      "conference": "Pac-12",
+      "hrefNeedles": [
+        "washington-state-cougars"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2692",
+      "espnId": "2692",
+      "name": "Weber State Wildcats",
+      "nickname": "Wildcats",
+      "location": "Weber State",
+      "abbreviation": "WEB",
+      "color": "#18005a",
+      "alternateColor": "#ebebeb",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2692.png",
+      "conference": "Big Sky",
+      "hrefNeedles": [
+        "weber-state-wildcats"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2717",
+      "espnId": "2717",
+      "name": "Western Carolina Catamounts",
+      "nickname": "Catamounts",
+      "location": "Western Carolina",
+      "abbreviation": "WCU",
+      "color": "#492F91",
+      "alternateColor": "#bf9e70",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2717.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "western-carolina-catamounts"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2710",
+      "espnId": "2710",
+      "name": "Western Illinois Leathernecks",
+      "nickname": "Leathernecks",
+      "location": "Western Illinois",
+      "abbreviation": "WIU",
+      "color": "#4e1e8a",
+      "alternateColor": "#ffc90a",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2710.png",
+      "conference": "OVC",
+      "hrefNeedles": [
+        "western-illinois-leathernecks"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-98",
+      "espnId": "98",
+      "name": "Western Kentucky Hilltoppers",
+      "nickname": "Hilltoppers",
+      "location": "Western Kentucky",
+      "abbreviation": "WKU",
+      "color": "#e13a3e",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/98.png",
+      "conference": "CUSA",
+      "hrefNeedles": [
+        "western-kentucky-hilltoppers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2711",
+      "espnId": "2711",
+      "name": "Western Michigan Broncos",
+      "nickname": "Broncos",
+      "location": "Western Michigan",
+      "abbreviation": "WMU",
+      "color": "#532e1f",
+      "alternateColor": "#f1c500",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2711.png",
+      "conference": "MAC",
+      "hrefNeedles": [
+        "western-michigan-broncos"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-110242",
+      "espnId": "110242",
+      "name": "West Florida Argonauts",
+      "nickname": "Argonauts",
+      "location": "West Florida",
+      "abbreviation": "UWF",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/110242.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "west-florida-argonauts"
+      ],
+      "sports": [
+        "football"
+      ]
+    },
+    {
+      "key": "ncaa-2697",
+      "espnId": "2697",
+      "name": "West Florida Argonauts",
+      "nickname": "Argonauts",
+      "location": "West Florida",
+      "abbreviation": "UWF",
+      "color": "#087dc2",
+      "alternateColor": "#03b186",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2697.png",
+      "conference": "Atlantic Sun",
+      "hrefNeedles": [
+        "west-florida-argonauts"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2698",
+      "espnId": "2698",
+      "name": "West Georgia Wolves",
+      "nickname": "Wolves",
+      "location": "West Georgia",
+      "abbreviation": "WGA",
+      "color": "#0033a1",
+      "alternateColor": "#db1a21",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2698.png",
+      "conference": "UAC",
+      "hrefNeedles": [
+        "west-georgia-wolves"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-277",
+      "espnId": "277",
+      "name": "West Virginia Mountaineers",
+      "nickname": "Mountaineers",
+      "location": "West Virginia",
+      "abbreviation": "WVU",
+      "color": "#eaaa00",
+      "alternateColor": "#002855",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/277.png",
+      "conference": "Big 12",
+      "hrefNeedles": [
+        "west-virginia-mountaineers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2724",
+      "espnId": "2724",
+      "name": "Wichita State Shockers",
+      "nickname": "Shockers",
+      "location": "Wichita State",
+      "abbreviation": "WICH",
+      "color": "#ffcd00",
+      "alternateColor": "#27251f",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2724.png",
+      "conference": "American",
+      "hrefNeedles": [
+        "wichita-state-shockers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2729",
+      "espnId": "2729",
+      "name": "William & Mary Tribe",
+      "nickname": "Tribe",
+      "location": "William & Mary",
+      "abbreviation": "W&M",
+      "color": "#115740",
+      "alternateColor": "#f0b323",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2729.png",
+      "conference": "CAA",
+      "hrefNeedles": [
+        "william-mary-tribe"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2737",
+      "espnId": "2737",
+      "name": "Winthrop Eagles",
+      "nickname": "Eagles",
+      "location": "Winthrop",
+      "abbreviation": "WIN",
+      "color": "#9e0b0e",
+      "alternateColor": "#fdb41e",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2737.png",
+      "conference": "Big South",
+      "hrefNeedles": [
+        "winthrop-eagles"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-275",
+      "espnId": "275",
+      "name": "Wisconsin Badgers",
+      "nickname": "Badgers",
+      "location": "Wisconsin",
+      "abbreviation": "WIS",
+      "color": "#a00000",
+      "alternateColor": "#ffffff",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/275.png",
+      "conference": "Big Ten",
+      "hrefNeedles": [
+        "wisconsin-badgers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2747",
+      "espnId": "2747",
+      "name": "Wofford Terriers",
+      "nickname": "Terriers",
+      "location": "Wofford",
+      "abbreviation": "WOF",
+      "color": "#533B23",
+      "alternateColor": "#f0f0f0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2747.png",
+      "conference": "SoCon",
+      "hrefNeedles": [
+        "wofford-terriers"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2750",
+      "espnId": "2750",
+      "name": "Wright State Raiders",
+      "nickname": "Raiders",
+      "location": "Wright State",
+      "abbreviation": "WRST",
+      "color": "#cba052",
+      "alternateColor": "#cba052",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2750.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "wright-state-raiders"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2751",
+      "espnId": "2751",
+      "name": "Wyoming Cowboys",
+      "nickname": "Cowboys",
+      "location": "Wyoming",
+      "abbreviation": "WYO",
+      "color": "#492f24",
+      "alternateColor": "#ffc425",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2751.png",
+      "conference": "Mountain West",
+      "hrefNeedles": [
+        "wyoming-cowboys"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2752",
+      "espnId": "2752",
+      "name": "Xavier Musketeers",
+      "nickname": "Musketeers",
+      "location": "Xavier",
+      "abbreviation": "XAV",
+      "color": "#21304e",
+      "alternateColor": "#a5a7a8",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2752.png",
+      "conference": "Big East",
+      "hrefNeedles": [
+        "xavier-musketeers"
+      ],
+      "sports": [
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-43",
+      "espnId": "43",
+      "name": "Yale Bulldogs",
+      "nickname": "Bulldogs",
+      "location": "Yale",
+      "abbreviation": "YALE",
+      "color": "#004a81",
+      "alternateColor": "#286dc0",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/43.png",
+      "conference": "Ivy",
+      "hrefNeedles": [
+        "yale-bulldogs"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    },
+    {
+      "key": "ncaa-2754",
+      "espnId": "2754",
+      "name": "Youngstown State Penguins",
+      "nickname": "Penguins",
+      "location": "Youngstown State",
+      "abbreviation": "YSU",
+      "color": "#E51936",
+      "alternateColor": "#690717",
+      "logo": "https://a.espncdn.com/i/teamlogos/ncaa/500/2754.png",
+      "conference": "Horizon",
+      "hrefNeedles": [
+        "youngstown-state-penguins"
+      ],
+      "sports": [
+        "football",
+        "mens-basketball",
+        "womens-basketball"
+      ]
+    }
+  ]
+}

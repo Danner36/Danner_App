@@ -1,0 +1,102 @@
+{
+  "generatedAt": "2026-11-08T18:10:18.452Z",
+  "leagues": [
+    {
+      "key": "mlb",
+      "label": "MLB",
+      "kind": "pro",
+      "pickable": false,
+      "schedule": {
+        "provider": "mlb-statsapi",
+        "sportId": 1
+      },
+      "espn": {
+        "corePath": "baseball/leagues/mlb",
+        "sitePath": "baseball/mlb"
+      }
+    },
+    {
+      "key": "nfl",
+      "label": "NFL",
+      "kind": "pro",
+      "pickable": false,
+      "officialDateZone": "America/New_York",
+      "schedule": {
+        "corePath": "football/leagues/nfl",
+        "provider": "espn",
+        "seasonTypes": [
+          1,
+          2,
+          3
+        ],
+        "seasonYear": {
+          "shiftBackThroughMonth": 2
+        },
+        "sitePath": "football/nfl"
+      }
+    },
+    {
+      "key": "ncaa",
+      "kind": "school",
+      "label": "College",
+      "officialDateZone": "America/New_York",
+      "sports": [
+        {
+          "key": "football",
+          "label": "NCAA football",
+          "pickable": false,
+          "schedule": {
+            "corePath": "football/leagues/college-football",
+            "provider": "espn",
+            "seasonTypes": [
+              1,
+              2,
+              3
+            ],
+            "seasonYear": {
+              "shiftBackThroughMonth": 1
+            },
+            "sitePath": "football/college-football"
+          }
+        },
+        {
+          "key": "mens-basketball",
+          "label": "NCAA men's basketball",
+          "pickable": false,
+          "schedule": {
+            "corePath": "basketball/leagues/mens-college-basketball",
+            "provider": "espn",
+            "seasonTypes": [
+              1,
+              2,
+              3
+            ],
+            "seasonYear": {
+              "shiftForwardFromMonth": 7
+            },
+            "sitePath": "basketball/mens-college-basketball"
+          }
+        },
+        {
+          "key": "womens-basketball",
+          "label": "NCAA women's basketball",
+          "pickable": false,
+          "schedule": {
+            "corePath": "basketball/leagues/womens-college-basketball",
+            "provider": "espn",
+            "seasonTypes": [
+              1,
+              2,
+              3
+            ],
+            "seasonYear": {
+              "shiftForwardFromMonth": 7
+            },
+            "sitePath": "basketball/womens-college-basketball"
+          }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 1
+}

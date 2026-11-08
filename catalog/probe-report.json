@@ -1,0 +1,530 @@
+{
+  "adapters": {
+    "mlb": {
+      "boardPaths": null,
+      "checkedAt": "2026-11-08T18:10:05.580Z",
+      "checks": [
+        {
+          "latencyMs": 370,
+          "name": "teams",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/teams?limit=1000",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 41,
+          "name": "scoreboard",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/scoreboard?limit=300",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 47,
+          "name": "schedule-2026-1",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/teams/5/schedule?season=2026&seasontype=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 137,
+          "name": "schedule-2026-2",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/teams/5/schedule?season=2026&seasontype=2",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 78,
+          "name": "schedule-2026-3",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/teams/5/schedule?season=2026&seasontype=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 69,
+          "name": "summary",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/baseball/mlb/summary?event=401908028",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 125,
+          "name": "predictor",
+          "networkError": null,
+          "path": "/v2/sports/baseball/leagues/mlb/events/401908028/competitions/401908028/predictor",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 17,
+          "name": "probabilities",
+          "networkError": null,
+          "path": "/v2/sports/baseball/leagues/mlb/events/401908028/competitions/401908028/probabilities?limit=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 96,
+          "name": "statsapi-teams",
+          "networkError": null,
+          "path": "/api/v1/teams?sportId=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 201,
+          "name": "statsapi-schedule",
+          "networkError": null,
+          "path": "/api/v1/schedule?sportId=1&teamId=114&season=2026&gameType=R",
+          "shapeErrors": [],
+          "status": 200
+        }
+      ],
+      "networkErrors": [],
+      "passed": true,
+      "season": 2026,
+      "shapeErrors": []
+    },
+    "nfl": {
+      "boardPaths": null,
+      "checkedAt": "2026-11-08T18:10:07.243Z",
+      "checks": [
+        {
+          "latencyMs": 24,
+          "name": "teams",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/teams?limit=1000",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 48,
+          "name": "scoreboard",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/scoreboard?limit=300",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 64,
+          "name": "schedule-2026-1",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/teams/17/schedule?season=2026&seasontype=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 83,
+          "name": "schedule-2026-2",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/teams/17/schedule?season=2026&seasontype=2",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 32,
+          "name": "schedule-2026-3",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/teams/17/schedule?season=2026&seasontype=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 35,
+          "name": "summary",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/nfl/summary?event=401873034",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 19,
+          "name": "predictor",
+          "networkError": null,
+          "path": "/v2/sports/football/leagues/nfl/events/401873034/competitions/401873034/predictor",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 19,
+          "name": "probabilities",
+          "networkError": null,
+          "path": "/v2/sports/football/leagues/nfl/events/401873034/competitions/401873034/probabilities?limit=1",
+          "shapeErrors": [],
+          "status": 200
+        }
+      ],
+      "networkErrors": [],
+      "passed": true,
+      "season": 2026,
+      "shapeErrors": []
+    },
+    "ncaa/football": {
+      "boardPaths": null,
+      "checkedAt": "2026-11-08T18:10:07.579Z",
+      "checks": [
+        {
+          "latencyMs": 23,
+          "name": "teams",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/teams?limit=1000",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 48,
+          "name": "standings-80",
+          "networkError": null,
+          "path": "/apis/v2/sports/football/college-football/standings?group=80&level=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 69,
+          "name": "standings-81",
+          "networkError": null,
+          "path": "/apis/v2/sports/football/college-football/standings?group=81&level=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 23,
+          "name": "scoreboard",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/scoreboard?limit=300&groups=80",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 35,
+          "name": "schedule-2026-1",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/teams/66/schedule?season=2026&seasontype=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 34,
+          "name": "schedule-2026-2",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/teams/66/schedule?season=2026&seasontype=2",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 31,
+          "name": "schedule-2026-3",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/teams/66/schedule?season=2026&seasontype=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 39,
+          "name": "summary",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/football/college-football/summary?event=401856853",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 14,
+          "name": "predictor",
+          "networkError": null,
+          "path": "/v2/sports/football/leagues/college-football/events/401856853/competitions/401856853/predictor",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 26,
+          "name": "probabilities",
+          "networkError": null,
+          "path": "/v2/sports/football/leagues/college-football/events/401856853/competitions/401856853/probabilities?limit=1",
+          "shapeErrors": [],
+          "status": 200
+        }
+      ],
+      "networkErrors": [],
+      "passed": true,
+      "season": 2026,
+      "shapeErrors": []
+    },
+    "ncaa/mens-basketball": {
+      "boardPaths": {
+        "header.competitions[0].status.displayClock": false,
+        "header.competitions[0].status.period": false,
+        "header.competitions[0].status.type.name": true,
+        "header.competitions[0].competitors[+].score": true,
+        "header.competitions[0].timeoutsAvailable": true,
+        "header.competitions[0].possessionArrowAvailable": true,
+        "header.competitions[0].competitors[+].possession": true,
+        "header.competitions[0].competitors[+].fouls": false,
+        "header.competitions[0].competitors[+].timeoutsRemaining": false,
+        "format.regulation.periods": true,
+        "boxscore.players[+].team.id": true,
+        "boxscore.players[+].statistics[0].keys": true,
+        "boxscore.players[+].statistics[0].athletes[+].starter": true,
+        "boxscore.players[+].statistics[0].athletes[+].active": true,
+        "boxscore.players[+].statistics[0].athletes[+].stats": true,
+        "boxscore.players[+].statistics[0].athletes[+].athlete.id": true,
+        "boxscore.players[+].statistics[0].athletes[+].athlete.jersey": true,
+        "plays[+].type.id": true,
+        "plays[+].type.text": true,
+        "plays[+].period.number": true,
+        "plays[+].clock.displayValue": true,
+        "plays[+].wallclock": true,
+        "timeouts": false,
+        "situation": false
+      },
+      "checkedAt": "2026-11-08T18:10:07.987Z",
+      "checks": [
+        {
+          "latencyMs": 25,
+          "name": "teams",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/teams?limit=1000",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 72,
+          "name": "standings-50",
+          "networkError": null,
+          "path": "/apis/v2/sports/basketball/mens-college-basketball/standings?group=50&level=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 48,
+          "name": "scoreboard",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard?limit=300&groups=50",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 80,
+          "name": "schedule-2027-1",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/teams/66/schedule?season=2027&seasontype=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 187,
+          "name": "schedule-2027-2",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/teams/66/schedule?season=2027&seasontype=2",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 44,
+          "name": "schedule-2027-3",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/teams/66/schedule?season=2027&seasontype=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 46,
+          "name": "summary",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/mens-college-basketball/summary?event=401909772",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 10,
+          "name": "predictor",
+          "networkError": null,
+          "path": "/v2/sports/basketball/leagues/mens-college-basketball/events/401909772/competitions/401909772/predictor",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 20,
+          "name": "probabilities",
+          "networkError": null,
+          "path": "/v2/sports/basketball/leagues/mens-college-basketball/events/401909772/competitions/401909772/probabilities?limit=1",
+          "shapeErrors": [],
+          "status": 200
+        }
+      ],
+      "networkErrors": [],
+      "passed": true,
+      "season": 2027,
+      "shapeErrors": []
+    },
+    "ncaa/womens-basketball": {
+      "boardPaths": {
+        "header.competitions[0].status.displayClock": false,
+        "header.competitions[0].status.period": false,
+        "header.competitions[0].status.type.name": true,
+        "header.competitions[0].competitors[+].score": true,
+        "header.competitions[0].timeoutsAvailable": true,
+        "header.competitions[0].possessionArrowAvailable": true,
+        "header.competitions[0].competitors[+].possession": true,
+        "header.competitions[0].competitors[+].fouls": false,
+        "header.competitions[0].competitors[+].timeoutsRemaining": false,
+        "format.regulation.periods": true,
+        "boxscore.players[+].team.id": true,
+        "boxscore.players[+].statistics[0].keys": true,
+        "boxscore.players[+].statistics[0].athletes[+].starter": true,
+        "boxscore.players[+].statistics[0].athletes[+].active": true,
+        "boxscore.players[+].statistics[0].athletes[+].stats": true,
+        "boxscore.players[+].statistics[0].athletes[+].athlete.id": true,
+        "boxscore.players[+].statistics[0].athletes[+].athlete.jersey": true,
+        "plays[+].type.id": true,
+        "plays[+].type.text": true,
+        "plays[+].period.number": true,
+        "plays[+].clock.displayValue": true,
+        "plays[+].wallclock": true,
+        "timeouts": false,
+        "situation": false
+      },
+      "checkedAt": "2026-11-08T18:10:08.583Z",
+      "checks": [
+        {
+          "latencyMs": 39,
+          "name": "teams",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/teams?limit=1000",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 63,
+          "name": "standings-50",
+          "networkError": null,
+          "path": "/apis/v2/sports/basketball/womens-college-basketball/standings?group=50&level=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 29,
+          "name": "scoreboard",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/scoreboard?limit=300&groups=50",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 32,
+          "name": "schedule-2027-1",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/teams/66/schedule?season=2027&seasontype=1",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 36,
+          "name": "schedule-2027-2",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/teams/66/schedule?season=2027&seasontype=2",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 72,
+          "name": "schedule-2027-3",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/teams/66/schedule?season=2027&seasontype=3",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 44,
+          "name": "summary",
+          "networkError": null,
+          "path": "/apis/site/v2/sports/basketball/womens-college-basketball/summary?event=401917927",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 17,
+          "name": "predictor",
+          "networkError": null,
+          "path": "/v2/sports/basketball/leagues/womens-college-basketball/events/401917927/competitions/401917927/predictor",
+          "shapeErrors": [],
+          "status": 200
+        },
+        {
+          "latencyMs": 20,
+          "name": "probabilities",
+          "networkError": null,
+          "path": "/v2/sports/basketball/leagues/womens-college-basketball/events/401917927/competitions/401917927/probabilities?limit=1",
+          "shapeErrors": [],
+          "status": 200
+        }
+      ],
+      "networkErrors": [],
+      "passed": true,
+      "season": 2027,
+      "shapeErrors": []
+    }
+  },
+  "boardFlags": {
+    "ncaa/mens-basketball": {
+      "agrees": true,
+      "evidence": {
+        "activeLineup": true,
+        "bonus": true,
+        "lastFoul": true,
+        "players": true,
+        "possessionArrow": false,
+        "rebounds": true,
+        "teamFouls": true,
+        "timeouts": false
+      },
+      "flags": {
+        "activeLineup": false,
+        "bonus": true,
+        "lastFoul": true,
+        "players": true,
+        "possessionArrow": false,
+        "rebounds": true,
+        "teamFouls": true,
+        "timeouts": false
+      },
+      "newestCapture": "401909771",
+      "offWithEvidence": [],
+      "onWithoutEvidence": [],
+      "polls": 4
+    },
+    "ncaa/womens-basketball": {
+      "agrees": true,
+      "evidence": {
+        "activeLineup": false,
+        "bonus": false,
+        "lastFoul": false,
+        "players": false,
+        "possessionArrow": false,
+        "rebounds": false,
+        "teamFouls": false,
+        "timeouts": false
+      },
+      "flags": {
+        "activeLineup": false,
+        "bonus": false,
+        "lastFoul": false,
+        "players": false,
+        "possessionArrow": false,
+        "rebounds": false,
+        "teamFouls": false,
+        "timeouts": false
+      },
+      "newestCapture": null,
+      "offWithEvidence": [],
+      "onWithoutEvidence": [],
+      "polls": 0
+    }
+  },
+  "generatedAt": "2026-11-08T18:10:09.021Z",
+  "schemaVersion": 1
+}
