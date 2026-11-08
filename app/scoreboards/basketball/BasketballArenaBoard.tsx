@@ -576,6 +576,8 @@ export function BasketballArenaBoard({
   isHome,
   model,
   opponentName,
+  teamLabel,
+  teamSpokenName,
 }: {
   // The followed team's 4 dp stripe.
   accentColor: string;
@@ -583,6 +585,9 @@ export function BasketballArenaBoard({
   isHome: boolean;
   model: BasketballBoardModel;
   opponentName: string;
+  // Board text and spoken form of the followed team's name.
+  teamLabel: string;
+  teamSpokenName: string;
 }) {
   const { width: windowWidth } = useWindowDimensions();
   const [measuredWidth, setMeasuredWidth] = useState<number>();
@@ -590,7 +595,10 @@ export function BasketballArenaBoard({
   const layout = arenaLayout(measuredWidth ?? arenaBoardWidth(windowWidth), {
     tables: showTables,
   });
-  const names = boardTeamNames(isHome, opponentName);
+  const names = boardTeamNames(isHome, opponentName, {
+    label: teamLabel,
+    spoken: teamSpokenName,
+  });
   const opponentSide: BoardSideKey = isHome ? 'away' : 'home';
   const opponentStripe = opponentStripeColor(
     model[opponentSide].color,

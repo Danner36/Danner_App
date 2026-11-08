@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 
 import { isPlayableStream } from '../lib/playableStream.mjs';
 import {
@@ -240,4 +241,13 @@ test('the plan prunes stale entries when it writes', () => {
 test('a document must hold a streams array', () => {
   assert.throws(() => parseStreamsDocument('{}'), /streams array/);
   assert.equal(serializeStreamsDocument({ a: 1 }), '{\n  "a": 1\n}\n');
+});
+
+test('the stream-match cases shared with the phone agree', () => {
+  const { cases } = JSON.parse(
+    readFileSync(new URL('../../../tests/fixtures/stream-match.json', import.meta.url), 'utf8'),
+  );
+  for (const { game, matches, name, stream } of cases) {
+    assert.equal(streamMatchesGame(stream, game), matches, name);
+  }
 });

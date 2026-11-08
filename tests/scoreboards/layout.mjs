@@ -156,17 +156,18 @@ assert.equal(arenaLayout(284, { tables: true }).s, 1);
 assert.equal(arenaLayout(200, { tables: false }).s, 0.8);
 
 // Labels: the Phase 1c rule.
-assert.equal(boardTeamLabel(true, 'Kansas Jayhawks'), 'CYCLONES');
-assert.equal(boardTeamLabel(false, 'Kansas Jayhawks'), 'JAYHAWKS');
-assert.equal(boardTeamLabel(false, '  Miami (OH) RedHawks '), 'REDHAWKS');
-assert.equal(spokenTeamName(false, 'Miami (OH) RedHawks'), 'RedHawks');
-assert.equal(spokenTeamName(true, 'Kansas Jayhawks'), 'Cyclones');
-assert.equal(spokenTeamName(false, ''), 'Opponent');
-assert.deepEqual(boardTeamNames(false, 'Kansas Jayhawks'), {
+const FOLLOWED_NAMES = { label: 'CYCLONES', spoken: 'Cyclones' };
+assert.equal(boardTeamLabel(true, 'Kansas Jayhawks', FOLLOWED_NAMES.label), 'CYCLONES');
+assert.equal(boardTeamLabel(false, 'Kansas Jayhawks', FOLLOWED_NAMES.label), 'JAYHAWKS');
+assert.equal(boardTeamLabel(false, '  Miami (OH) RedHawks ', FOLLOWED_NAMES.label), 'REDHAWKS');
+assert.equal(spokenTeamName(false, 'Miami (OH) RedHawks', FOLLOWED_NAMES.spoken), 'RedHawks');
+assert.equal(spokenTeamName(true, 'Kansas Jayhawks', FOLLOWED_NAMES.spoken), 'Cyclones');
+assert.equal(spokenTeamName(false, '', FOLLOWED_NAMES.spoken), 'Opponent');
+assert.deepEqual(boardTeamNames(false, 'Kansas Jayhawks', FOLLOWED_NAMES), {
   away: { label: 'CYCLONES', spoken: 'Cyclones' },
   home: { label: 'JAYHAWKS', spoken: 'Jayhawks' },
 });
-assert.deepEqual(boardTeamNames(true, 'Kansas Jayhawks'), {
+assert.deepEqual(boardTeamNames(true, 'Kansas Jayhawks', FOLLOWED_NAMES), {
   away: { label: 'JAYHAWKS', spoken: 'Jayhawks' },
   home: { label: 'CYCLONES', spoken: 'Cyclones' },
 });
@@ -355,7 +356,7 @@ assert.equal(lastFoulArrow(board()), undefined);
 assert.equal(lastFoulArrow(board({ flags: LAUNCH_FLAGS, lastFoul: lastFoulAway })), undefined);
 
 // Spoken center summary: the plan's example (women's game, third quarter).
-const jayhawksNames = boardTeamNames(false, 'Kansas Jayhawks');
+const jayhawksNames = boardTeamNames(false, 'Kansas Jayhawks', FOLLOWED_NAMES);
 const cyclonesPlayers = [
   player('41', 4, 8),
   player('11', 1, 6),
@@ -394,7 +395,7 @@ assert.equal(
     'available. Last foul: Cyclones number 41, 4 fouls, foul trouble.',
 );
 
-const guestNames = boardTeamNames(true, 'Guest');
+const guestNames = boardTeamNames(true, 'Guest', FOLLOWED_NAMES);
 assert.equal(
   centerSummary(
     board({

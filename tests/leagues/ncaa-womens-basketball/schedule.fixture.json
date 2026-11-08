@@ -1,0 +1,311 @@
+{
+  "lists": {
+    "1": [
+      {
+        "id": "1001",
+        "date": "2026-08-20T23:00:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": true,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "home",
+                "id": "66",
+                "score": "10",
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "away",
+                "id": "2305",
+                "score": "20",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [],
+            "status": {
+              "displayClock": "0:00",
+              "period": 2,
+              "type": {
+                "completed": true,
+                "description": "Final",
+                "detail": "Final",
+                "name": "STATUS_FINAL",
+                "shortDetail": "Final",
+                "state": "post"
+              }
+            },
+            "timeValid": true
+          }
+        ]
+      }
+    ],
+    "2": [
+      {
+        "id": "2001",
+        "date": "2026-09-05T17:00:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": true,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "home",
+                "id": "66",
+                "score": {
+                  "displayValue": "31",
+                  "value": 31
+                },
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "away",
+                "id": "2305",
+                "score": "14",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [],
+            "status": {
+              "displayClock": "0:00",
+              "period": 2,
+              "type": {
+                "completed": true,
+                "description": "Final",
+                "detail": "Final",
+                "name": "STATUS_FINAL",
+                "shortDetail": "Final",
+                "state": "post"
+              }
+            },
+            "timeValid": true
+          }
+        ]
+      },
+      {
+        "id": "2002",
+        "date": "2026-09-11T00:20:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": true,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "away",
+                "id": "66",
+                "score": "0",
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "home",
+                "id": "2305",
+                "score": "0",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [],
+            "status": {
+              "displayClock": "0:00",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Thu, September 10th at 8:20 PM EDT",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "Thu, September 10th at 8:20 PM EDT",
+                "state": "pre"
+              }
+            },
+            "timeValid": true
+          }
+        ]
+      },
+      {
+        "id": "2003",
+        "date": "2026-12-20T05:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": false,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "away",
+                "id": "66",
+                "score": "0",
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "home",
+                "id": "2305",
+                "score": "0",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [],
+            "status": {
+              "displayClock": "0:00",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "TBD",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "TBD",
+                "state": "pre"
+              }
+            },
+            "timeValid": false
+          }
+        ]
+      },
+      {
+        "id": "2004",
+        "date": "2026-10-03T18:00:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": true,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "home",
+                "id": "66",
+                "score": "0",
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "away",
+                "id": "2305",
+                "score": "0",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [],
+            "status": {
+              "displayClock": "0:00",
+              "period": 2,
+              "type": {
+                "completed": true,
+                "description": "Final",
+                "detail": "Postponed",
+                "name": "STATUS_POSTPONED",
+                "shortDetail": "Postponed",
+                "state": "post"
+              }
+            },
+            "timeValid": true
+          }
+        ]
+      }
+    ],
+    "3": [
+      {
+        "id": "3001",
+        "date": "2027-01-09T22:00:00Z",
+        "name": "Kansas Jayhawks at Iowa State Cyclones",
+        "seasonType": {
+          "name": "Regular Season",
+          "type": 2
+        },
+        "timeValid": true,
+        "competitions": [
+          {
+            "competitors": [
+              {
+                "homeAway": "home",
+                "id": "66",
+                "score": "0",
+                "team": {
+                  "displayName": "Iowa State Cyclones",
+                  "id": "66"
+                }
+              },
+              {
+                "homeAway": "away",
+                "id": "2305",
+                "score": "0",
+                "team": {
+                  "displayName": "Kansas Jayhawks",
+                  "id": "2305"
+                }
+              }
+            ],
+            "neutralSite": false,
+            "notes": [
+              {
+                "headline": "Wild Card Round"
+              }
+            ],
+            "status": {
+              "displayClock": "0:00",
+              "period": 0,
+              "type": {
+                "completed": false,
+                "description": "Scheduled",
+                "detail": "Sat, January 9th at 4:00 PM EST",
+                "name": "STATUS_SCHEDULED",
+                "shortDetail": "Sat, January 9th at 4:00 PM EST",
+                "state": "pre"
+              }
+            },
+            "timeValid": true
+          }
+        ]
+      }
+    ]
+  }
+}

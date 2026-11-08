@@ -15,7 +15,7 @@ The Cyclones featured card draws it for a live men's or women's basketball game,
 | `app/leagues/espn/basketballRules.ts` | Per adapter (`ncaa/mens-basketball`, `ncaa/womens-basketball`): capability flags, foul window, bonus thresholds and player foul limit. Pure |
 | `app/scoreboards/basketball/BasketballArenaBoard.tsx` | The board, its three accessibility elements and the stale note |
 | `app/scoreboards/basketball/arenaLayout.ts`, `arenaText.ts`, `arenaTokens.ts`, `types.ts` | Layout sizes, board text and spoken summaries, colors, and the model types. Pure |
-| `app/cyclones/espnCyclonesScoreboard.ts` | Cyclones sport to adapter row, the summary and schedule boards, and the stale-note time |
+| `app/leagues/espn/summary.ts` | The summary and schedule boards per adapter, and the stale-note time |
 
 ## Cells
 

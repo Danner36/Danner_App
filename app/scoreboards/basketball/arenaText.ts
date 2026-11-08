@@ -13,8 +13,6 @@ import type {
 // captions, table row order, foul tone, bonus pills and the three spoken summaries. Pure, so
 // tests run it under plain Node.
 
-export const FOLLOWED_BOARD_LABEL = 'CYCLONES';
-export const FOLLOWED_SPOKEN_NAME = 'Cyclones';
 const OPPONENT_SPOKEN_FALLBACK = 'Opponent';
 
 // Well text of a missing value.
@@ -55,33 +53,45 @@ function opponentLastWord(opponentName: string): string | undefined {
   return parts[parts.length - 1];
 }
 
-// Phase 1c board label: CYCLONES for the followed team, else the last word of the opponent's
-// name in upper case.
-export function boardTeamLabel(isFollowed: boolean, opponentName: string): string {
+// The followed team's label, else the last word of the opponent's name in upper case.
+export function boardTeamLabel(
+  isFollowed: boolean,
+  opponentName: string,
+  followedLabel: string,
+): string {
   if (isFollowed) {
-    return FOLLOWED_BOARD_LABEL;
+    return followedLabel;
   }
   return (opponentLastWord(opponentName) ?? opponentName).toUpperCase();
 }
 
-// Spoken form of the board label: Cyclones, else the last word of the opponent's name as written.
-export function spokenTeamName(isFollowed: boolean, opponentName: string): string {
+// Spoken form of the board label: the followed team's nickname, else the last word of the
+// opponent's name as written.
+export function spokenTeamName(
+  isFollowed: boolean,
+  opponentName: string,
+  followedSpoken: string,
+): string {
   if (isFollowed) {
-    return FOLLOWED_SPOKEN_NAME;
+    return followedSpoken;
   }
   return opponentLastWord(opponentName) || OPPONENT_SPOKEN_FALLBACK;
 }
 
 // Away and home names when the followed team is home (isHome) or away.
-export function boardTeamNames(isHome: boolean, opponentName: string): BoardTeamNames {
+export function boardTeamNames(
+  isHome: boolean,
+  opponentName: string,
+  followed: BoardTeamName,
+): BoardTeamNames {
   return {
     away: {
-      label: boardTeamLabel(!isHome, opponentName),
-      spoken: spokenTeamName(!isHome, opponentName),
+      label: boardTeamLabel(!isHome, opponentName, followed.label),
+      spoken: spokenTeamName(!isHome, opponentName, followed.spoken),
     },
     home: {
-      label: boardTeamLabel(isHome, opponentName),
-      spoken: spokenTeamName(isHome, opponentName),
+      label: boardTeamLabel(isHome, opponentName, followed.label),
+      spoken: spokenTeamName(isHome, opponentName, followed.spoken),
     },
   };
 }

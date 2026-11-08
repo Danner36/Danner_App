@@ -1,0 +1,88 @@
+{
+  "dates": [
+    {
+      "games": [
+        {
+          "gameDate": "2026-08-29T17:10:00Z",
+          "gameNumber": 1,
+          "gamePk": 824001,
+          "officialDate": "2026-08-29",
+          "status": {
+            "abstractGameState": "Final",
+            "detailedState": "Final"
+          },
+          "teams": {
+            "away": {
+              "score": 2,
+              "team": {
+                "id": 137,
+                "name": "San Francisco Giants"
+              }
+            },
+            "home": {
+              "score": 5,
+              "team": {
+                "id": 114,
+                "name": "Cleveland Guardians"
+              }
+            }
+          }
+        },
+        {
+          "gameDate": "2026-08-29T23:10:00Z",
+          "gameNumber": 2,
+          "gamePk": 824002,
+          "officialDate": "2026-08-29",
+          "status": {
+            "abstractGameState": "Live",
+            "detailedState": "Warmup",
+            "statusCode": "PW"
+          },
+          "teams": {
+            "away": {
+              "score": 0,
+              "team": {
+                "id": 137,
+                "name": "San Francisco Giants"
+              }
+            },
+            "home": {
+              "score": 0,
+              "team": {
+                "id": 114,
+                "name": "Cleveland Guardians"
+              }
+            }
+          }
+        },
+        {
+          "gameDate": "2026-10-03T07:33:00Z",
+          "gameNumber": 1,
+          "gamePk": 824003,
+          "officialDate": "2026-10-03",
+          "status": {
+            "abstractGameState": "Preview",
+            "detailedState": "Scheduled",
+            "startTimeTBD": true
+          },
+          "teams": {
+            "away": {
+              "score": 0,
+              "team": {
+                "id": 114,
+                "name": "Cleveland Guardians"
+              }
+            },
+            "home": {
+              "score": 0,
+              "team": {
+                "id": 142,
+                "name": "Minnesota Twins"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
