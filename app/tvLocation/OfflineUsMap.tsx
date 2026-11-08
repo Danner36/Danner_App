@@ -16,7 +16,7 @@ export function OfflineUsMap({
   destination,
   onChange,
 }: {
-  destination: MapDestination;
+  destination?: MapDestination;
   onChange: (destination: MapDestination) => void;
 }) {
   const [assetUri, setAssetUri] = useState<string>();
@@ -42,19 +42,33 @@ export function OfflineUsMap({
     };
   }, []);
 
+  const startLabel = destination?.label;
+  const startLatitude = destination?.latitude;
+  const startLongitude = destination?.longitude;
+
   const startPayload = useMemo(
-    () => ({
-      label: destination.label,
-      latitude: destination.latitude,
-      longitude: destination.longitude,
-    }),
-    [destination.label, destination.latitude, destination.longitude],
+    () =>
+      startLabel !== undefined &&
+      startLatitude !== undefined &&
+      startLongitude !== undefined
+        ? {
+            label: startLabel,
+            latitude: startLatitude,
+            longitude: startLongitude,
+          }
+        : undefined,
+    [startLabel, startLatitude, startLongitude],
   );
 
+  // With no saved point the page gets no hash and no start injection and opens on the
+  // contiguous U.S. with nothing selected.
   const source = useMemo(
     () => {
       if (!assetUri) {
         return undefined;
+      }
+      if (!startPayload) {
+        return { uri: assetUri };
       }
       const query = new URLSearchParams({
         label: startPayload.label,
@@ -67,13 +81,18 @@ export function OfflineUsMap({
   );
 
   const beforeContentScript = useMemo(
-    () => `window.__DANNER_MAP_START=${JSON.stringify(startPayload)};true;`,
+    () =>
+      startPayload
+        ? `window.__DANNER_MAP_START=${JSON.stringify(startPayload)};true;`
+        : undefined,
     [startPayload],
   );
 
   const afterLoadScript = useMemo(
     () =>
-      `if(typeof window.__dannerApplyStart==='function'){window.__dannerApplyStart(${JSON.stringify(startPayload.latitude)},${JSON.stringify(startPayload.longitude)},${JSON.stringify(startPayload.label)});}true;`,
+      startPayload
+        ? `if(typeof window.__dannerApplyStart==='function'){window.__dannerApplyStart(${JSON.stringify(startPayload.latitude)},${JSON.stringify(startPayload.longitude)},${JSON.stringify(startPayload.label)});}true;`
+        : undefined,
     [startPayload],
   );
 

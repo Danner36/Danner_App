@@ -104,7 +104,6 @@
             // BEGIN SELECTION RULES
             // Mirrors app/tvLocation/offlineMapSelection.ts. tests/offline-map/run.mjs
             // evaluates the code between these markers against that module.
-            const DEFAULT_START = { latitude: 42.808371, longitude: -92.2578433, label: 'Tripoli, Iowa' };
             const MAJOR_PLACE_SCORE = 1000000000000;
             const MAJOR_PLACE_RADIUS_KM = 18;
             const NEAR_LABEL_KM = 80;
@@ -200,13 +199,37 @@
               return matches;
             }
 
-            function searchSelection(place) {
+            function searchSelection(place, savedStart) {
               const label = placeLabel(place);
-              if (label === DEFAULT_START.label) {
-                return { latitude: DEFAULT_START.latitude, longitude: DEFAULT_START.longitude, label: label };
+              if (savedStart && label === savedStart.label) {
+                return { latitude: savedStart.latitude, longitude: savedStart.longitude, label: label };
               }
               const location = gridPointToLocation(place[2], place[3]);
               return { latitude: location.latitude, longitude: location.longitude, label: label };
+            }
+
+            // A missing value stays missing: Number(null) would read as latitude 0.
+            function startFromInputs(injected, hash, query) {
+              const values = injected || {};
+              function readValue(key) {
+                if (values[key] !== undefined && values[key] !== null && values[key] !== '') {
+                  return values[key];
+                }
+                return hash.get(key) || query.get(key);
+              }
+              function readCoordinate(key) {
+                const value = readValue(key);
+                return value === undefined || value === null || value === '' ? NaN : Number(value);
+              }
+              const latitude = readCoordinate('latitude');
+              const longitude = readCoordinate('longitude');
+              if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return undefined;
+              const label = readValue('label');
+              return {
+                latitude: latitude,
+                longitude: longitude,
+                label: typeof label === 'string' && label.trim() ? label.trim() : undefined
+              };
             }
             // END SELECTION RULES
 
@@ -214,29 +237,13 @@
               return gridPointToLocation(center.x, center.y);
             }
 
-            function readStart() {
-              const injected = window.__DANNER_MAP_START || {};
-              const hash = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
-              const query = new URLSearchParams(window.location.search);
-              function readValue(key) {
-                if (injected[key] !== undefined && injected[key] !== null && injected[key] !== '') {
-                  return injected[key];
-                }
-                return hash.get(key) || query.get(key);
-              }
-              const latitude = Number(readValue('latitude'));
-              const longitude = Number(readValue('longitude'));
-              const label = readValue('label');
-              return {
-                latitude: Number.isFinite(latitude) ? latitude : DEFAULT_START.latitude,
-                longitude: Number.isFinite(longitude) ? longitude : DEFAULT_START.longitude,
-                label: typeof label === 'string' && label.trim() ? label.trim() : DEFAULT_START.label
-              };
-            }
-
-            const start = readStart();
-            center = locationToGrid(start.latitude, start.longitude);
-            selectedLabel = start.label;
+            const start = startFromInputs(
+              window.__DANNER_MAP_START,
+              new URLSearchParams((window.location.hash || '').replace(/^#/, '')),
+              new URLSearchParams(window.location.search)
+            );
+            // With no saved point the map keeps fitting the contiguous U.S. until it is used.
+            let fittingUs = !start;
 
             function worldSize() {
               return TILE_SIZE * Math.pow(2, zoom);
@@ -420,11 +427,13 @@
             }
 
             function changeZoom(change) {
+              fittingUs = false;
               zoom = Math.max(2, Math.min(11, zoom + change));
               render();
             }
 
             canvas.addEventListener('pointerdown', function (event) {
+              fittingUs = false;
               canvas.setPointerCapture(event.pointerId);
               dragStart = { centerX: center.x, centerY: center.y, x: event.clientX, y: event.clientY };
               moved = false;
@@ -463,7 +472,7 @@
               changeZoom(event.deltaY < 0 ? 1 : -1);
             }, { passive: false });
 
-            function showContiguousUs() {
+            function fitContiguousUs() {
               const northWest = locationToGrid(49.4, -124.8);
               const southEast = locationToGrid(24.4, -66.9);
               const width = Math.max(1, map.clientWidth - 24);
@@ -472,6 +481,10 @@
               zoom = Math.max(2, Math.min(11, Math.floor(Math.log2(fit))));
               center = { x: (northWest.x + southEast.x) / 2, y: (northWest.y + southEast.y) / 2 };
               render();
+            }
+
+            function showContiguousUs() {
+              fitContiguousUs();
               selectCenter();
             }
 
@@ -488,7 +501,8 @@
                 button.className = 'result';
                 button.textContent = placeLabel(place);
                 button.addEventListener('click', function () {
-                  const selection = searchSelection(place);
+                  fittingUs = false;
+                  const selection = searchSelection(place, start);
                   center = locationToGrid(selection.latitude, selection.longitude);
                   zoom = Math.max(zoom, 8);
                   selectedLabel = selection.label;
@@ -505,14 +519,23 @@
             search.addEventListener('focus', function () {
               if (results.childElementCount) results.style.display = 'block';
             });
-            window.addEventListener('resize', scheduleRender);
+            window.addEventListener('resize', function () {
+              if (fittingUs) fitContiguousUs();
+              else scheduleRender();
+            });
             window.__dannerApplyStart = function (latitude, longitude, label) {
               if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return;
               center = locationToGrid(latitude, longitude);
               if (typeof label === 'string' && label.trim()) selectedLabel = label.trim();
               render();
             };
-            render();
+            if (start) {
+              center = locationToGrid(start.latitude, start.longitude);
+              selectedLabel = start.label || matchLabel(selectedMatch(start));
+              render();
+            } else {
+              fitContiguousUs();
+            }
             send('ready');
           })();
         </script>
