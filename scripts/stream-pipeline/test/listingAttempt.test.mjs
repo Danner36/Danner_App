@@ -448,6 +448,55 @@ test('a source attempt reports every listing, redirect and game host and logs no
   }
 });
 
+test('page-supplied words and the player host never reach the private list', async () => {
+  const { hosts } = await attempt({
+    links: [
+      { href: 'https://the/stream/cleveland-guardians-detroit-tigers', score: 13, text: 'a' },
+      { href: 'https://www.word/other/cleveland-guardians-detroit-tigers', score: 12, text: 'b' },
+      { href: 'https://gooz.aapmains.net/x/cleveland-guardians-detroit-tigers', score: 11, text: 'c' },
+    ],
+    redirectTo: 'https://single/live',
+  });
+  for (const host of ['the', 'www.word', 'word', 'single', 'gooz.aapmains.net']) {
+    assert.equal(hosts.includes(host), false, host);
+  }
+  assert.ok(hosts.includes('listing-one.test'));
+});
+
+test('a found player keeps its host out of the private list and out of the log', async () => {
+  const privateHosts = new Set();
+  const page = new FakePage({ links: [goodLink()], gameHtml: EMBED_URL });
+  const result = await extractFromListing(LISTING_URL, {
+    hrefNeedles: ['cleveland-guardians'],
+    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, linkWaitMs: 0, privateHosts },
+    timeoutSeconds: 30,
+  });
+  assert.equal(result.playerUrl, EMBED_URL);
+  assert.equal(privateHosts.has('gooz.aapmains.net'), false);
+  assert.equal(result.logLines.join('\n').includes('gooz'), false);
+});
+
+test('page-controlled anchor text and titles stay out of the log', async () => {
+  const linkText = 'EVIL ANCHOR';
+  const title = 'Just a moment EVIL TITLE';
+  const onGame = await attempt({
+    gameTitle: title,
+    links: [{ ...goodLink(), text: linkText }],
+  });
+  const onListing = await attempt({
+    links: [
+      { href: `${GAME_URL}-a`, score: 10, text: linkText },
+      { href: `${GAME_URL}-b`, score: 10, text: linkText },
+    ],
+    listingTitle: title,
+  });
+  assert.equal(onListing.result.failure, 'ambiguous_link');
+  for (const log of [onGame.result.logLines.join('\n'), onListing.result.logLines.join('\n')]) {
+    assert.equal(log.includes('EVIL'), false);
+  }
+  assert.match(onGame.result.logLines.join('\n'), /A Cloudflare challenge page is still showing\./);
+});
+
 test('the provider table starts with the one row and matches by label', () => {
   assert.equal(PROVIDERS.length, 1);
   assert.equal(providerForHost('gooz.aapmains.net')?.id, 'gooz');
@@ -498,6 +547,21 @@ async function attemptWithHints(leagueHints) {
   });
   return { page, result };
 }
+
+test('a listing anchor with another scheme is never followed', async () => {
+  const anchors = ['javascript:void(0)//cleveland-guardians', 'file:///etc/cleveland-guardians', 'data:text/html,cleveland-guardians'].map((href) => ({
+    getAttribute: () => href,
+    textContent: 'x',
+  }));
+  const page = new DomPage({}, anchors);
+  const result = await extractFromListing(LISTING_URL, {
+    hrefNeedles: ['cleveland-guardians'],
+    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, linkWaitMs: 0, privateHosts: new Set() },
+    timeoutSeconds: 30,
+  });
+  assert.equal(result.failure, 'link_not_found');
+  assert.equal(page.url(), LISTING_URL);
+});
 
 test('the configured league hints, not a fixed list, set the listing-folder score', async () => {
   const mlb = await attemptWithHints(['/mlb/']);

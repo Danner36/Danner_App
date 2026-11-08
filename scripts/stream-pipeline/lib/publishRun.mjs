@@ -6,12 +6,19 @@ import { readFile } from 'node:fs/promises';
 import { checkRequest, requestFromEnv, validationForTeam } from './catalog.mjs';
 import { providerForUrl } from './extract/providers.mjs';
 import { officialDateInZone } from './gameWindow.mjs';
-import { EXTRACT_FAILED, SUCCESS_CODES, isKnownCode } from './outcomes.mjs';
+import { ENTRY_EXISTS, EXTRACT_FAILED, SUCCESS_CODES, isCandidateCode } from './outcomes.mjs';
 import { EVENT_ID_PATTERN, isPlayableStream, isValidGameDate } from './playableStream.mjs';
-import { STREAMS_BRANCH, publishStreamsUpdate } from './publishGithub.mjs';
-import { epochSeconds, postSigned } from './signedPost.mjs';
+import { canonicalPlayerUrl } from './playerUrl.mjs';
+import { STREAMS_BRANCH, publishStreamsUpdate, readRemoteStreamsDocument } from './publishGithub.mjs';
+import { isResumedMlbGame } from './schedule/mlbStatsapi.mjs';
+import { epochSeconds, postSignedWithRetry } from './signedPost.mjs';
 import { formatRunSummary } from './sources.mjs';
-import { newStreamsDocument, planStreamUpdate, readTemplate } from './streamsDocument.mjs';
+import {
+  findPlayableStreamForGame,
+  newStreamsDocument,
+  planStreamUpdate,
+  readTemplate,
+} from './streamsDocument.mjs';
 
 export const STATUS_PATH = '/run-status';
 
@@ -22,10 +29,10 @@ const RESULT = /^[a-z0-9_]{1,40}$/;
 const sameList = (first, second) =>
   Array.isArray(first) && first.length === second.length && first.every((value, index) => value === second[index]);
 
-// Returns { game, entry } rebuilt from checked values, or undefined. The path never comes from
-// the candidate: publish derives it from the catalog entry for the validated key.
-export function validateFoundCandidate(candidate, team, eventId) {
-  const { entry, game } = candidate;
+// The game key from a candidate, checked against the request, in the shape the streams match
+// reads. Resumed state is not carried over: publish asks statsapi for that itself.
+function validatedGame(candidate, team, eventId) {
+  const { game } = candidate;
   if (
     candidate.schemaVersion !== 1 ||
     candidate.team !== team.key ||
@@ -39,18 +46,31 @@ export function validateFoundCandidate(candidate, team, eventId) {
     !isValidGameDate(game.officialDate) ||
     !Number.isInteger(game.gameNumber) ||
     game.gameNumber < 1 ||
-    game.gameNumber > 9 ||
-    typeof entry !== 'object' ||
-    entry === null ||
-    typeof entry.url !== 'string'
+    game.gameNumber > 9
   ) {
     return undefined;
   }
+  return {
+    gameNumber: game.gameNumber,
+    gamePk: game.eventId,
+    officialDate: game.officialDate,
+    ...(team.sport ? { sport: team.sport } : {}),
+  };
+}
 
-  const provider = providerForUrl(entry.url);
+// Returns { game, entry } rebuilt from checked values, or undefined. The path never comes from
+// the candidate: publish derives it from the catalog entry for the validated key.
+export function validateFoundCandidate(candidate, team, eventId) {
+  const { entry, game } = candidate;
+  const checkedGame = validatedGame(candidate, team, eventId);
+  if (!checkedGame || typeof entry !== 'object' || entry === null) {
+    return undefined;
+  }
+
+  const url = canonicalPlayerUrl(entry.url);
+  const provider = url ? providerForUrl(url) : undefined;
   if (
     !provider ||
-    new URL(entry.url).protocol !== 'https:' ||
     entry.kind !== 'web' ||
     entry.allowInsecureHttp !== false ||
     entry.source !== 'pipeline' ||
@@ -69,24 +89,37 @@ export function validateFoundCandidate(candidate, team, eventId) {
     gameDates: [game.officialDate],
     gameNumbers: [game.gameNumber],
     kind: 'web',
-    url: entry.url,
+    url,
     allowInsecureHttp: false,
     trustedHosts: [...provider.trustedHosts],
     source: 'pipeline',
   };
-  if (!isPlayableStream(rebuilt, validationForTeam(team))) {
-    return undefined;
+  return isPlayableStream(rebuilt, validationForTeam(team)) ? { entry: rebuilt, game: checkedGame } : undefined;
+}
+
+// The extract job saw an entry for this game; only the file on the branch can confirm it.
+async function confirmExistingEntry({ candidate, eventId, fetchImpl, repository, team, token }) {
+  const failed = { code: EXTRACT_FAILED, message: 'The extract job reported an entry the branch does not hold.' };
+  const game = validatedGame(candidate, team, eventId);
+  const [owner, repo] = String(repository ?? '').split('/');
+  if (!game || !owner || !repo || !token) {
+    return failed;
   }
-  return {
-    entry: rebuilt,
-    game: {
-      gameNumber: game.gameNumber,
-      gamePk: game.eventId,
-      officialDate: game.officialDate,
-      resumed: game.resumed === true,
-      ...(team.sport ? { sport: team.sport } : {}),
-    },
-  };
+  try {
+    const remote = await readRemoteStreamsDocument({
+      branch: STREAMS_BRANCH,
+      fetchImpl,
+      owner,
+      path: team.streamsPath,
+      repo,
+      token,
+    });
+    return remote && findPlayableStreamForGame(remote.document, game, validationForTeam(team))
+      ? { code: 'video_ready', message: 'Video entry is already loaded for this game.' }
+      : failed;
+  } catch {
+    return failed;
+  }
 }
 
 // The per-source table, with every field re-checked so nothing but numbers, labels and codes can
@@ -143,7 +176,7 @@ export async function runPublish(options) {
     message = 'The extract job left no readable candidate.';
   } else {
     listing = safeListing(candidate.listing);
-    code = isKnownCode(candidate.outcome) ? candidate.outcome : EXTRACT_FAILED;
+    code = isCandidateCode(candidate.outcome) ? candidate.outcome : EXTRACT_FAILED;
     message = `The extract job reported ${code}.`;
     if (code === 'found') {
       validated = validateFoundCandidate(candidate, team, eventId);
@@ -151,6 +184,8 @@ export async function runPublish(options) {
         code = 'invalid_entry';
         message = 'The candidate failed re-validation; nothing was published.';
       }
+    } else if (code === ENTRY_EXISTS) {
+      ({ code, message } = await confirmExistingEntry({ ...options, candidate, eventId, team }));
     }
   }
 
@@ -193,7 +228,12 @@ async function publishCandidate({
   }
   const validation = validationForTeam(team);
   const today = officialDateInZone(now, team.officialDateZone);
-  const replace = Boolean(force || game.resumed);
+  // A resumed game keeps its first day's key, so its older entry is replaced.
+  const replace = Boolean(
+    force ||
+      (team.schedule.provider === 'mlb-statsapi' &&
+        (await isResumedMlbGame(team, game.gamePk, game.officialDate, fetchImpl))),
+  );
   try {
     const published = await publishStreamsUpdate({
       branch: STREAMS_BRANCH,
@@ -225,11 +265,12 @@ function gameKey(candidate) {
     : undefined;
 }
 
-async function postRunStatus({ code, eventId, fetchImpl, now, runId, statusKey, team, workerUrl }) {
+async function postRunStatus({ code, eventId, fetchImpl, now, runId, sleep, statusKey, team, workerUrl }) {
   if (!statusKey || !workerUrl) {
     return { ok: false };
   }
-  return postSigned({
+  return postSignedWithRetry({
+    ...(sleep ? { sleep } : {}),
     fetchImpl,
     key: statusKey,
     path: STATUS_PATH,

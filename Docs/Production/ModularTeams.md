@@ -712,7 +712,7 @@ These values reproduce today's per-team settings (`config.example.json`, `config
                 "teams": { "ncaa-66/womens-basketball": { "hrefNeedles": ["<slug>"] } } } }
 ```
 
-- Source 1 runs as today: 90 s navigation timeout and no per-source cap unless its own `timeoutSeconds` is set. Backups use the `backup` timing, and each backup's budget is clamped to the time left before `extractDeadlineSeconds` minus 45 s.
+- Source 1 runs as today: 90 s navigation timeout and no per-source cap below the overall limit, unless its own `timeoutSeconds` is set. It is always capped at `extractDeadlineSeconds` minus 45 s, so a hung page cannot hold the job. Backups use the `backup` timing, and each backup's budget is clamped to the time left before `extractDeadlineSeconds` minus 45 s.
 - Needle precedence: the source's `matching.teams["<key>/<sport>"]`, then the source's `matching.teams["<key>"]`, then the same two in the global `matching`, then the catalog `hrefNeedles`.
 - `leagueHints` replace the fixed `/mlb/`, `/nfl/`, `/stream/` score bonus (`lib/extractGooz.mjs:745-751`).
 - `run.mjs --check-config` rules: `schemaVersion` is 2; 1 to 5 sources (O9); each `baseUrl` is http(s), and no two share origin plus path; `label` matches `^[a-z0-9-]{1,24}$` (no dots, so it can never be a host); `timeoutSeconds` 30-300; `navigationTimeoutSeconds` 15-120; `extractDeadlineSeconds` 120-660; `leadMinutes` 5-60; grace 60-360; 60 s setup + `extractDeadlineSeconds` + 45 s publish must stay within the phone's 900 s; `matching.teams` keys exist in the catalog; needles match `^[a-z0-9-]{2,60}$`. Every message is free of values and names "source 2", never a URL or host. An empty or missing secret fails the run; there is no fallback to an example file (today's fallback is at `cyclones-stream-pipeline.yml:55-57`).
@@ -745,7 +745,7 @@ When no source succeeds, the outcome is `ambiguous_link` if any source returned 
 |---|---|---|
 | Navigation, source 1 | 90 s (`lib/pipeline.mjs:421-423`) | 90 s |
 | Navigation, backups | — | 30 s |
-| Per source | none (one attempt takes about 2-5 min at worst) | Source 1: none unless set. Backups: `timeoutSeconds`, default 120 s, clamped to the time left |
+| Per source | none (one attempt takes about 2-5 min at worst) | Source 1: none unless set, and never past the deadline minus 45 s. Backups: `timeoutSeconds`, default 120 s, clamped to the time left |
 | All sources | none | 600 s; a backup starts only with at least 45 s left |
 | Job | 15 min (`guardians-stream-pipeline.yml:33`) | 15 min for each of `extract` and `publish` |
 | Phone wait | 300 s | Until the run reports, at most 900 s, with live progress (Decided 18) |

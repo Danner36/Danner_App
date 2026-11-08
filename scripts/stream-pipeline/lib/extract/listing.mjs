@@ -53,10 +53,26 @@ function hostOf(url) {
   }
 }
 
+// Hosts here come from page content. A word (or `www.` plus a word) must not become a log mask,
+// and a player host must not be redacted out of the URL it belongs to.
+export function isMaskableHost(host) {
+  const base = String(host ?? '').toLowerCase().replace(/^www\./, '');
+  return base.includes('.') && !providerForHost(host);
+}
+
 function rememberPrivateHost(privateHosts, url) {
   const host = hostOf(url);
-  if (host) {
+  if (host && isMaskableHost(host)) {
     privateHosts.add(host);
+  }
+}
+
+function isHttpUrl(url) {
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'https:' || protocol === 'http:';
+  } catch {
+    return false;
   }
 }
 
@@ -355,7 +371,7 @@ export function selectListingLink(links, options = {}) {
   const seen = new Set();
   const matches = [];
   for (const link of links ?? []) {
-    const key = typeof link?.href === 'string' ? listingLinkKey(link.href) : undefined;
+    const key = typeof link?.href === 'string' && isHttpUrl(link.href) ? listingLinkKey(link.href) : undefined;
     if (!key || seen.has(key)) {
       continue;
     }
@@ -409,10 +425,44 @@ export function extractRunsHeaded() {
   return process.env.GITHUB_ACTIONS === 'true';
 }
 
-export async function launchExtractBrowser() {
-  const { chromium } = await import('playwright');
-  return chromium.launch({
+// What Chromium and xvfb need. The job's token and keys stay out of the browser's environment.
+const BROWSER_ENV_KEYS = [
+  'APPDATA',
+  'DBUS_SESSION_BUS_ADDRESS',
+  'DISPLAY',
+  'FONTCONFIG_PATH',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'LOCALAPPDATA',
+  'PATH',
+  'PROGRAMDATA',
+  'SYSTEMDRIVE',
+  'SYSTEMROOT',
+  'TEMP',
+  'TMP',
+  'TMPDIR',
+  'USERPROFILE',
+  'WINDIR',
+  'XAUTHORITY',
+  'XDG_CACHE_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_RUNTIME_DIR',
+];
+
+export function browserEnvironment(env = process.env) {
+  // Windows environment names are case-insensitive and arrive as `Path` or `SystemRoot`.
+  const byUpperName = new Map(Object.entries(env).map(([name, value]) => [name.toUpperCase(), value]));
+  return Object.fromEntries(
+    BROWSER_ENV_KEYS.filter((name) => byUpperName.get(name) !== undefined).map((name) => [name, byUpperName.get(name)]),
+  );
+}
+
+export async function launchExtractBrowser({ chromium, env = process.env } = {}) {
+  const browserType = chromium ?? (await import('playwright')).chromium;
+  return browserType.launch({
     args: ['--disable-blink-features=AutomationControlled'],
+    env: browserEnvironment(env),
     headless: !extractRunsHeaded(),
   });
 }
@@ -686,21 +736,21 @@ async function findInnerLinks(page, options) {
 
           for (const anchor of document.querySelectorAll('a[href]')) {
             const href = anchor.getAttribute('href');
-            if (
-              !href ||
-              href.startsWith('#') ||
-              href.toLowerCase().startsWith('javascript:')
-            ) {
+            if (!href || href.startsWith('#')) {
               continue;
             }
 
-            let absoluteHref;
+            let parsed;
             try {
-              absoluteHref = new URL(href, window.location.href).toString();
+              parsed = new URL(href, window.location.href);
             } catch {
               continue;
             }
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+              continue;
+            }
 
+            const absoluteHref = parsed.toString();
             const hrefLower = absoluteHref.toLowerCase();
             if (!needles.every((needle) => hrefLower.includes(needle))) {
               continue;
@@ -710,7 +760,6 @@ async function findInnerLinks(page, options) {
               href: absoluteHref,
               hrefNeedleMatched: true,
               score: hints.some((hint) => hrefLower.includes(hint)) ? 13 : 10,
-              text: anchor.textContent?.replace(/\s+/g, ' ').trim() ?? '',
             });
           }
 
@@ -901,7 +950,7 @@ async function openPageWithCapture(context, pageUrl, options) {
   if (onHost) {
     page.on('framenavigated', (frame) => {
       const host = /^https?:/i.test(frame.url()) ? hostOf(frame.url()) : undefined;
-      if (host && frame === page.mainFrame()) {
+      if (host && frame === page.mainFrame() && isMaskableHost(host)) {
         onHost(host);
       }
     });
@@ -953,7 +1002,7 @@ export async function extractFromListing(baseUrl, options = {}) {
   const notePrivateUrl = (url) => {
     rememberPrivateHost(privateHosts, url);
     const host = hostOf(url);
-    if (host) {
+    if (host && isMaskableHost(host)) {
       attempt.onHost?.(host);
     }
   };
@@ -1035,7 +1084,7 @@ export async function extractFromListing(baseUrl, options = {}) {
       }
       remember(`Listing page at ${forLog(listing.url)} has ${listing.anchorCount} links.`);
       if (isCloudflareChallengeTitle(listing.title)) {
-        remember(`Cloudflare challenge page title: "${listing.title}".`);
+        remember('The listing has a Cloudflare challenge title.');
       }
       if (listing.challengeFrames.length > 0) {
         remember(`Challenge frame present: ${forLog(listing.challengeFrames[0])}`);
@@ -1045,7 +1094,6 @@ export async function extractFromListing(baseUrl, options = {}) {
     }
 
     notePrivateUrl(innerLink.href);
-    remember(`Found link element: "${innerLink.text}"`);
     remember(`Link path is: ${forLog(innerLink.href)}`);
     remember(`Opening video page: ${forLog(innerLink.href)}`);
 
@@ -1079,7 +1127,7 @@ export async function extractFromListing(baseUrl, options = {}) {
       const playerBeforePlay = await playerPageSummary(innerPage);
       remember('Player embeds did not appear on the video page.');
       if (playerBeforePlay.cloudflareChallenge) {
-        remember(`Cloudflare challenge page is still showing: "${playerBeforePlay.title}".`);
+        remember('A Cloudflare challenge page is still showing.');
       }
     }
 
@@ -1106,7 +1154,7 @@ export async function extractFromListing(baseUrl, options = {}) {
       return failureResult(playerFailureCode(counts));
     }
 
-    remember(`Inner player URL is: ${extraction.playerUrl}`);
+    remember('A provider player URL was found.');
     attempt.onStage?.('entry');
     const embedFailure = await embedFailureCode(innerPage, capture, extraction.playerUrl);
     if (embedFailure) {

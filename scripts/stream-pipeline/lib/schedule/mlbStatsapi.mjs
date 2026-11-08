@@ -86,6 +86,26 @@ export async function fetchMlbGames(team, now, fetchImpl = fetch) {
   return mlbGamesFromSchedule(await response.json(), team.statsapi.teamId, team.officialDateZone);
 }
 
+// Whether statsapi lists this game, on this official date, as a resumed game. Any failure answers
+// false: the worst case is that the older entry stays until an operator forces a run.
+export async function isResumedMlbGame(team, eventId, officialDate, fetchImpl = fetch) {
+  try {
+    const query = new URLSearchParams({ gamePk: eventId, sportId: String(team.schedule.sportId ?? 1) });
+    const response = await fetchImpl(`${MLB_SCHEDULE_URL}?${query}`, {
+      signal: AbortSignal.timeout(SCHEDULE_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      return false;
+    }
+    const games = mlbGamesFromSchedule(await response.json(), team.statsapi.teamId, team.officialDateZone);
+    return games.some(
+      (game) => String(game.gamePk) === eventId && game.officialDate === officialDate && game.resumed === true,
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isCompleteMlbGame(game) {
   const status = String(game.status ?? '').toLowerCase();
   return (

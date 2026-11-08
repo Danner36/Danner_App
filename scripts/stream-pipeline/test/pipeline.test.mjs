@@ -155,6 +155,82 @@ test('an entry the phone would reject moves on as invalid_entry', async () => {
   });
 });
 
+test('a player URL that could carry a host moves on as invalid_entry', async () => {
+  await withWorkspace(async (workspace) => {
+    const answers = [{ found: true, playerUrl: `${EMBED_URL}&ref=listing-one.test` }, foundExtraction()];
+    const result = await run(workspace, { extractListing: async () => answers.shift() });
+    assert.equal(result.outcome, 'dry_run');
+    assert.equal(result.listing.attempts[0].result, 'invalid_entry');
+    assert.equal(result.entry.url, EMBED_URL);
+  });
+});
+
+function steppingClock() {
+  let nowMs = 0;
+  const timers = [];
+  return {
+    clearTimer: () => {},
+    fire(index) {
+      nowMs += timers[index].ms;
+      timers[index].callback();
+    },
+    now: () => nowMs,
+    setTimer(callback, ms) {
+      timers.push({ callback, ms });
+      return timers.length;
+    },
+    timers,
+  };
+}
+
+async function hangingFirstSource(workspace) {
+  const clock = steppingClock();
+  let started;
+  const attempted = new Promise((resolve) => {
+    started = resolve;
+  });
+  let calls = 0;
+  const running = run(workspace, {
+    clock,
+    extractListing: () => {
+      calls += 1;
+      if (calls > 1) {
+        return Promise.resolve({ failure: 'link_not_found', found: false });
+      }
+      started();
+      return new Promise(() => {});
+    },
+  });
+  await attempted;
+  const budget = clock.timers[0].ms;
+  clock.fire(0);
+  return { budget, calls: () => calls, result: await running };
+}
+
+test('a hung source 1 is cut off at the deadline minus the reserve and the run ends', async () => {
+  await withWorkspace(async (workspace) => {
+    const { budget, calls, result } = await hangingFirstSource(workspace);
+    assert.equal(budget, 555_000);
+    assert.equal(result.listing.attempts[0].result, 'source_timeout');
+    assert.equal(result.outcome, 'deadline');
+    assert.equal(calls(), 1);
+  });
+});
+
+test('source 1 keeps a shorter timeout of its own, and a longer one is capped', async () => {
+  const shorter = secretConfig();
+  shorter.sources[0].timeoutSeconds = 100;
+  await withWorkspace(async (workspace) => {
+    assert.equal((await hangingFirstSource(workspace)).budget, 100_000);
+  }, shorter);
+
+  const longer = secretConfig(HOSTS, { timing: { extractDeadlineSeconds: 300 } });
+  longer.sources[0].timeoutSeconds = 300;
+  await withWorkspace(async (workspace) => {
+    assert.equal((await hangingFirstSource(workspace)).budget, 255_000);
+  }, longer);
+});
+
 test('after an ambiguous source a lone link without the opponent does not win', async () => {
   await withWorkspace(async (workspace) => {
     const requireOpponent = [];
@@ -337,6 +413,41 @@ test('a dispatched event id selects that game, past any today tier', async () =>
   });
 });
 
+test('a gamePk listed on two days takes the unblocked row', async () => {
+  const schedule = mlbSchedule({ gameDate: '2026-09-26T23:05:00Z', officialDate: '2026-09-20', resumedFrom: '2026-09-20' });
+  const suspended = {
+    ...schedule.dates[0].games[0],
+    gameDate: '2026-09-20T23:05:00Z',
+    resumedFrom: undefined,
+    status: { abstractGameState: 'Preview', detailedState: 'Suspended: Rain' },
+  };
+  schedule.dates.unshift({ date: '2026-09-20', games: [suspended] });
+  await withWorkspace(async (workspace) => {
+    let seen;
+    const result = await run(workspace, {
+      extractListing: async (_baseUrl, options) => {
+        seen = options.game;
+        return foundExtraction();
+      },
+      fetcher: fakeFetch({ mlb: () => new Response(JSON.stringify(schedule)) }),
+      request: { eventId: '900001', team: 'mlb-5' },
+    });
+    assert.equal(result.outcome, 'dry_run');
+    assert.equal(seen.status, 'Scheduled');
+    assert.equal(seen.gameDate, '2026-09-26T23:05:00Z');
+  });
+});
+
+test('a gamePk whose only row is blocked still reports blocked', async () => {
+  await withWorkspace(async (workspace) => {
+    const result = await run(workspace, {
+      fetcher: fakeFetch({ mlb: scheduleWith({ status: { abstractGameState: 'Preview', detailedState: 'Postponed' } }) }),
+      request: { eventId: '900001', team: 'mlb-5' },
+    });
+    assert.equal(result.outcome, 'blocked');
+  });
+});
+
 test('a dispatched event not on this team\'s schedule is no_game', async () => {
   await withWorkspace(async (workspace) => {
     const browser = browserFakes();
@@ -434,6 +545,25 @@ test('the found candidate holds a schema 2 pipeline entry and no listing URL', a
       assert.equal(text.includes(host), false);
     }
   });
+});
+
+test('a dry run hands over found, so publish decides dry_run itself', async () => {
+  await withWorkspace(async (workspace) => {
+    const request = { eventId: '900001', team: 'mlb-5' };
+    const result = await run(workspace, { request });
+    assert.equal(result.outcome, 'dry_run');
+    const candidate = candidateFromResult(result, request);
+    assert.equal(candidate.outcome, 'found');
+    assert.equal(candidate.entry.url, EMBED_URL);
+  });
+});
+
+test('an entry already on the branch is handed over as a request to confirm it', () => {
+  const game = { gameNumber: 1, gamePk: 900001, officialDate: '2026-09-26', resumed: true };
+  const candidate = candidateFromResult({ game, outcome: 'video_ready' }, { eventId: '900001', team: 'mlb-5' });
+  assert.equal(candidate.outcome, 'entry_exists');
+  assert.equal(candidate.entry, undefined);
+  assert.equal(candidate.game.resumed, undefined, 'publish derives resumed state itself');
 });
 
 test('a school run reads only the dispatched sport and writes its sport on the entry', async () => {

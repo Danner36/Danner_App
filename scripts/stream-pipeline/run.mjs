@@ -84,7 +84,7 @@ function outputDirectory() {
 async function writeCandidate(candidate) {
   const directory = outputDirectory();
   await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, 'candidate.json'), redactor.text(`${JSON.stringify(candidate, null, 2)}\n`));
+  await writeFile(path.join(directory, 'candidate.json'), `${JSON.stringify(candidate, null, 2)}\n`);
 }
 
 async function stopWithConfigProblem(message) {

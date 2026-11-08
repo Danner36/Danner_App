@@ -68,6 +68,12 @@ const BAD_CANDIDATES = [
   ['a non-provider host', (c) => { c.entry.url = 'https://evil.test/new-stream-embed/1'; }],
   ['a squatted sibling host', (c) => { c.entry.url = 'https://notgooz.aapmains.net/new-stream-embed/1'; }],
   ['a provider host with the wrong path', (c) => { c.entry.url = 'https://gooz.aapmains.net/other/1'; }],
+  ['a host in a query parameter', (c) => { c.entry.url = `${EMBED_URL}&ref=listing-one.test`; }],
+  ['a host in userinfo', (c) => { c.entry.url = 'https://listing-one.test@gooz.aapmains.net/new-stream-embed/57001'; }],
+  ['a host in a fragment', (c) => { c.entry.url = `${EMBED_URL}#listing-one.test`; }],
+  ['a host in an extra path segment', (c) => { c.entry.url = 'https://gooz.aapmains.net/new-stream-embed/57001/listing-one.test'; }],
+  ['a host as a subdomain', (c) => { c.entry.url = 'https://listing-one.test.gooz.aapmains.net/new-stream-embed/57001'; }],
+  ['a port', (c) => { c.entry.url = 'https://gooz.aapmains.net:8443/new-stream-embed/57001'; }],
   ['plain http', (c) => { c.entry.url = c.entry.url.replace('https:', 'http:'); }],
   ['a direct entry', (c) => { c.entry.kind = 'direct'; }],
   ['insecure http allowed', (c) => { c.entry.allowInsecureHttp = true; }],
@@ -93,6 +99,15 @@ for (const [name, mutate] of BAD_CANDIDATES) {
     });
   });
 }
+
+test('the published URL is the rebuilt one, not the candidate\'s text', async () => {
+  await withWorkspace(async (workspace) => {
+    const candidate = foundCandidate();
+    candidate.entry.url = 'https://GOOZ.aapmains.net/new-stream-embed/57001?ad=111';
+    const { entry } = validateFoundCandidate(candidate, await nflSpec(workspace), '401');
+    assert.equal(entry.url, EMBED_URL);
+  });
+});
 
 test('re-validation rebuilds the entry and drops anything extra', async () => {
   await withWorkspace(async (workspace) => {
@@ -271,11 +286,171 @@ test('a dry run writes nothing and posts nothing', async () => {
     assert.equal(result.code, 'dry_run');
     assert.equal(puts.length, 0);
     assert.equal(posts.length, 0);
+  });
+});
 
-    const fromExtract = await publishWith(workspace, { outcome: 'dry_run', schemaVersion: 1, team: 'nfl-17' }, { dryRun: true });
-    assert.equal(fromExtract.result.code, 'dry_run');
-    assert.equal(fromExtract.puts.length, 0);
-    assert.equal(fromExtract.posts.length, 0);
+test('a dry run still re-validates the candidate', async () => {
+  await withWorkspace(async (workspace) => {
+    const candidate = foundCandidate();
+    candidate.entry.url = 'https://evil.test/new-stream-embed/1';
+    const { posts, puts, result } = await publishWith(workspace, candidate, { dryRun: true });
+    assert.equal(result.code, 'invalid_entry');
+    assert.equal(puts.length, 0);
+    assert.equal(posts.length, 0);
+  });
+});
+
+for (const claimed of ['published', 'unchanged', 'video_ready', 'dry_run', 'nonsense']) {
+  test(`a candidate cannot claim ${claimed}`, async () => {
+    await withWorkspace(async (workspace) => {
+      const { posts, puts, result } = await publishWith(workspace, { outcome: claimed, schemaVersion: 1, team: 'nfl-17' });
+      assert.equal(result.code, 'extract_failed');
+      assert.equal(result.success, false);
+      assert.equal(puts.length, 0);
+      assert.equal(JSON.parse(posts[0].init.body).code, 'extract_failed');
+    });
+  });
+}
+
+function entryExistsCandidate(overrides = {}) {
+  const { entry, listing, ...rest } = foundCandidate({ outcome: 'entry_exists', ...overrides });
+  return rest;
+}
+
+test('publish confirms an existing entry itself before answering video_ready', async () => {
+  await withWorkspace(async (workspace) => {
+    const entry = foundCandidate().entry;
+    const { puts, result } = await publishWith(workspace, entryExistsCandidate(), {
+      contents: { schemaVersion: 2, streams: [entry] },
+    });
+    assert.equal(result.code, 'video_ready');
+    assert.equal(result.success, true);
+    assert.equal(puts.length, 0);
+  });
+});
+
+test('an entry the branch does not hold is extract_failed', async () => {
+  await withWorkspace(async (workspace) => {
+    const empty = await publishWith(workspace, entryExistsCandidate(), { contents: { schemaVersion: 2, streams: [] } });
+    assert.equal(empty.result.code, 'extract_failed');
+    const missing = await publishWith(workspace, entryExistsCandidate());
+    assert.equal(missing.result.code, 'extract_failed');
+    const noGame = await publishWith(workspace, entryExistsCandidate({ game: undefined }), {
+      contents: { schemaVersion: 2, streams: [foundCandidate().entry] },
+    });
+    assert.equal(noGame.result.code, 'extract_failed');
+  });
+});
+
+function mlbCandidate(extraGame = {}) {
+  const base = foundCandidate();
+  return foundCandidate({
+    eventId: '900001',
+    team: 'mlb-5',
+    game: { eventId: '900001', gameNumber: 1, officialDate: '2026-09-12', ...extraGame },
+    entry: { ...base.entry, eventId: '900001', gameDates: ['2026-09-12'] },
+  });
+}
+
+function mlbRows(rowDate) {
+  return {
+    dates: [
+      {
+        date: rowDate,
+        games: [
+          {
+            gameDate: `${rowDate}T17:10:00Z`,
+            gameNumber: 1,
+            gamePk: 900001,
+            officialDate: '2026-09-12',
+            status: { abstractGameState: 'Preview', detailedState: 'Scheduled' },
+            teams: {
+              away: { team: { id: 116, name: 'Detroit Tigers' } },
+              home: { team: { id: 114, name: 'Cleveland Guardians' } },
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+async function mlbPublish(workspace, candidate, mlb) {
+  const old = { ...mlbCandidate().entry, url: 'https://gooz.aapmains.net/new-stream-embed/99' };
+  return publishWith(workspace, candidate, {
+    fetcher: fakeFetch({ contents: { schemaVersion: 2, streams: [old] }, mlb }),
+    now: new Date('2026-09-21T17:00:00Z'),
+    request: { eventId: '900001', team: 'mlb-5' },
+  });
+}
+
+test('publish finds a resumed MLB game itself and replaces its older entry', async () => {
+  await withWorkspace(async (workspace) => {
+    const { puts, result } = await mlbPublish(workspace, mlbCandidate(), () => new Response(JSON.stringify(mlbRows('2026-09-21'))));
+    assert.equal(result.code, 'published');
+    assert.deepEqual(putBody(puts[0]).document.streams.map((row) => row.url), [EMBED_URL]);
+  });
+});
+
+test('a candidate that claims a resumed game is not believed', async () => {
+  await withWorkspace(async (workspace) => {
+    const { puts, result } = await mlbPublish(
+      workspace,
+      mlbCandidate({ resumed: true }),
+      () => new Response(JSON.stringify(mlbRows('2026-09-12'))),
+    );
+    assert.equal(result.code, 'video_ready');
+    assert.equal(puts.length, 0);
+  });
+});
+
+for (const [name, mlb] of [
+  ['an HTTP error', () => new Response('', { status: 500 })],
+  ['a network failure', () => { throw new Error('down'); }],
+  ['an unreadable body', () => new Response('not json')],
+]) {
+  test(`statsapi ${name} fails closed to not resumed`, async () => {
+    await withWorkspace(async (workspace) => {
+      const { puts, result } = await mlbPublish(workspace, mlbCandidate({ resumed: true }), mlb);
+      assert.equal(result.code, 'video_ready');
+      assert.equal(puts.length, 0);
+    });
+  });
+}
+
+test('the status post is tried three times with a doubling wait', async () => {
+  await withWorkspace(async (workspace) => {
+    let attempts = 0;
+    const waits = [];
+    const { result } = await publishWith(workspace, foundCandidate(), {
+      fetcher: fakeFetch({
+        worker: () => {
+          attempts += 1;
+          return new Response(null, { status: attempts < 3 ? 503 : 204 });
+        },
+      }),
+      sleep: async (ms) => waits.push(ms),
+    });
+    assert.equal(result.posted, true);
+    assert.equal(attempts, 3);
+    assert.deepEqual(waits, [1000, 2000]);
+  });
+});
+
+test('the status post stops at three attempts and the run still succeeds', async () => {
+  await withWorkspace(async (workspace) => {
+    let attempts = 0;
+    const { result } = await publishWith(workspace, foundCandidate(), {
+      fetcher: fakeFetch({
+        worker: () => {
+          attempts += 1;
+          throw new Error('down');
+        },
+      }),
+    });
+    assert.equal(attempts, 3);
+    assert.equal(result.posted, false);
+    assert.equal(result.success, true);
   });
 });
 
@@ -302,7 +477,6 @@ for (const [outcome, success] of [
   ['blocked', true],
   ['game_over', true],
   ['too_early', true],
-  ['video_ready', true],
 ]) {
   test(`extract outcome ${outcome} is reported and writes nothing`, async () => {
     await withWorkspace(async (workspace) => {

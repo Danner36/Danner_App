@@ -20,7 +20,6 @@ import { providerForUrl } from './extract/providers.mjs';
 import {
   extractFromListing,
   httpsProviderUrl,
-  isValidPlayerUrl,
   launchExtractBrowser,
   newExtractContext,
 } from './extract/listing.mjs';
@@ -30,13 +29,16 @@ import {
   isWithinGetVideoWindow,
   selectFeaturedGame,
 } from './gameWindow.mjs';
+import { ENTRY_EXISTS } from './outcomes.mjs';
 import { isPlayableStream } from './playableStream.mjs';
+import { canonicalPlayerUrl } from './playerUrl.mjs';
 import { createProgressReporter } from './progress.mjs';
 import { STREAMS_BRANCH, readRemoteStreamsDocument } from './publishGithub.mjs';
 import { createRedactor } from './redact.mjs';
 import { fetchEspnGames, isCompleteEspnGame } from './schedule/espn.mjs';
 import { fetchMlbGames, isCompleteMlbGame } from './schedule/mlbStatsapi.mjs';
 import {
+  MIN_SECONDS_FOR_NEXT_SOURCE,
   normalizeSources,
   parseSourceOnly,
   rawSourceUrls,
@@ -62,6 +64,15 @@ const LISTING_FAILURE_MESSAGES = {
   sources_unreachable: 'No listing source could be reached.',
 };
 
+// Source 1 has no per-source budget of its own, so a hung page would otherwise hold the job until
+// its 15-minute limit. It stays uncapped below the extraction deadline minus the reserve.
+function capFirstSource(sources, timing) {
+  const cap = timing.extractDeadlineSeconds - MIN_SECONDS_FOR_NEXT_SOURCE;
+  return sources.map((source) =>
+    source.number === 1 ? { ...source, timeoutSeconds: Math.min(source.timeoutSeconds ?? cap, cap) } : source,
+  );
+}
+
 // Masks every source host before anything else can run, so a config that later fails its checks
 // still cannot print one. Returns { config, sources, allSources } or { problem }.
 export async function loadRunConfig({ catalogDir, configPath, redactor, sourceOnly }) {
@@ -77,7 +88,7 @@ export async function loadRunConfig({ catalogDir, configPath, redactor, sourceOn
   if (problem) {
     return { problem };
   }
-  const allSources = normalizeSources(read.secret);
+  const allSources = capFirstSource(normalizeSources(read.secret), config.timing);
   const selected = parseSourceOnly(sourceOnly, allSources.length);
   if (selected.problem) {
     return { problem: selected.problem };
@@ -93,7 +104,10 @@ export async function loadRunConfig({ catalogDir, configPath, redactor, sourceOn
 
 export function gameForRequest({ eventId, games, graceMinutes, leadMinutes, now, team }) {
   if (eventId) {
-    return games.find((game) => String(game.gamePk) === eventId);
+    // statsapi lists a suspended game on both days under one gamePk; the unblocked row is the one
+    // being played.
+    const rows = games.filter((game) => String(game.gamePk) === eventId);
+    return rows.find((game) => !isBlockedGame(game)) ?? rows[0];
   }
   return selectFeaturedGame(games, now, {
     graceMinutes,
@@ -268,10 +282,7 @@ export async function runPipeline(options = {}) {
     if (extraction.failure) {
       return { code: extraction.failure === 'config_missing' ? 'link_not_found' : extraction.failure };
     }
-    const url =
-      extraction.found && isValidPlayerUrl(extraction.playerUrl)
-        ? httpsProviderUrl(extraction.playerUrl)
-        : undefined;
+    const url = extraction.found ? canonicalPlayerUrl(httpsProviderUrl(extraction.playerUrl)) : undefined;
     if (!url) {
       return { code: 'invalid_entry' };
     }
@@ -314,16 +325,21 @@ export async function runPipeline(options = {}) {
   return finish('found', 'A playable entry was found.', true, { entry: listing.entry, game, listing });
 }
 
+// A dry run hands over its entry like a real run, so publish re-validates it and answers dry_run.
+// An entry already on the branch is handed over as a request for publish to confirm it.
+const CANDIDATE_OUTCOME = { dry_run: 'found', video_ready: ENTRY_EXISTS };
+
 // The hand-off file. It holds the entry or the outcome code, the game key, and the per-source
 // table, which has only numbers, labels and codes.
 export function candidateFromResult(result, request) {
   const { game, listing } = result;
+  const outcome = CANDIDATE_OUTCOME[result.outcome] ?? result.outcome;
   const team = String(request.team ?? '').trim();
   const sport = String(request.sport ?? '').trim();
   const eventId = String(request.eventId ?? '').trim();
   return {
     schemaVersion: 1,
-    outcome: result.outcome,
+    outcome,
     team,
     ...(sport ? { sport } : {}),
     ...(eventId ? { eventId } : {}),
@@ -333,11 +349,10 @@ export function candidateFromResult(result, request) {
             eventId: String(game.gamePk),
             gameNumber: game.gameNumber,
             officialDate: game.officialDate,
-            ...(game.resumed ? { resumed: true } : {}),
           },
         }
       : {}),
-    ...(result.outcome === 'found' ? { entry: result.entry } : {}),
+    ...(outcome === 'found' ? { entry: result.entry } : {}),
     ...(listing
       ? {
           listing: {

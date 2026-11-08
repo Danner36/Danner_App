@@ -109,6 +109,26 @@ test('the pipeline step runs headed under xvfb with the read-only token and the 
   assert.equal(job('extract').match(/secrets\.RUN_PROGRESS_KEY/g).length, 1);
 });
 
+test('the Playwright cache is saved after install and before any page is opened', () => {
+  const extract = job('extract');
+  const names = stepNames(extract);
+  assert.doesNotMatch(extract, /actions\/cache@/, 'a combined cache action saves after the browser has run');
+  assert.match(step(extract, 'Restore Playwright browser'), /uses: actions\/cache\/restore@v4/);
+  const save = step(extract, 'Save Playwright browser');
+  assert.match(save, /uses: actions\/cache\/save@v4/);
+  assert.match(save, /if: steps\.playwright-cache\.outputs\.cache-hit != 'true'/);
+  assert.equal(names.indexOf('Save Playwright browser'), names.indexOf('Install Playwright browser') + 1);
+  assert.ok(names.indexOf('Save Playwright browser') < names.indexOf('Run pipeline'));
+});
+
+test('candidate.json is written as is, without the log redactor', () => {
+  const text = readFileSync(path.join(REPO_ROOT, 'scripts/stream-pipeline/run.mjs'), 'utf8').replaceAll('\r\n', '\n');
+  const start = text.indexOf('async function writeCandidate');
+  const body = text.slice(start, text.indexOf('\n}\n', start));
+  assert.notEqual(start, -1);
+  assert.doesNotMatch(body, /redactor/);
+});
+
 test('the candidate is uploaded even when the run failed, and no trace or screenshot is', () => {
   const extract = job('extract');
   const upload = step(extract, 'Upload candidate');

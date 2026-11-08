@@ -6,7 +6,10 @@ import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'node:events';
 import {
   EXTRACT_USER_AGENT,
+  browserEnvironment,
   createPlayerCapture,
+  isMaskableHost,
+  launchExtractBrowser,
   describeUrlForLog,
   extractFromListing,
   extractRunsHeaded,
@@ -47,6 +50,56 @@ test('skips Cloudflare Turnstile and YouTube chat frames', () => {
     ),
     false,
   );
+});
+
+test('only dotted, non-provider hosts can become masks', () => {
+  assert.equal(isMaskableHost('listing-one.test'), true);
+  assert.equal(isMaskableHost('www.listing-one.test'), true);
+  assert.equal(isMaskableHost('the'), false);
+  assert.equal(isMaskableHost('www.the'), false);
+  assert.equal(isMaskableHost('gooz.aapmains.net'), false);
+  assert.equal(isMaskableHost('a.gooz.aapmains.net'), false);
+  assert.equal(isMaskableHost(undefined), false);
+});
+
+test('the browser environment holds what Chromium needs and no token or key', () => {
+  const env = browserEnvironment({
+    DISPLAY: ':99',
+    GITHUB_TOKEN: 'token-value',
+    HOME: '/home/runner',
+    PATH: '/usr/bin',
+    RUN_PROGRESS_KEY: 'key-value',
+    RUN_STATUS_KEY: 'key-value',
+    STREAM_PIPELINE_CONFIG: 'secret-value',
+    STREAM_PIPELINE_CONFIG_PATH: '/tmp/config',
+    WORKER_URL: 'https://worker.test',
+    XAUTHORITY: '/tmp/xauth',
+  });
+  assert.deepEqual(env, { DISPLAY: ':99', HOME: '/home/runner', PATH: '/usr/bin', XAUTHORITY: '/tmp/xauth' });
+});
+
+test('Windows-spelled environment names still reach the browser', () => {
+  assert.deepEqual(browserEnvironment({ Path: 'C:\\bin', SystemRoot: 'C:\\Windows' }), {
+    PATH: 'C:\\bin',
+    SYSTEMROOT: 'C:\\Windows',
+  });
+});
+
+test('the browser is launched with that environment and the sandbox setting left alone', async () => {
+  let options;
+  const browser = {};
+  const launched = await launchExtractBrowser({
+    chromium: {
+      launch: async (received) => {
+        options = received;
+        return browser;
+      },
+    },
+    env: { GITHUB_TOKEN: 'token-value', PATH: '/usr/bin', RUN_PROGRESS_KEY: 'key-value' },
+  });
+  assert.equal(launched, browser);
+  assert.deepEqual(options.env, { PATH: '/usr/bin' });
+  assert.equal('chromiumSandbox' in options, false);
 });
 
 test('video.play() only counts when a video element exists', () => {
@@ -237,6 +290,14 @@ test('the extractor reports missing needles instead of assuming a team', async (
   const result = await extractFromListing(`${LISTING}/live`, { hrefNeedles: [] });
   assert.equal(result.found, false);
   assert.equal(result.failure, 'config_missing');
+});
+
+test('only http(s) links can be selected', () => {
+  const needles = { hrefNeedles: ['cleveland-guardians'] };
+  for (const href of ['file:///etc/cleveland-guardians', 'data:text/html,cleveland-guardians', 'ftp://a.test/cleveland-guardians']) {
+    assert.equal(selectListingLink([{ href, score: 13 }], needles).failure, 'link_not_found', href);
+  }
+  assert.ok(selectListingLink([{ href: 'http://a.test/cleveland-guardians', score: 13 }], needles).link);
 });
 
 test('http provider URLs are upgraded to https', () => {

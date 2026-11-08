@@ -1,7 +1,12 @@
-// The final codes a run can report. publish.mjs accepts only these from candidate.json, because
-// the job that writes that file opens untrusted pages.
+// The final codes a run can report, and which of them candidate.json may claim. The job that
+// writes that file opens untrusted pages, so publish.mjs produces every code that says a video
+// exists or was written.
 
 export const EXTRACT_FAILED = 'extract_failed';
+
+// A request to confirm an entry the extract job saw on the branch. publish.mjs reads the file
+// itself and answers video_ready or extract_failed.
+export const ENTRY_EXISTS = 'entry_exists';
 
 // Runs that ended correctly with nothing to do. Every other non-published code exits 1.
 export const SUCCESS_CODES = new Set([
@@ -32,6 +37,9 @@ export const FAILURE_CODES = new Set([
   'sources_unreachable',
 ]);
 
-export function isKnownCode(code) {
-  return SUCCESS_CODES.has(code) || FAILURE_CODES.has(code);
+// Why nothing was tried: only the schedule check knows these, and none of them claims a video.
+const CANDIDATE_STOP_CODES = new Set(['blocked', 'game_over', 'no_game', 'too_early']);
+
+export function isCandidateCode(code) {
+  return code === 'found' || code === ENTRY_EXISTS || CANDIDATE_STOP_CODES.has(code) || FAILURE_CODES.has(code);
 }

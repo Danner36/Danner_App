@@ -29,6 +29,26 @@ function githubHeaders(token) {
   };
 }
 
+class GithubError extends Error {
+  constructor(message, transient) {
+    super(message);
+    this.transient = transient;
+  }
+}
+
+function isTransientStatus(status) {
+  return status === 429 || status >= 500;
+}
+
+// A network failure or timeout surfaces as a throw from fetch.
+async function githubFetch(fetchImpl, url, init) {
+  try {
+    return await fetchImpl(url, { ...init, signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS) });
+  } catch {
+    throw new GithubError('GitHub could not be reached.', true);
+  }
+}
+
 // Current streams file on the branch and the blob SHA it was read at. Undefined when the file
 // does not exist yet.
 export async function readRemoteStreamsDocument({
@@ -39,19 +59,17 @@ export async function readRemoteStreamsDocument({
   token,
   fetchImpl = fetch,
 }) {
-  const response = await fetchImpl(
+  const response = await githubFetch(
+    fetchImpl,
     `${contentsUrl({ owner, repo, path })}?ref=${encodeURIComponent(branch)}`,
-    {
-      headers: githubHeaders(token),
-      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
-    },
+    { headers: githubHeaders(token) },
   );
 
   if (response.status === 404) {
     return undefined;
   }
   if (!response.ok) {
-    throw new Error(`GitHub read failed with ${response.status}.`);
+    throw new GithubError(`GitHub read failed with ${response.status}.`, isTransientStatus(response.status));
   }
 
   const payload = await response.json();
@@ -62,10 +80,53 @@ export async function readRemoteStreamsDocument({
   return { document: parseStreamsDocument(text), sha: payload.sha };
 }
 
+// One read-modify-write cycle. Returns the finished result, or throws a GithubError whose
+// `transient` says whether the cycle may run again.
+async function publishOnce({ attempt, branch, fallbackDocument, fetchImpl, message, owner, path, repo, token, update }) {
+  const remote = await readRemoteStreamsDocument({ owner, repo, branch, path, token, fetchImpl });
+  const base = remote?.document ?? fallbackDocument;
+  if (!base) {
+    throw new Error('Streams file does not exist on the branch.');
+  }
+
+  const change = await update(base);
+  if (!change?.document) {
+    return { attempts: attempt + 1, change, published: false };
+  }
+
+  const content = serializeStreamsDocument(change.document);
+  const response = await githubFetch(fetchImpl, contentsUrl({ owner, repo, path }), {
+    method: 'PUT',
+    headers: {
+      ...githubHeaders(token),
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      branch,
+      content: Buffer.from(content, 'utf8').toString('base64'),
+      message,
+      ...(remote?.sha ? { sha: remote.sha } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const retry = response.status === 409 || response.status === 422 || isTransientStatus(response.status);
+    throw new GithubError(`GitHub publish failed with ${response.status}.`, retry);
+  }
+  return {
+    attempts: attempt + 1,
+    change,
+    commit: await response.json(),
+    document: change.document,
+    published: true,
+  };
+}
+
 // Read-modify-write against the branch. `update(document)` is applied to the copy just read and
 // returns `{ document }` to publish or anything without `document` to stop. The PUT carries the
-// SHA of that copy, so a concurrent change answers 409/422 and the whole cycle runs again. A file
-// that does not exist yet starts from `fallbackDocument` and is created without a SHA.
+// SHA of that copy, so a concurrent change answers 409/422. That, a 429 or 5xx, and a network
+// failure or timeout run the whole cycle again from a fresh read. A file that does not exist yet
+// starts from `fallbackDocument` and is created without a SHA.
 export async function publishStreamsUpdate({
   owner,
   repo,
@@ -81,56 +142,24 @@ export async function publishStreamsUpdate({
   backoffMs = PUBLISH_BACKOFF_MS,
 }) {
   for (let attempt = 0; ; attempt += 1) {
-    const remote = await readRemoteStreamsDocument({
-      owner,
-      repo,
-      branch,
-      path,
-      token,
-      fetchImpl,
-    });
-    const base = remote?.document ?? fallbackDocument;
-    if (!base) {
-      throw new Error('Streams file does not exist on the branch.');
-    }
-
-    const change = await update(base);
-    if (!change?.document) {
-      return { attempts: attempt + 1, change, published: false };
-    }
-
-    const content = serializeStreamsDocument(change.document);
-    const response = await fetchImpl(contentsUrl({ owner, repo, path }), {
-      method: 'PUT',
-      headers: {
-        ...githubHeaders(token),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    try {
+      return await publishOnce({
+        attempt,
         branch,
-        content: Buffer.from(content, 'utf8').toString('base64'),
+        fallbackDocument,
+        fetchImpl,
         message,
-        ...(remote?.sha ? { sha: remote.sha } : {}),
-      }),
-      signal: AbortSignal.timeout(GITHUB_TIMEOUT_MS),
-    });
-
-    if (response.ok) {
-      return {
-        attempts: attempt + 1,
-        change,
-        commit: await response.json(),
-        document: change.document,
-        published: true,
-      };
+        owner,
+        path,
+        repo,
+        token,
+        update,
+      });
+    } catch (error) {
+      if (!error.transient || attempt >= maxRetries) {
+        throw error;
+      }
     }
-
-    const conflict = response.status === 409 || response.status === 422;
-    if (conflict && attempt < maxRetries) {
-      await sleep(backoffMs * 2 ** attempt + Math.floor(Math.random() * 250));
-      continue;
-    }
-
-    throw new Error(`GitHub publish failed with ${response.status}.`);
+    await sleep(backoffMs * 2 ** attempt + Math.floor(Math.random() * 250));
   }
 }

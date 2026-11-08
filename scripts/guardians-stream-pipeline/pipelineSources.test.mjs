@@ -300,6 +300,31 @@ test('an entry the phone would reject moves on as invalid_entry', async () => {
   });
 });
 
+for (const [name, goozUrl] of [
+  ['a query parameter other than ad', 'https://gooz.aapmains.net/new-stream-embed/57001?ref=listing-one.test'],
+  ['userinfo', 'https://listing-one.test@gooz.aapmains.net/new-stream-embed/57001'],
+  ['a port', 'https://gooz.aapmains.net:8443/new-stream-embed/57001'],
+  ['a fragment', 'https://gooz.aapmains.net/new-stream-embed/57001#listing-one.test'],
+]) {
+  test(`a secret-mode URL with ${name} moves on as invalid_entry`, async () => {
+    await withPipeline(async (env) => {
+      const answers = [{ found: true, goozUrl }, foundExtraction()];
+      const result = await sourcesRun(env, sourcesConfig(), async () => answers.shift());
+      assert.equal(result.outcome, 'dry_run');
+      assert.equal(result.listing.attempts[0].result, 'invalid_entry');
+    });
+  });
+}
+
+test('the per-team path keeps a URL the secret path would refuse', async () => {
+  await withPipeline(async ({ configPath }) => {
+    const goozUrl = 'https://gooz.aapmains.net/new-stream-embed/57001?ref=x';
+    const result = await run(configPath, { extractListing: async () => ({ found: true, goozUrl }) });
+    assert.equal(result.outcome, 'dry_run');
+    assert.equal(result.nextEntry.url, goozUrl);
+  });
+});
+
 test('after an ambiguous source a lone link without the opponent does not win', async () => {
   await withPipeline(async (env) => {
     const requireOpponent = [];

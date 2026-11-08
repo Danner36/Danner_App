@@ -133,8 +133,76 @@ test('publishing gives up after three retries with exponential waits', async () 
   assert.ok(waits[0] < waits[1] && waits[1] < waits[2]);
 });
 
+for (const status of [429, 500, 503]) {
+  test(`a ${status} on the write is retried from a fresh read`, async () => {
+    const first = { document: { streams: ['marker'] }, sha: 'sha-1' };
+    const second = { document: { streams: ['marker', entry(100, 'football')] }, sha: 'sha-2' };
+    const github = fakeGithub([first, second], [status, 201]);
+    const result = await publishStreamsUpdate({
+      ...options,
+      fetchImpl: github.fetchImpl,
+      update: plan(basketball, entry(200, 'mens-basketball')),
+    });
+    assert.equal(result.attempts, 2);
+    assert.deepEqual(github.puts.map((put) => put.sha), ['sha-1', 'sha-2']);
+    assert.equal(github.puts[1].document.streams.length, 3);
+  });
+}
+
+test('a network failure on the read or the write is retried', async () => {
+  const github = fakeGithub([{ document: { streams: ['marker'] }, sha: 'sha' }], [201]);
+  let calls = 0;
+  const result = await publishStreamsUpdate({
+    ...options,
+    fetchImpl: async (url, init = {}) => {
+      calls += 1;
+      if (calls === 1 || calls === 3) {
+        throw Object.assign(new Error('timed out at api.github.com'), { name: 'TimeoutError' });
+      }
+      return github.fetchImpl(url, init);
+    },
+    update: plan(basketball, entry(200, 'mens-basketball')),
+  });
+  assert.equal(result.published, true);
+  assert.equal(result.attempts, 3);
+  assert.equal(github.puts.length, 1);
+});
+
+test('a 5xx on the read is retried and a network failure that never clears gives up', async () => {
+  const github = fakeGithub([{ document: { streams: [] }, sha: 'sha' }], [201]);
+  let reads = 0;
+  const result = await publishStreamsUpdate({
+    ...options,
+    fetchImpl: async (url, init = {}) => {
+      if (!init.method) {
+        reads += 1;
+        if (reads === 1) {
+          return new Response('', { status: 502 });
+        }
+      }
+      return github.fetchImpl(url, init);
+    },
+    update: plan(basketball, entry(200, 'mens-basketball')),
+  });
+  assert.equal(result.attempts, 2);
+
+  let calls = 0;
+  await assert.rejects(
+    publishStreamsUpdate({
+      ...options,
+      fetchImpl: async () => {
+        calls += 1;
+        throw new Error('down');
+      },
+      update: plan(basketball, entry(200, 'mens-basketball')),
+    }),
+    /GitHub could not be reached/,
+  );
+  assert.equal(calls, 4);
+});
+
 test('other failures are not retried and GitHub text stays out of the error', async () => {
-  const github = fakeGithub([{ document: { streams: [] }, sha: 'sha' }], [500]);
+  const github = fakeGithub([{ document: { streams: [] }, sha: 'sha' }], [403]);
   await assert.rejects(
     publishStreamsUpdate({
       ...options,
@@ -142,7 +210,7 @@ test('other failures are not retried and GitHub text stays out of the error', as
       update: plan(basketball, entry(200, 'mens-basketball')),
     }),
     (error) => {
-      assert.equal(error.message, 'GitHub publish failed with 500.');
+      assert.equal(error.message, 'GitHub publish failed with 403.');
       return true;
     },
   );
