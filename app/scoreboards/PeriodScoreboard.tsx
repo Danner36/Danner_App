@@ -32,20 +32,14 @@ function LedCell({ value }: { value?: number | string }) {
 }
 
 export function PeriodScoreboard({
-  accentColor,
   isHome,
   opponentName,
   scoreboard,
-  teamId,
   teamLabel,
 }: {
-  // The followed team's label color.
-  accentColor: string;
   isHome: boolean;
   opponentName: string;
   scoreboard: PeriodBoard;
-  // ESPN id of the followed team, for the possession mark.
-  teamId: number;
   teamLabel: string;
 }) {
   // period comes straight from ESPN and is only floored at 0 upstream, so a malformed response
@@ -64,12 +58,6 @@ export function PeriodScoreboard({
   );
   const awayLabel = !isHome ? teamLabel : opponentLabel(opponentName);
   const homeLabel = isHome ? teamLabel : opponentLabel(opponentName);
-  const possessionIsHome =
-    scoreboard.possessionTeamId === undefined
-      ? undefined
-      : isHome
-        ? scoreboard.possessionTeamId === teamId
-        : scoreboard.possessionTeamId !== teamId;
   const clockLine = [periodLabel(scoreboard.period), scoreboard.clock]
     .filter(Boolean)
     .join(' ');
@@ -102,9 +90,8 @@ export function PeriodScoreboard({
       <View style={styles.gridRow}>
         <Text
           numberOfLines={1}
-          style={[styles.teamLabel, !isHome && { color: accentColor }]}
+          style={[styles.teamLabel, !isHome && styles.followedLabel]}
         >
-          {possessionIsHome === false ? '▸ ' : ''}
           {awayLabel}
         </Text>
         {headers.map((_, index) => (
@@ -119,9 +106,8 @@ export function PeriodScoreboard({
       <View style={styles.gridRow}>
         <Text
           numberOfLines={1}
-          style={[styles.teamLabel, isHome && { color: accentColor }]}
+          style={[styles.teamLabel, isHome && styles.followedLabel]}
         >
-          {possessionIsHome === true ? '▸ ' : ''}
           {homeLabel}
         </Text>
         {headers.map((_, index) => (
@@ -132,21 +118,11 @@ export function PeriodScoreboard({
         ))}
         <LedCell value={scoreboard.home.points} />
       </View>
-
-      <View style={styles.situationBar}>
-        <Text style={styles.situationText}>
-          {clockLine || scoreboard.status}
-        </Text>
-        {scoreboard.situation ? (
-          <Text style={styles.situationText}>{scoreboard.situation}</Text>
-        ) : null}
-      </View>
     </View>
   );
 }
 
 const LED_WIDTH = 32;
-const TEAM_WIDTH = 86;
 
 const styles = StyleSheet.create({
   board: {
@@ -156,7 +132,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: 16,
     overflow: 'hidden',
-    paddingBottom: 12,
+    paddingBottom: 8,
     paddingHorizontal: 8,
     paddingTop: 10,
   },
@@ -166,7 +142,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   teamSpacer: {
-    width: TEAM_WIDTH,
+    flex: 1,
   },
   periodHeader: {
     color: '#F4F7FA',
@@ -183,12 +159,15 @@ const styles = StyleSheet.create({
     width: LED_WIDTH,
   },
   teamLabel: {
-    color: '#F4F7FA',
-    fontSize: 10,
+    color: '#B9C6D3',
+    flex: 1,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.3,
     paddingRight: 4,
-    width: TEAM_WIDTH,
+  },
+  followedLabel: {
+    color: '#FFFFFF',
   },
   led: {
     alignItems: 'center',
@@ -203,18 +182,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontVariant: ['tabular-nums'],
     fontWeight: '800',
-  },
-  situationBar: {
-    borderTopColor: 'rgba(244, 247, 250, 0.35)',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 4,
-    marginTop: 10,
-    paddingTop: 10,
-  },
-  situationText: {
-    color: '#F4F7FA',
-    fontSize: 13,
-    fontWeight: '800',
-    textAlign: 'center',
   },
 });

@@ -120,7 +120,7 @@ function validPeriod(period?: number): number | undefined {
     : undefined;
 }
 
-function ordinalNumber(value: number): string {
+export function ordinalNumber(value: number): string {
   const lastTwo = value % 100;
   if (lastTwo >= 11 && lastTwo <= 13) {
     return `${value}TH`;

@@ -25,14 +25,11 @@ import {
   bonusPills,
   boardTeamNames,
   centerSummary,
-  clockText,
   countText,
   foulTone,
   jerseyText,
   lastFoulArrow,
   lineupCaptions,
-  periodWellText,
-  phaseText,
   staleNote,
   tableRows,
   tableSummary,
@@ -60,11 +57,12 @@ import {
 } from './arenaTokens';
 import type { BasketballBoardModel, BoardPlayer, BoardSideKey } from './types';
 
-// Basketball arena board: the center panel (team names, scores, clock, phase, bonus pills, team
-// fouls, period, timeouts and the last foul) and each team's player table, drawn from a
-// BasketballBoardModel in split, arena or stacked mode (arenaLayout). Cells whose capability flag
-// is off are omitted. Three accessibility elements, the center panel and each table, each read a
-// spoken summary; nothing on the board is touchable. The stale note sits under the board.
+// Basketball arena board: the center panel (team names, bonus pills, team fouls, timeouts and the
+// last foul) and each team's player table, drawn from a BasketballBoardModel in split, arena or
+// stacked mode (arenaLayout). The game card's header holds the score, clock and possession. Cells
+// whose capability flag is off are omitted, and a game with no detail draws only the stale note.
+// Three accessibility elements, the center panel and each table, each read a spoken summary;
+// nothing on the board is touchable. The stale note sits under the board.
 
 // Board border and padding on each side; the inner width W is the board's width less both.
 const BOARD_BORDER = 1;
@@ -280,7 +278,6 @@ function CenterPanel({
   const { flags } = model;
   const pills = bonusPills(model);
   const arrow = lastFoulArrow(model);
-  const phase = phaseText(model);
 
   const stripe = (side: BoardSideKey) => (
     <View
@@ -297,13 +294,6 @@ function CenterPanel({
       size={labelSize}
       style={styles.teamName}
       text={names[side].label}
-    />
-  );
-  const score = (side: BoardSideKey) => (
-    <Well
-      digitColor={LED_DIGIT}
-      size={sizes.scoreWell}
-      text={countText(model[side].score)}
     />
   );
   const pill = (side: BoardSideKey) => {
@@ -356,58 +346,16 @@ function CenterPanel({
     >
       <CenterRow left={stripe('away')} right={stripe('home')} sizes={sizes} />
       <CenterRow left={teamName('away')} right={teamName('home')} sizes={sizes} />
-      <CenterRow
-        center={
-          <Well
-            digitColor={LED_DIGIT}
-            size={sizes.clockWell}
-            text={clockText(model.clock)}
-          />
-        }
-        left={score('away')}
-        right={score('home')}
-        sizes={sizes}
-      />
-      <CenterRow
-        center={
-          phase ? (
-            <Label color={LABEL} size={labelSize} style={styles.phase} text={phase} />
-          ) : null
-        }
-        left={pill('away')}
-        minHeight={PILL_ROW_HEIGHT}
-        right={pill('home')}
-        sizes={sizes}
-      />
-      <CenterRow
-        center={
-          <LabeledWell label="PERIOD" labelSize={labelSize} side="center">
-            <Well
-              digitColor={STAT_DIGIT}
-              size={sizes.periodWell}
-              text={periodWellText(model.period, model.regulationPeriods)}
-            />
-          </LabeledWell>
-        }
-        left={teamFouls('away')}
-        right={teamFouls('home')}
-        sizes={sizes}
-      />
-      {flags.possessionArrow ? (
+      {pills.away || pills.home ? (
         <CenterRow
-          center={
-            <View style={styles.inline}>
-              {model.possessionArrow === 'away' ? (
-                <Arrow direction="left" size={labelSize} />
-              ) : null}
-              <Label size={labelSize} text="POSS" />
-              {model.possessionArrow === 'home' ? (
-                <Arrow direction="right" size={labelSize} />
-              ) : null}
-            </View>
-          }
+          left={pill('away')}
+          minHeight={PILL_ROW_HEIGHT}
+          right={pill('home')}
           sizes={sizes}
         />
+      ) : null}
+      {flags.teamFouls ? (
+        <CenterRow left={teamFouls('away')} right={teamFouls('home')} sizes={sizes} />
       ) : null}
       {flags.lastFoul ? (
         <CenterRow
@@ -604,13 +552,20 @@ export function BasketballArenaBoard({
     model[opponentSide].color,
     model[opponentSide].alternateColor,
   );
+  const followedStripe = opponentStripeColor(
+    accentColor,
+    model[isHome ? 'home' : 'away'].alternateColor,
+  );
   const stripes: SideColors = {
-    away: isHome ? opponentStripe : accentColor,
-    home: isHome ? accentColor : opponentStripe,
+    away: isHome ? opponentStripe : followedStripe,
+    home: isHome ? followedStripe : opponentStripe,
   };
   const rebounds = layout.showReb && model.flags.rebounds;
   const captions = lineupCaptions(layout.mode, model.away.lineup, model.home.lineup);
   const note = useStaleNote(model.stale.polledAt);
+  const { flags } = model;
+  const hasDetail =
+    flags.players || flags.teamFouls || flags.bonus || flags.lastFoul || flags.timeouts;
 
   const onLayout = (event: LayoutChangeEvent) => {
     const inner = Math.max(
@@ -641,6 +596,10 @@ export function BasketballArenaBoard({
       style={style}
     />
   );
+
+  if (!hasDetail) {
+    return note ? <Text style={styles.staleNote}>{note}</Text> : null;
+  }
 
   return (
     <>
@@ -748,9 +707,6 @@ const styles = StyleSheet.create({
   },
   inlineLabel: {
     flexShrink: 1,
-  },
-  phase: {
-    fontWeight: '900',
   },
   well: {
     alignItems: 'center',

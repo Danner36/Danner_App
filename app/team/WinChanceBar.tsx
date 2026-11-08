@@ -4,12 +4,20 @@ import type { TeamRef } from '../leagues/types.ts';
 import type { TeamGame } from './engine/types.ts';
 import { useWinChance } from './useWinChance';
 
+function lastWord(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return parts[parts.length - 1] ?? name;
+}
+
 export function WinChanceBar({
   chance,
+  onBoard = false,
   opponentName,
   teamName,
 }: {
   chance: WinChance;
+  // Drawn on a game card's dark score header, with the teams named.
+  onBoard?: boolean;
   opponentName: string;
   teamName: string;
 }) {
@@ -17,6 +25,29 @@ export function WinChanceBar({
   const opponentPercent = Math.round(chance.opponent);
   const total = chance.team + chance.opponent;
   const teamShare = total > 0 ? chance.team / total : 0.5;
+
+  if (onBoard) {
+    return (
+      <View
+        accessibilityLabel={`Win chance: ${teamName} ${teamPercent} percent, ${opponentName} ${opponentPercent} percent`}
+        accessible
+        style={styles.boardBox}
+      >
+        <View style={styles.boardTrack}>
+          <View style={[styles.boardFill, { width: `${teamShare * 100}%` }]} />
+        </View>
+        <View style={styles.boardRow}>
+          <Text numberOfLines={1} style={styles.boardText}>
+            {teamName} {teamPercent}%
+          </Text>
+          <Text style={styles.boardLabel}>WIN CHANCE</Text>
+          <Text numberOfLines={1} style={[styles.boardText, styles.opponentText]}>
+            {lastWord(opponentName)} {opponentPercent}%
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View
@@ -69,6 +100,38 @@ const styles = StyleSheet.create({
   },
   box: {
     marginTop: 17,
+  },
+  boardBox: {
+    marginTop: 10,
+  },
+  boardTrack: {
+    backgroundColor: 'rgba(244, 247, 250, 0.25)',
+    borderRadius: 3,
+    height: 6,
+    overflow: 'hidden',
+  },
+  boardFill: {
+    backgroundColor: '#FFCF4A',
+    height: 6,
+  },
+  boardRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 7,
+  },
+  boardText: {
+    color: '#F4F7FA',
+    flex: 1,
+    fontSize: 13,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '800',
+  },
+  boardLabel: {
+    color: '#B9C6D3',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
   },
   fill: {
     backgroundColor: '#0B2B4C',

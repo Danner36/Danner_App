@@ -54,14 +54,11 @@ function CountLamps({
 }
 
 export function BaseballScoreboard({
-  accentColor,
   isHome,
   opponentName,
   scoreboard,
   teamLabel,
 }: {
-  // The followed team's label color.
-  accentColor: string;
   isHome: boolean;
   opponentName: string;
   scoreboard: BaseballBoard;
@@ -123,10 +120,7 @@ export function BaseballScoreboard({
           <View style={styles.gridRow}>
             <Text
               numberOfLines={1}
-              style={[
-                styles.teamLabel,
-                !isHome && { color: accentColor },
-              ]}
+              style={[styles.teamLabel, !isHome && styles.followedLabel]}
             >
               {awayLabel}
             </Text>
@@ -141,7 +135,7 @@ export function BaseballScoreboard({
           <View style={styles.gridRow}>
             <Text
               numberOfLines={1}
-              style={[styles.teamLabel, isHome && { color: accentColor }]}
+              style={[styles.teamLabel, isHome && styles.followedLabel]}
             >
               {homeLabel}
             </Text>
@@ -217,8 +211,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     width: LED_WIDTH,
   },
+  followedLabel: {
+    color: '#FFFFFF',
+  },
   teamLabel: {
-    color: '#F4F7FA',
+    color: '#B9C6D3',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.3,

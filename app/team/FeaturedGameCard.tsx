@@ -26,6 +26,7 @@ import {
 import type { PlayableStream } from '../streams/sources.ts';
 import { isGetVideoAvailable } from '../streams/workerConfig.ts';
 import { countdownLabel, gameTimeLabel } from './engine/dates.ts';
+import { scoreHeaderFor } from './engine/scoreHeader.ts';
 import { authorizedStreamsForGame } from './engine/streamMatch.ts';
 import type {
   GameInterruption,
@@ -38,9 +39,10 @@ import {
   playbackBlocked,
   recapResult,
 } from './engine/videoWindow.ts';
+import { GameScoreHeader, type HeaderBadgeTone } from './GameScoreHeader';
+import { opponentLogoFor } from './opponentLogo';
 import { teamBoardLabel } from './theme';
 import { useWinChance } from './useWinChance';
-import { WinChanceBar } from './WinChanceBar';
 
 const LIVE_SCOREBOARD_INTERVAL_MS = 5_000;
 const COUNTDOWN_INTERVAL_MS = 1_000;
@@ -72,15 +74,30 @@ function interruptionMessage(interruption: GameInterruption): string {
   return 'The game has been suspended.';
 }
 
-// Baseball and football boards draw above the countdown; the basketball arena board draws last,
-// after the Play/Listen row, the audio error and Get video.
+function badgeToneFor(
+  interruption: GameInterruption | undefined,
+  isLive: boolean,
+  recap: string | undefined,
+): HeaderBadgeTone {
+  if (interruption) {
+    return 'alert';
+  }
+  if (isLive) {
+    return 'live';
+  }
+  if (recap === 'WIN') {
+    return 'win';
+  }
+  return recap === 'LOSS' ? 'loss' : 'plain';
+}
+
+// The score, clock and situation live in the header, so every sport's board holds only the detail
+// below the video controls: innings and the count, quarters, or fouls and players.
 function LiveScoreboard({
-  accent,
   board,
   game,
   team,
 }: {
-  accent: string;
   board: LiveBoard;
   game: TeamGame;
   team: TeamRef;
@@ -88,7 +105,6 @@ function LiveScoreboard({
   if (board.kind === 'baseball') {
     return (
       <BaseballScoreboard
-        accentColor={accent}
         isHome={game.isHome}
         opponentName={game.opponentName}
         scoreboard={board}
@@ -99,11 +115,9 @@ function LiveScoreboard({
   if (board.kind === 'periods') {
     return (
       <PeriodScoreboard
-        accentColor={accent}
         isHome={game.isHome}
         opponentName={game.opponentName}
         scoreboard={board}
-        teamId={Number(team.espnId)}
         teamLabel={teamBoardLabel(team)}
       />
     );
@@ -127,6 +141,7 @@ function FeaturedGameCard({
   sportStatusLabel,
   streams,
   team,
+  teamKey,
 }: {
   accent: string;
   audioError?: string;
@@ -143,6 +158,7 @@ function FeaturedGameCard({
   sportStatusLabel?: string;
   streams: PlayableStream[];
   team: TeamRef;
+  teamKey: TeamKey;
 }) {
   const winChance = useWinChance(game, team);
   const interruption = gameInterruption(game.status);
@@ -166,14 +182,6 @@ function FeaturedGameCard({
     !visibleStreams.some(
       (stream) => stream.kind === 'direct' && isListeningTo(stream),
     );
-  // The inning belongs to the baseball board; a delay or suspension in the game status wins.
-  const statusText =
-    isLive &&
-    !interruption &&
-    game.board?.kind === 'baseball' &&
-    game.board.status
-      ? game.board.status
-      : game.status;
   const isTodayScheduled = !isLive && !interruption && !isFinal;
   const usesTodayCard = isTodayScheduled || isFinal;
   const badgeText = interruption
@@ -185,15 +193,22 @@ function FeaturedGameCard({
         : game.timeValid
           ? `TODAY ${gameTimeLabel(game.gameDate)}`
           : 'TODAY TIME TBA';
-  const matchupText =
-    isTodayScheduled || isFinal
-      ? game.neutralSite
-        ? `vs ${game.opponentName}`
-        : game.isHome
-          ? `Home vs ${game.opponentName}`
-          : `Away v ${game.opponentName}`
-      : `${team.nickname} ${game.isHome || game.neutralSite ? 'vs' : 'at'} ${game.opponentName}`;
   const getVideoBusy = getVideo.kind === 'finding';
+  const showVideoTiming = !videoWindowOpen && !blocksVideo && game.timeValid;
+  const showGetVideoBlock = videoWindowOpen && visibleStreams.length === 0;
+  const hasBoardDetail =
+    isLive && game.board !== undefined && game.board.kind !== 'basketball';
+  const hasContentBelowHeader = Boolean(
+    sportStatusLabel ||
+      interruption ||
+      showVideoTiming ||
+      visibleStreams.length > 0 ||
+      showStandaloneStop ||
+      audioError ||
+      showGetVideoBlock ||
+      hasBoardDetail ||
+      arenaBoard,
+  );
 
   return (
     <View
@@ -204,35 +219,24 @@ function FeaturedGameCard({
         interruption && styles.interruptedCard,
       ]}
     >
-      {showSportLabel && game.sport ? (
-        <Text style={styles.sportName}>{sportLabel(game.sport)}</Text>
-      ) : null}
-      <View
-        style={[
-          styles.liveBadge,
-          usesTodayCard && styles.todayBadge,
-          interruption && styles.interruptedBadge,
-        ]}
-      >
-        {isLive && !interruption ? (
-          <View style={[styles.liveDot, { backgroundColor: accent }]} />
-        ) : null}
-        <Text
-          numberOfLines={1}
-          style={[
-            styles.liveBadgeText,
-            usesTodayCard && styles.todayBadgeText,
-            interruption && styles.interruptedBadgeText,
-          ]}
-        >
-          {badgeText}
-        </Text>
-      </View>
+      <GameScoreHeader
+        badge={badgeText}
+        badgeTone={badgeToneFor(interruption, isLive, recap)}
+        countdown={
+          isTodayScheduled && game.timeValid
+            ? countdownLabel(game.gameDate, nowMs)
+            : undefined
+        }
+        header={scoreHeaderFor(game, team.nickname, Number(team.espnId))}
+        isLastSection={!hasContentBelowHeader}
+        opponentLogo={opponentLogoFor(game)}
+        opponentName={game.opponentName}
+        sportName={showSportLabel && game.sport ? sportLabel(game.sport) : undefined}
+        team={team}
+        teamKey={teamKey}
+        winChance={winChance}
+      />
 
-      <Text style={styles.liveMatchup}>{matchupText}</Text>
-      {isLive || interruption || isFinal ? (
-        <Text style={styles.liveStatus}>{statusText}</Text>
-      ) : null}
       {sportStatusLabel ? (
         <Text style={styles.sportStatusText}>{sportStatusLabel}</Text>
       ) : null}
@@ -245,49 +249,7 @@ function FeaturedGameCard({
         </View>
       ) : null}
 
-      {winChance ? (
-        <WinChanceBar
-          chance={winChance}
-          opponentName={game.opponentName}
-          teamName={team.nickname}
-        />
-      ) : null}
-
-      {arenaBoard ? null : isLive && game.board ? (
-        <LiveScoreboard
-          accent={accent}
-          board={game.board}
-          game={game}
-          team={team}
-        />
-      ) : isLive || isFinal ? (
-        <View style={styles.scoreBox}>
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreTeam}>{team.nickname}</Text>
-            <Text style={styles.scoreNumber}>{game.teamScore}</Text>
-          </View>
-          <View style={styles.scoreDivider} />
-          <View style={styles.scoreRow}>
-            <Text style={styles.scoreTeam}>{game.opponentName}</Text>
-            <Text style={styles.scoreNumber}>{game.opponentScore}</Text>
-          </View>
-        </View>
-      ) : null}
-
-      {isTodayScheduled && game.timeValid ? (
-        <View style={styles.countdownBox}>
-          <Text style={styles.countdownLabel}>STARTS IN</Text>
-          <Text accessibilityLiveRegion="polite" style={styles.countdownText}>
-            {countdownLabel(game.gameDate, nowMs)}
-          </Text>
-        </View>
-      ) : null}
-
-      {isTodayScheduled && !game.timeValid ? (
-        <Text style={styles.videoTimingText}>Time TBA</Text>
-      ) : null}
-
-      {!videoWindowOpen && !blocksVideo && game.timeValid ? (
+      {showVideoTiming ? (
         <Text style={styles.videoTimingText}>
           Video starts 15 minutes before game time.
         </Text>
@@ -379,7 +341,7 @@ function FeaturedGameCard({
         </Text>
       ) : null}
 
-      {videoWindowOpen && visibleStreams.length === 0 ? (
+      {showGetVideoBlock ? (
         <View style={styles.getVideoBlock}>
           {showGetVideo ? (
             <Pressable
@@ -429,9 +391,19 @@ function FeaturedGameCard({
               ? getVideoText(getVideo.view)
               : getVideo.kind === 'failed'
                 ? getVideo.message
-                : 'Video is not ready yet. The app checks again automatically.'}
+                : showGetVideo
+                  ? 'Finds a stream for this game.'
+                  : 'Video is not ready yet. The app checks again automatically.'}
           </Text>
         </View>
+      ) : null}
+
+      {hasBoardDetail && game.board ? (
+        <LiveScoreboard
+          board={game.board}
+          game={game}
+          team={team}
+        />
       ) : null}
 
       {arenaBoard ? (
@@ -786,6 +758,7 @@ export function FeaturedGameSlot({
       sportStatusLabel={sportStatusLabel}
       streams={streams}
       team={team}
+      teamKey={teamKey}
     />
   );
 }
@@ -800,6 +773,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 3,
     marginBottom: 18,
+    overflow: 'hidden',
     padding: 20,
   },
   todayCard: {
@@ -810,66 +784,11 @@ const styles = StyleSheet.create({
     borderColor: '#C97900',
     borderWidth: 3,
   },
-  sportName: {
-    color: '#5A6870',
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    textTransform: 'uppercase',
-  },
-  liveBadge: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFE7EA',
-    borderRadius: 16,
-    flexDirection: 'row',
-    gap: 7,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  todayBadge: {
-    backgroundColor: '#E8EEF3',
-  },
-  interruptedBadge: {
-    backgroundColor: '#FFF0D8',
-  },
-  liveDot: {
-    borderRadius: 5,
-    height: 10,
-    width: 10,
-  },
-  liveBadgeText: {
-    color: '#B20D27',
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 1,
-  },
-  todayBadgeText: {
-    color: '#0B2B4C',
-    letterSpacing: 0.4,
-  },
-  interruptedBadgeText: {
-    color: '#8A4B00',
-  },
-  liveMatchup: {
-    color: '#0B2B4C',
-    fontSize: 24,
-    fontWeight: '900',
-    lineHeight: 31,
-    marginTop: 13,
-  },
-  liveStatus: {
-    color: '#5A6870',
-    fontSize: 15,
-    fontWeight: '700',
-    marginTop: 3,
-  },
   sportStatusText: {
     color: '#8A4B00',
     fontSize: 15,
     fontWeight: '800',
-    marginTop: 8,
+    marginTop: 14,
   },
   interruptionBox: {
     backgroundColor: '#FFF0D8',
@@ -883,54 +802,6 @@ const styles = StyleSheet.create({
     fontSize: 19,
     fontWeight: '900',
     lineHeight: 25,
-    textAlign: 'center',
-  },
-  scoreBox: {
-    backgroundColor: '#F3F6F8',
-    borderRadius: 15,
-    marginTop: 17,
-    paddingHorizontal: 16,
-  },
-  scoreRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    minHeight: 58,
-  },
-  scoreTeam: {
-    color: '#0B2B4C',
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  scoreNumber: {
-    color: '#0B2B4C',
-    fontSize: 27,
-    fontWeight: '900',
-  },
-  scoreDivider: {
-    backgroundColor: '#D7DEE5',
-    height: 1,
-  },
-  countdownBox: {
-    alignItems: 'center',
-    backgroundColor: '#F3F6F8',
-    borderRadius: 15,
-    marginTop: 17,
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-  },
-  countdownLabel: {
-    color: '#697780',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.3,
-  },
-  countdownText: {
-    color: '#0B2B4C',
-    fontSize: 30,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '900',
-    marginTop: 5,
     textAlign: 'center',
   },
   videoTimingText: {
@@ -979,7 +850,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   getVideoBlock: {
-    alignItems: 'center',
     marginTop: 16,
   },
   getVideoButton: {
@@ -1000,6 +870,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   siteDots: {
+    alignSelf: 'center',
     flexDirection: 'row',
     gap: 8,
     marginTop: 12,

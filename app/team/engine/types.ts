@@ -21,6 +21,8 @@ export type TeamGame = {
   notes: string;
   // Hidden matching key: the MLB official date, or the America/New_York date of an ESPN start.
   officialDate: string;
+  // ESPN logo URL; absent from MLB schedules.
+  opponentLogo?: string;
   opponentName: string;
   opponentScore: number;
   scoreboard: ScoreboardKind;

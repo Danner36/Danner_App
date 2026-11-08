@@ -164,7 +164,12 @@ export function teamGameFromEspnEvent(
         homeAway?: unknown;
         id?: unknown;
         score?: unknown;
-        team?: { displayName?: unknown; id?: unknown };
+        team?: {
+          displayName?: unknown;
+          id?: unknown;
+          logo?: unknown;
+          logos?: Array<{ href?: unknown }>;
+        };
       };
       const teamId = Number(side.team?.id ?? side.id);
       const name =
@@ -177,6 +182,7 @@ export function teamGameFromEspnEvent(
       return {
         homeAway: side.homeAway === 'home' ? 'home' : 'away',
         id: teamId,
+        logo: side.team?.logos?.[0]?.href ?? side.team?.logo,
         name,
         score: finiteScore(side.score),
       };
@@ -227,6 +233,9 @@ export function teamGameFromEspnEvent(
   };
   if (row.sport) {
     game.sport = row.sport;
+  }
+  if (typeof opponent.logo === 'string') {
+    game.opponentLogo = opponent.logo;
   }
   return game;
 }
