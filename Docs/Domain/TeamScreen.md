@@ -43,7 +43,7 @@ A delayed game that has not started keeps a 30-second clock, so its video window
 
 ## Win chance
 
-The featured card shows a `WIN CHANCE` bar under the matchup line: `Us` and `Them` percentages over a navy-and-grey bar. Before the game it reads ESPN's pre-game prediction; while Live it reads the newest entry of ESPN's probabilities list. It refreshes every ten minutes before the game and every 30 seconds while live. It is hidden after Final, for postponed and canceled games, and whenever ESPN returns no number, and a failed request never holds back the countdown, Play, or Get video. ESPN's percentages can total under 100 when a tie is possible, so the bar splits by their ratio. With no featured game, the first schedule row shows the same bar under it.
+The featured card's score header shows a `WIN CHANCE` bar with each team's name and percentage. Before the game it reads ESPN's pre-game prediction; while Live it reads the newest entry of ESPN's probabilities list. A live game ESPN keeps no probabilities for shows the prediction until someone scores, then no bar. Shown percentages and the bar stay between 1% and 99%. It refreshes every ten minutes before the game and every 30 seconds while live. It is hidden after Final, for postponed and canceled games, and whenever ESPN returns no number. A failed request keeps the last number and never holds back the countdown, Play, or Get video. ESPN's percentages can total under 100 when a tie is possible, so the bar splits by their ratio. With no featured game, the first schedule row shows the same bar under it.
 
 ## Schedule
 

@@ -1,4 +1,5 @@
 import { localDateString } from '../../team/engine/dates.ts';
+import { gameHasScore } from '../../team/engine/scoreHeader.ts';
 import type { TeamGame, TeamRecord } from '../../team/engine/types.ts';
 import { fetchEspnJson, fetchEspnWinChance } from '../espn/winChance.ts';
 import type { AdapterSchedule, LeagueAdapter, TeamRef } from '../types.ts';
@@ -169,7 +170,13 @@ export const MLB_ADAPTER: LeagueAdapter = {
   fetchWinChance: async (game, team, live) => {
     const eventId = await findEspnEventId(game, team);
     return eventId
-      ? fetchEspnWinChance(ESPN_MLB_CORE_PATH, eventId, game.isHome, live)
+      ? fetchEspnWinChance(
+          ESPN_MLB_CORE_PATH,
+          eventId,
+          game.isHome,
+          live,
+          gameHasScore(game),
+        )
       : undefined;
   },
   harnessBoard: (value) => baseballBoardFromHarness(value),

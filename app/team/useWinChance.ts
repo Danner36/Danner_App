@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import type { WinChance } from '../leagues/espn/winChance.ts';
 import { adapterFor } from '../leagues/registry.ts';
@@ -11,7 +11,7 @@ const LIVE_REFRESH_MS = 30_000;
 
 // The win chance for a game: ESPN's pre-game prediction, then the live probability once the game
 // starts. Nothing is returned after Final, for a postponed or canceled game, or when ESPN has no
-// number.
+// number. A failed request keeps the last number.
 export function useWinChance(
   game: TeamGame | undefined,
   team: TeamRef,
@@ -24,6 +24,12 @@ export function useWinChance(
     interruption !== 'postponed' &&
     interruption !== 'canceled';
   const [found, setFound] = useState<{ chance: WinChance; key: string }>();
+  // The fetch below outlives many live polls and needs the current score.
+  const latestGame = useRef(game);
+
+  useEffect(() => {
+    latestGame.current = game;
+  }, [game]);
 
   useEffect(() => {
     if (!wanted || !game || key === undefined) {
@@ -38,8 +44,17 @@ export function useWinChance(
       if (AppState.currentState !== 'active') {
         return;
       }
-      const chance = await adapter.fetchWinChance(game, team, state === 'Live');
-      if (!cancelled && chance) {
+      const chance = await adapter.fetchWinChance(
+        latestGame.current ?? game,
+        team,
+        state === 'Live',
+      );
+      if (cancelled) {
+        return;
+      }
+      if (chance === null) {
+        setFound(undefined);
+      } else if (chance) {
         setFound({ chance, key });
       }
     };

@@ -104,6 +104,11 @@ function sideScores(game: TeamGame): { away: number; home: number } {
   }
 }
 
+export function gameHasScore(game: TeamGame): boolean {
+  const { away, home } = sideScores(game);
+  return away + home > 0;
+}
+
 function possessionSide(
   game: TeamGame,
   espnTeamId: number,

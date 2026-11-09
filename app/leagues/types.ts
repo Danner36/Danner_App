@@ -61,7 +61,7 @@ export type LeagueAdapter = {
     game: TeamGame,
     team: TeamRef,
     live: boolean,
-  ) => Promise<WinChance | undefined>;
+  ) => Promise<WinChance | null | undefined>;
   // Parses a fixture board; a harness-only path behind the development test URL.
   harnessBoard: (
     value: unknown,

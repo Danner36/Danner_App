@@ -1,4 +1,5 @@
 import type { BasketballCapabilityFlags } from '../../scoreboards/basketball/types.ts';
+import { gameHasScore } from '../../team/engine/scoreHeader.ts';
 import type { LiveBoard, TeamGame } from '../../team/engine/types.ts';
 import type { LeagueAdapter } from '../types.ts';
 import type { BasketballAdapterKey } from './basketballRules.ts';
@@ -53,7 +54,13 @@ export function espnAdapter(row: EspnAdapterRow): LeagueAdapter {
     fetchSchedule: (team, now) =>
       fetchEspnSchedule(row, team, now, boardFromEvent(row)),
     fetchWinChance: (game, _team, live) =>
-      fetchEspnWinChance(row.corePath, game.gameId, game.isHome, live),
+      fetchEspnWinChance(
+        row.corePath,
+        game.gameId,
+        game.isHome,
+        live,
+        gameHasScore(game),
+      ),
     harnessBoard: (value, flags) =>
       row.scoreboard === 'basketball'
         ? basketballBoardFromEspnSummary(

@@ -5,8 +5,19 @@ export type WinChance = {
 };
 
 const REQUEST_TIMEOUT_MS = 6_000;
+const MIN_SHOWN_PERCENT = 1;
+const MAX_SHOWN_PERCENT = 99;
+// ESPN answers 400 for an event it keeps no probabilities for.
+const NO_FEED_STATUSES: readonly number[] = [400, 404];
 
-export async function fetchEspnJson(url: string): Promise<unknown> {
+// Neither team is ever shown as certain.
+export function displayPercent(value: number): number {
+  return Math.min(MAX_SHOWN_PERCENT, Math.max(MIN_SHOWN_PERCENT, Math.round(value)));
+}
+
+async function fetchEspn(
+  url: string,
+): Promise<{ body?: unknown; status: number } | undefined> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -14,12 +25,19 @@ export async function fetchEspnJson(url: string): Promise<unknown> {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
     });
-    return response.ok ? await response.json() : undefined;
+    return {
+      body: response.ok ? await response.json() : undefined,
+      status: response.status,
+    };
   } catch {
     return undefined;
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export async function fetchEspnJson(url: string): Promise<unknown> {
+  return (await fetchEspn(url))?.body;
 }
 
 function percentage(value: unknown): number | undefined {
@@ -76,14 +94,18 @@ export function winChanceFromProbability(
   return isHome ? { opponent: away, team: home } : { opponent: home, team: away };
 }
 
-// `corePath` is the league's ESPN core path; `eventId` the ESPN event. Live reads ESPN's newest
-// probability, then the pre-game prediction; before the game only the prediction.
+// `corePath` is the league's ESPN core path; `eventId` the ESPN event. Before the game this is the
+// prediction. Live it is ESPN's newest probability; a game with no live feed keeps the prediction
+// only until someone scores, because after that it no longer describes the game. Returns null when
+// ESPN has no number for this moment, and undefined when a request failed, so the caller can keep
+// what it already shows.
 export async function fetchEspnWinChance(
   corePath: string,
   eventId: string,
   isHome: boolean,
   live: boolean,
-): Promise<WinChance | undefined> {
+  hasScore: boolean,
+): Promise<WinChance | null | undefined> {
   const competition = `https://sports.core.api.espn.com/v2/sports/${corePath}/events/${eventId}/competitions/${eventId}`;
   const pregame = async () =>
     winChanceFromPredictor(
@@ -96,23 +118,19 @@ export async function fetchEspnWinChance(
 
   // ESPN lists one probability per play; the last page of a one-item page size is the newest.
   const base = `${competition}/probabilities?limit=1`;
-  const first = (await fetchEspnJson(base)) as {
-    items?: unknown[];
-    pageCount?: unknown;
-  } | null;
-  const pageCount =
-    typeof first?.pageCount === 'number' ? Math.trunc(first.pageCount) : 0;
-  if (pageCount >= 1) {
-    const last =
-      pageCount === 1
-        ? first
-        : ((await fetchEspnJson(`${base}&page=${pageCount}`)) as {
-            items?: unknown[];
-          } | null);
-    const chance = winChanceFromProbability(last?.items?.[0], isHome);
-    if (chance) {
-      return chance;
-    }
+  const first = await fetchEspn(base);
+  if (!first) {
+    return undefined;
   }
-  return pregame();
+  const pageCount = (first.body as { pageCount?: unknown } | undefined)?.pageCount;
+  if (NO_FEED_STATUSES.includes(first.status) || pageCount === 0) {
+    return hasScore ? null : pregame();
+  }
+  if (typeof pageCount !== 'number' || pageCount < 1) {
+    return undefined;
+  }
+  const last =
+    pageCount === 1 ? first : await fetchEspn(`${base}&page=${Math.trunc(pageCount)}`);
+  const items = (last?.body as { items?: unknown[] } | undefined)?.items;
+  return winChanceFromProbability(items?.[0], isHome);
 }

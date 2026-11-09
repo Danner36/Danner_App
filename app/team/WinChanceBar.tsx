@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { WinChance } from '../leagues/espn/winChance.ts';
+import { displayPercent, type WinChance } from '../leagues/espn/winChance.ts';
 import type { TeamRef } from '../leagues/types.ts';
 import type { TeamGame } from './engine/types.ts';
 import { useWinChance } from './useWinChance';
@@ -21,10 +21,11 @@ export function WinChanceBar({
   opponentName: string;
   teamName: string;
 }) {
-  const teamPercent = Math.round(chance.team);
-  const opponentPercent = Math.round(chance.opponent);
+  const teamPercent = displayPercent(chance.team);
+  const opponentPercent = displayPercent(chance.opponent);
   const total = chance.team + chance.opponent;
   const teamShare = total > 0 ? chance.team / total : 0.5;
+  const barWidth = `${displayPercent(teamShare * 100)}%` as const;
 
   if (onBoard) {
     return (
@@ -34,7 +35,7 @@ export function WinChanceBar({
         style={styles.boardBox}
       >
         <View style={styles.boardTrack}>
-          <View style={[styles.boardFill, { width: `${teamShare * 100}%` }]} />
+          <View style={[styles.boardFill, { width: barWidth }]} />
         </View>
         <View style={styles.boardRow}>
           <Text numberOfLines={1} style={styles.boardText}>
@@ -65,7 +66,7 @@ export function WinChanceBar({
         </Text>
       </View>
       <View style={styles.track}>
-        <View style={[styles.fill, { width: `${teamShare * 100}%` }]} />
+        <View style={[styles.fill, { width: barWidth }]} />
       </View>
     </View>
   );

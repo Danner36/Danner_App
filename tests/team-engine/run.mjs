@@ -5,5 +5,6 @@ await import('./patriots.mjs');
 await import('./cyclones.mjs');
 await import('./engine.mjs');
 await import('./scoreHeader.mjs');
+await import('./winChance.mjs');
 
 process.stdout.write('Team engine assertions passed.\n');
