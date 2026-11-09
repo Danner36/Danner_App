@@ -6,7 +6,7 @@
 - Primary Danner green: `#1F6F55`
 - Heading navy: `#15354A`
 - Logo-only main menu with the Danner script logo centered one-third down the usable screen, 210dp unless height requires 180, 150, or 120dp
-- Tile grid: the selected teams, then YouTube TV, then `+`. Columns are the rounded-up square root of the tile count, at least 2. Tiles are 101.2dp at most with gaps of 28/101.2 of the tile, rows fill from the left, and the block is centered on the two-thirds line. The grid scrolls rather than go below 64dp, and landscape puts the logo in the left 35%. The values live in `app/hub/hubGrid.ts`
+- Tile grid: the selected teams, then YouTube TV when it has been added, then `+`. Columns are the rounded-up square root of the tile count, at least 2, except that a lone `+` is centered. Tiles are 101.2dp at most with gaps of 28/101.2 of the tile, rows fill from the left, and the block is centered on the two-thirds line. The grid scrolls rather than go below 64dp, and landscape puts the logo in the left 35%. The values live in `app/hub/hubGrid.ts`
 - Tiles keep a 2dp `#A9CEBB` border, radius 14, and the soft shadow. Every team shows its downloaded ESPN PNG contained with 12% padding on light sage (`#DDEAE3`), else its abbreviation in bold on the accent color, in white or black by contrast
 - The `+` tile is light sage with a `#1F6F55` glyph
 - No tile titles or descriptions

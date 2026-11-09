@@ -38,6 +38,10 @@ import {
   refreshTeamRefs,
   removeTile,
   setSchoolSports,
+  addModule,
+  hasModule,
+  removeModule,
+  YOUTUBE_TV_MODULE,
 } from '../../app/selection/ops.ts';
 import { CYCLONES_TILE, GUARDIANS_TILE, PATRIOTS_TILE } from '../../app/selection/presets.ts';
 import { decideSeed, LEGACY_SIGNAL_KEYS, LEGACY_SOURCES_KEYS, SEED_KEY } from '../../app/selection/seed.ts';
@@ -458,6 +462,82 @@ await test('a migration that throws or yields an invalid document writes nothing
     assert.equal(loaded.readOnly, true);
     assert.equal(storage.data.get(SELECTION_KEY), text);
   }
+});
+
+await test('a module is added once, removed, and survives tile changes', () => {
+  const added = addModule(empty(), YOUTUBE_TV_MODULE, NOW);
+  assert.equal(hasModule(added, YOUTUBE_TV_MODULE), true);
+  assert.equal(addModule(added, YOUTUBE_TV_MODULE, NOW), added);
+  const withTeam = addPro(added, GUARDIANS_TILE, NOW);
+  assert.deepEqual(withTeam.modules, [YOUTUBE_TV_MODULE]);
+  const removed = removeModule(withTeam, YOUTUBE_TV_MODULE, NOW);
+  assert.equal(hasModule(removed, YOUTUBE_TV_MODULE), false);
+  assert.deepEqual(keysOf(removed), ['mlb-5']);
+  assert.equal(removeModule(removed, YOUTUBE_TV_MODULE, NOW), removed);
+});
+
+await test('a first install has no modules and a family phone keeps YouTube TV', async () => {
+  const fresh = await load(fakeStorage());
+  assert.deepEqual(fresh.selection.modules, []);
+  const family = await load(fakeStorage({ 'danner.destination.v1': '{"label":"Home"}' }));
+  assert.deepEqual(family.selection.modules, [YOUTUBE_TV_MODULE]);
+});
+
+const olderDocument = JSON.stringify({ schema: 1, tiles: [GUARDIANS_TILE], updatedAt: NOW });
+
+await test('a phone from before modules that never used YouTube TV loses the tile, once', async () => {
+  const storage = fakeStorage({
+    [SELECTION_KEY]: olderDocument,
+    [SEED_KEY]: JSON.stringify({ decision: 'fresh', signal: 'none' }),
+  });
+  const loaded = await load(storage);
+  assert.equal(loaded.readOnly, false);
+  assert.deepEqual(loaded.selection.modules, []);
+  assert.deepEqual(keysOf(loaded.selection), ['mlb-5']);
+  assert.deepEqual(JSON.parse(storage.data.get(SELECTION_KEY)).modules, []);
+});
+
+await test('a phone from before modules keeps the tile when seeded or when it used TV Location', async () => {
+  for (const extra of [
+    { [SEED_KEY]: JSON.stringify({ decision: 'legacy-family', signal: 'legacy-keys' }) },
+    { 'danner.destination.v1': '{"label":"Home"}' },
+    { 'danner.tv.default.v1': '{"label":"Home"}' },
+  ]) {
+    const storage = fakeStorage({ [SELECTION_KEY]: olderDocument, ...extra });
+    const loaded = await load(storage);
+    assert.deepEqual(loaded.selection.modules, [YOUTUBE_TV_MODULE]);
+    assert.deepEqual(JSON.parse(storage.data.get(SELECTION_KEY)).modules, [YOUTUBE_TV_MODULE]);
+  }
+});
+
+await test('a removed YouTube TV stays removed even with its saved location', async () => {
+  const text = JSON.stringify({ modules: [], schema: 1, tiles: [], updatedAt: NOW });
+  const storage = fakeStorage({
+    [SELECTION_KEY]: text,
+    'danner.destination.v1': '{"label":"Home"}',
+  });
+  const loaded = await load(storage);
+  assert.deepEqual(loaded.selection.modules, []);
+  assert.equal(storage.data.get(SELECTION_KEY), text);
+});
+
+await test('a session that cannot save keeps YouTube TV reachable', async () => {
+  const unreadable = await load(fakeStorage({ [SELECTION_KEY]: '{not json' }));
+  assert.equal(unreadable.readOnly, true);
+  assert.deepEqual(unreadable.selection.modules, [YOUTUBE_TV_MODULE]);
+  const partial = JSON.stringify({ schema: 1, tiles: [GUARDIANS_TILE, { key: 'bad' }], updatedAt: NOW });
+  assert.deepEqual((await load(fakeStorage({ [SELECTION_KEY]: partial }))).selection.modules, [
+    YOUTUBE_TV_MODULE,
+  ]);
+});
+
+await test('an unknown module is dropped', () => {
+  assert.deepEqual(
+    parseSelectionDocument({ modules: ['other', YOUTUBE_TV_MODULE], tiles: [] }).selection.modules,
+    [YOUTUBE_TV_MODULE],
+  );
+  assert.deepEqual(parseSelectionDocument({ modules: ['other'], tiles: [] }).selection.modules, []);
+  assert.equal(parseSelectionDocument({ tiles: [] }).selection.modules, undefined);
 });
 
 await test('the parser ignores unknown keys and repeats', () => {

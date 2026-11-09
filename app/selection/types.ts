@@ -18,4 +18,13 @@ export type SchoolTile = {
 
 export type Tile = ProTile | SchoolTile;
 
-export type SelectionV1 = { schema: 1; tiles: Tile[]; updatedAt: string };
+// A hub tile that is not a team, added from `+` under Custom modules.
+export type ModuleKey = 'youtube-tv';
+
+export type SelectionV1 = {
+  // Absent only on a document written before custom modules; loading fills it in.
+  modules?: ModuleKey[];
+  schema: 1;
+  tiles: Tile[];
+  updatedAt: string;
+};

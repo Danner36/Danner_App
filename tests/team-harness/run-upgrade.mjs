@@ -131,12 +131,12 @@ async function installNew() {
 async function assertHub(expected, stateName) {
   await startApp();
   const nodes = await waitForLabel('Add team', 90_000);
-  await waitForLabel('TV Location');
   const labels = labelsOf(nodes);
+  assert.equal(labels.includes('TV Location'), expected === 'seeded', `${stateName}: TV Location`);
   for (const label of PRESET_LABELS) {
     assert.equal(labels.includes(label), expected === 'seeded', `${stateName}: ${label}`);
   }
-  step(`${stateName}: the hub shows ${expected === 'seeded' ? 'the three presets, TV Location and +' : 'only TV Location and +'}`);
+  step(`${stateName}: the hub shows ${expected === 'seeded' ? 'the three presets, TV Location and +' : 'only +'}`);
 }
 
 function assertSeed(stored, decision, signal, stateName) {

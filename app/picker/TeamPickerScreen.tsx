@@ -14,16 +14,19 @@ import { SUPPORTED_ADAPTER_KEYS } from '../leagues/registry.ts';
 import { sportLabel } from '../leagues/sports.ts';
 import type { LeagueKey, SportKey, TeamKey } from '../leagues/types.ts';
 import {
+  addModule,
   addPro,
   addSchoolSports,
   findTile,
+  hasModule,
   isHubFull,
   MAX_TEAM_TILES,
   refreshTeamRefs,
   setSchoolSports,
+  YOUTUBE_TV_MODULE,
 } from '../selection/ops.ts';
 import type { SelectionChange } from '../selection/store';
-import type { SelectionV1 } from '../selection/types.ts';
+import type { ModuleKey, SelectionV1 } from '../selection/types.ts';
 import {
   readCatalog,
   refreshCatalogIfStale,
@@ -45,11 +48,19 @@ import {
 
 const TEAM_ROW_HEIGHT = 68;
 const SAVE_FAILED_MESSAGE = 'The team could not be saved on this phone. Try again.';
+const CUSTOM_MODULES: readonly { description: string; key: ModuleKey; label: string }[] = [
+  {
+    description: 'Sets the location YouTube TV uses. Needs a YouTube TV account.',
+    key: YOUTUBE_TV_MODULE,
+    label: 'YouTube TV',
+  },
+];
 
 export type PickerStart = { schoolKey: TeamKey };
 
 type Step =
   | { name: 'league' }
+  | { name: 'modules' }
   | { name: 'team'; row: PickerRow }
   | {
       name: 'sports';
@@ -109,7 +120,7 @@ export function TeamPickerScreen({
   }, [refresh]);
 
   const goBack = useCallback(() => {
-    if (step.name === 'team') {
+    if (step.name === 'team' || step.name === 'modules') {
       setStep({ name: 'league' });
     } else if (step.name === 'sports' && step.returnTo) {
       setStep({ name: 'team', row: step.returnTo });
@@ -149,6 +160,17 @@ export function TeamPickerScreen({
       );
     },
     [saveAndClose],
+  );
+
+  const addCustomModule = useCallback(
+    async (key: ModuleKey) => {
+      if (await applyChange((current, now) => addModule(current, key, now))) {
+        onClose();
+      } else {
+        Alert.alert('Not saved', 'The module could not be saved on this phone. Try again.');
+      }
+    },
+    [applyChange, onClose],
   );
 
   const removeSchool = useCallback(
@@ -196,10 +218,13 @@ export function TeamPickerScreen({
         <LeagueStep
           checking={checking}
           full={isHubFull(selection)}
+          onOpenModules={() => setStep({ name: 'modules' })}
           onPick={(row) => setStep({ name: 'team', row })}
           onRetry={() => void refresh()}
           rows={rows}
         />
+      ) : step.name === 'modules' ? (
+        <ModulesStep onAdd={(key) => void addCustomModule(key)} selection={selection} />
       ) : step.name === 'team' ? (
         <TeamStep
           onPickPro={addProTeam}
@@ -249,12 +274,14 @@ export function TeamPickerScreen({
 function LeagueStep({
   checking,
   full,
+  onOpenModules,
   onPick,
   onRetry,
   rows,
 }: {
   checking: boolean;
   full: boolean;
+  onOpenModules: () => void;
   onPick: (row: PickerRow) => void;
   onRetry: () => void;
   rows: readonly PickerRow[];
@@ -304,6 +331,57 @@ function LeagueStep({
           </Pressable>
         </View>
       ) : null}
+      <Pressable
+        accessibilityLabel="Custom modules"
+        accessibilityRole="button"
+        onPress={onOpenModules}
+        style={({ pressed }) => [
+          styles.leagueRow,
+          styles.modulesRow,
+          pressed && styles.pressed,
+        ]}
+      >
+        <Text style={styles.leagueText}>Custom modules</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function ModulesStep({
+  onAdd,
+  selection,
+}: {
+  onAdd: (key: ModuleKey) => void;
+  selection: SelectionV1;
+}) {
+  return (
+    <View style={styles.body}>
+      <Text accessibilityRole="header" style={styles.title}>
+        Custom modules
+      </Text>
+      {CUSTOM_MODULES.map((entry) => {
+        const onHub = hasModule(selection, entry.key);
+        return (
+          <Pressable
+            accessibilityHint={onHub ? 'On hub' : entry.description}
+            accessibilityLabel={entry.label}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: onHub }}
+            disabled={onHub}
+            key={entry.key}
+            onPress={() => onAdd(entry.key)}
+            style={({ pressed }) => [
+              styles.moduleRow,
+              pressed && styles.pressed,
+              onHub && styles.disabled,
+            ]}
+          >
+            <Text style={styles.leagueText}>{entry.label}</Text>
+            <Text style={styles.moduleDescription}>{entry.description}</Text>
+            {onHub ? <Text style={styles.statusText}>On hub</Text> : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -554,6 +632,25 @@ const styles = StyleSheet.create({
     maxWidth: 720,
     paddingHorizontal: 18,
     width: '100%',
+  },
+  moduleDescription: {
+    color: '#45545E',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 22,
+    marginTop: 4,
+  },
+  moduleRow: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#A9CEBB',
+    borderRadius: 14,
+    borderWidth: 2,
+    marginBottom: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  modulesRow: {
+    marginTop: 14,
   },
   pressed: {
     opacity: 0.7,

@@ -1,16 +1,17 @@
 import { isSportKey, SPORT_ORDER } from '../leagues/sports.ts';
 import type { LeagueKey, SportKey, TeamKey, TeamRef } from '../leagues/types.ts';
 import type { InstallTimes } from './installInfo.ts';
-import { applyFamilyPreset, emptySelection } from './ops.ts';
+import { addModule, applyFamilyPreset, emptySelection, YOUTUBE_TV_MODULE } from './ops.ts';
 import { PRESET_TILES } from './presets.ts';
 import {
   decideSeed,
   LEGACY_SIGNAL_KEYS,
   LEGACY_SOURCES_KEYS,
   SEED_KEY,
+  TV_LOCATION_KEYS,
   type SeedRecord,
 } from './seed.ts';
-import type { SelectionV1, Tile } from './types.ts';
+import type { ModuleKey, SelectionV1, Tile } from './types.ts';
 
 export const SELECTION_KEY = 'danner.selection.v1';
 export const SELECTION_SCHEMA = 1;
@@ -119,6 +120,13 @@ function parseTile(value: unknown): Tile | undefined {
   return undefined;
 }
 
+function parseModules(value: unknown): ModuleKey[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  return value.includes(YOUTUBE_TV_MODULE) ? [YOUTUBE_TV_MODULE] : [];
+}
+
 export type ParsedSelection = {
   // False when a tile could not be read, so the document must not be rewritten without it.
   complete: boolean;
@@ -139,9 +147,11 @@ export function parseSelectionDocument(document: unknown): ParsedSelection | und
       tiles.push(tile);
     }
   }
+  const modules = parseModules(document.modules);
   return {
     complete: tiles.length === document.tiles.length,
     selection: {
+      ...(modules ? { modules } : {}),
       schema: 1,
       tiles,
       updatedAt: isText(document.updatedAt) ? document.updatedAt : '',
@@ -149,8 +159,19 @@ export function parseSelectionDocument(document: unknown): ParsedSelection | und
   };
 }
 
+// A session that cannot save cannot add a module back, so it keeps YouTube TV reachable.
+function readOnlySelection(selection: SelectionV1): LoadedSelection {
+  return {
+    readOnly: true,
+    selection: selection.modules ? selection : { ...selection, modules: [YOUTUBE_TV_MODULE] },
+  };
+}
+
 function readOnlyEmpty(now: string): LoadedSelection {
-  return { readOnly: true, selection: emptySelection(now) };
+  return {
+    readOnly: true,
+    selection: addModule(emptySelection(now), YOUTUBE_TV_MODULE, now),
+  };
 }
 
 function parseJson(text: string): unknown {
@@ -176,6 +197,31 @@ function runMigrations(
   return current;
 }
 
+// A document from before custom modules keeps YouTube TV on a family phone or one that has used
+// TV Location. Any other phone loses a tile it never needed.
+async function modulesForOlderDocument(options: LoadOptions): Promise<ModuleKey[]> {
+  const values = new Map(await options.storage.multiGet([SEED_KEY, ...TV_LOCATION_KEYS]));
+  const seed = parseJson(values.get(SEED_KEY) ?? 'null');
+  const familyPhone = isRecord(seed) && seed.decision === 'legacy-family';
+  const usedTvLocation = TV_LOCATION_KEYS.some((key) => (values.get(key) ?? null) !== null);
+  return familyPhone || usedTvLocation ? [YOUTUBE_TV_MODULE] : [];
+}
+
+async function storeWithModules(
+  selection: SelectionV1,
+  options: LoadOptions,
+): Promise<LoadedSelection> {
+  try {
+    const stored: SelectionV1 = selection.modules
+      ? selection
+      : { ...selection, modules: await modulesForOlderDocument(options) };
+    await options.storage.setItem(SELECTION_KEY, JSON.stringify(stored));
+    return { readOnly: false, selection: stored };
+  } catch {
+    return readOnlySelection(selection);
+  }
+}
+
 // An unreadable document leaves the key alone and the session read-only. A newer schema is read and
 // never written. An older schema is migrated, validated, and written back.
 async function fromStored(text: string, options: LoadOptions): Promise<LoadedSelection> {
@@ -186,9 +232,7 @@ async function fromStored(text: string, options: LoadOptions): Promise<LoadedSel
 
   if (document.schema > SELECTION_SCHEMA) {
     const parsed = parseSelectionDocument(document);
-    return parsed
-      ? { readOnly: true, selection: parsed.selection }
-      : readOnlyEmpty(options.now());
+    return parsed ? readOnlySelection(parsed.selection) : readOnlyEmpty(options.now());
   }
 
   if (document.schema < SELECTION_SCHEMA) {
@@ -202,19 +246,19 @@ async function fromStored(text: string, options: LoadOptions): Promise<LoadedSel
     if (!parsed || !parsed.complete) {
       return readOnlyEmpty(options.now());
     }
-    try {
-      await options.storage.setItem(SELECTION_KEY, JSON.stringify(parsed.selection));
-    } catch {
-      return { readOnly: true, selection: parsed.selection };
-    }
-    return { readOnly: false, selection: parsed.selection };
+    return storeWithModules(parsed.selection, options);
   }
 
   const parsed = parseSelectionDocument(document);
   if (!parsed) {
     return readOnlyEmpty(options.now());
   }
-  return { readOnly: !parsed.complete, selection: parsed.selection };
+  if (!parsed.complete) {
+    return readOnlySelection(parsed.selection);
+  }
+  return parsed.selection.modules
+    ? { readOnly: false, selection: parsed.selection }
+    : storeWithModules(parsed.selection, options);
 }
 
 function testSelectionTiles(keys: readonly TeamKey[]): Tile[] {
@@ -230,6 +274,7 @@ async function firstLaunch(options: LoadOptions): Promise<LoadedSelection> {
   try {
     if (options.testSelection) {
       const selection: SelectionV1 = {
+        modules: [YOUTUBE_TV_MODULE],
         schema: 1,
         tiles: testSelectionTiles(options.testSelection),
         updatedAt: at,
@@ -244,7 +289,7 @@ async function firstLaunch(options: LoadOptions): Promise<LoadedSelection> {
     const decided = decideSeed(legacyKeysPresent, installTimes);
     const selection =
       decided.decision === 'legacy-family'
-        ? applyFamilyPreset(emptySelection(at), at)
+        ? addModule(applyFamilyPreset(emptySelection(at), at), YOUTUBE_TV_MODULE, at)
         : emptySelection(at);
     const record: SeedRecord = { ...decided, appVersion: options.appVersion, at };
 

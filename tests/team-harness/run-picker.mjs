@@ -79,9 +79,10 @@ async function relaunch(label) {
 }
 
 async function checkFreshInstall() {
-  await relaunch('TV Location');
+  await relaunch('Add team');
   const nodes = await waitForLabel('Add team');
   const labels = labelsOf(nodes);
+  assert.ok(!labels.includes('TV Location'), 'YouTube TV is not on a fresh install');
   for (const preset of ['Cleveland Guardians', 'New England Patriots', 'Iowa State Cyclones']) {
     assert.ok(!labels.includes(preset), `${preset} is not on a fresh install`);
   }
@@ -90,7 +91,7 @@ async function checkFreshInstall() {
   const seed = JSON.parse(stored.get(SEED_KEY));
   assert.equal(seed.decision, 'fresh');
   assert.equal(seed.signal, 'none');
-  step('a first install shows TV Location and Add team, and records a fresh seed');
+  step('a first install shows only Add team, and records a fresh seed');
 }
 
 async function openPickerRow(rowLabel) {
@@ -311,7 +312,10 @@ async function checkInstallReplace() {
   await waitForLabel('TV Location');
   await adb(['shell', 'am', 'force-stop', packageName]);
   const stored = readStorage();
-  assert.equal(stored.get(SELECTION_KEY), tiles);
+  assert.deepEqual(JSON.parse(stored.get(SELECTION_KEY)), {
+    ...JSON.parse(tiles),
+    modules: ['youtube-tv'],
+  });
   for (const [key, value] of Object.entries(tvValues)) {
     assert.equal(stored.get(key), value);
   }

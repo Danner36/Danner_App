@@ -10,7 +10,7 @@ import { HubScreen } from './hub/HubScreen';
 import type { TeamKey } from './leagues/types.ts';
 import { deleteLogo } from './logos/logoStore';
 import { TeamPickerScreen, type PickerStart } from './picker/TeamPickerScreen';
-import { findTile } from './selection/ops.ts';
+import { findTile, hasModule, YOUTUBE_TV_MODULE } from './selection/ops.ts';
 import { removeSourcesCache, useSelectionStore } from './selection/store';
 import { TeamScreen } from './team/TeamScreen';
 import { TvLocationScreen } from './tvLocation/TvLocationScreen';
@@ -74,6 +74,7 @@ export default function App() {
             onTileRemoved={clearTileData}
             readOnly={store.readOnly}
             retryLoad={store.reload}
+            showTvTile={hasModule(store.selection, YOUTUBE_TV_MODULE)}
             tiles={store.selection.tiles}
           />
         )}

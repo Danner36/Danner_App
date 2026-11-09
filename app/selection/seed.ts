@@ -19,6 +19,9 @@ export const LEGACY_SIGNAL_KEYS: readonly string[] = [
   DESTINATION_KEY,
 ];
 
+// Either one means this phone has used TV Location.
+export const TV_LOCATION_KEYS: readonly string[] = ['danner.tv.default.v1', DESTINATION_KEY];
+
 export type SeedDecision = {
   decision: 'legacy-family' | 'fresh';
   signal: 'legacy-keys' | 'install-times' | 'none';

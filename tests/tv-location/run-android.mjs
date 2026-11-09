@@ -151,9 +151,21 @@ const buttonOf = (node) => {
   return current;
 };
 
+// A fresh install has no YouTube TV tile until it is added under Custom modules.
+async function addTvModuleIfMissing() {
+  const nodes = await waitForLabel('Add team', 40_000);
+  if (findNode(nodes, 'TV Location')) {
+    return;
+  }
+  await tapLabel('Add team');
+  await tapLabel('Custom modules');
+  await tapLabel('YouTube TV');
+}
+
 async function openTvLocation() {
   adb('shell', 'am', 'force-stop', PACKAGE);
   adb('shell', 'monkey', '-p', PACKAGE, '-c', 'android.intent.category.LAUNCHER', '1');
+  await addTvModuleIfMissing();
   await waitForLabel('TV Location', 40_000);
   await tapLabel('TV Location');
   await waitFor(

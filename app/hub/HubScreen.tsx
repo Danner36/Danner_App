@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { TeamKey } from '../leagues/types.ts';
 import { backfillLogos } from '../logos/logoStore';
 import { TeamLogo } from '../logos/TeamLogo';
-import { moveTile, removeTile } from '../selection/ops.ts';
+import { moveTile, removeModule, removeTile, YOUTUBE_TV_MODULE } from '../selection/ops.ts';
 import type { SelectionChange } from '../selection/store';
 import type { Tile } from '../selection/types.ts';
 import {
@@ -61,6 +61,7 @@ export function HubScreen({
   onTileRemoved,
   readOnly,
   retryLoad,
+  showTvTile,
   tiles,
 }: {
   applyChange: (change: SelectionChange) => Promise<boolean>;
@@ -71,6 +72,7 @@ export function HubScreen({
   onTileRemoved: (key: TeamKey) => void;
   readOnly: boolean;
   retryLoad: () => Promise<boolean>;
+  showTvTile: boolean;
   tiles: readonly Tile[];
 }) {
   const [size, setSize] = useState<{ height: number; width: number } | undefined>();
@@ -347,6 +349,31 @@ export function HubScreen({
     [applyTileChange, onTileRemoved, setOverlayOpen],
   );
 
+  const confirmRemoveTv = useCallback(() => {
+    setOverlayOpen(true);
+    Alert.alert(
+      'Remove YouTube TV?',
+      'It will be removed from the hub. You can add it again from + under Custom modules.',
+      [
+        {
+          onPress: () => setOverlayOpen(false),
+          style: 'cancel',
+          text: 'Cancel',
+        },
+        {
+          onPress: () => {
+            setOverlayOpen(false);
+            void applyTileChange((current, now) =>
+              removeModule(current, YOUTUBE_TV_MODULE, now),
+            );
+          },
+          style: 'destructive',
+          text: 'Remove',
+        },
+      ],
+    );
+  }, [applyTileChange, setOverlayOpen]);
+
   const runTileAction = useCallback(
     (tile: Tile, action: TileActionName) => {
       if (action === 'remove') {
@@ -389,9 +416,10 @@ export function HubScreen({
     });
 
   const busy = provisioningWarning !== undefined || updateDownloading;
+  const plusIndex = tiles.length + (showTvTile ? 1 : 0);
   const layout = size
     ? hubLayout({
-        cells: tiles.length + 2,
+        cells: plusIndex + 1,
         height: size.height,
         insetLeft: insets.left,
         insetRight: insets.right,
@@ -453,24 +481,33 @@ export function HubScreen({
             tile.key,
           );
         }),
+        ...(showTvTile
+          ? [
+              cell(
+                tiles.length,
+                <HubTile
+                  accessibilityActions={
+                    readOnly ? undefined : [{ label: 'Remove from hub', name: 'remove' }]
+                  }
+                  hint="Opens the YouTube TV location setup"
+                  label="TV Location"
+                  onAccessibilityAction={readOnly ? undefined : confirmRemoveTv}
+                  onLongPress={readOnly ? undefined : confirmRemoveTv}
+                  onPress={onOpenTvLocation}
+                  size={layout.tile}
+                >
+                  <Image
+                    resizeMode="cover"
+                    source={require('../assets/youtube-tv-logo-vecteezy.jpg')}
+                    style={styles.fill}
+                  />
+                </HubTile>,
+                'tv-location',
+              ),
+            ]
+          : []),
         cell(
-          tiles.length,
-          <HubTile
-            hint="Opens the YouTube TV location setup"
-            label="TV Location"
-            onPress={onOpenTvLocation}
-            size={layout.tile}
-          >
-            <Image
-              resizeMode="cover"
-              source={require('../assets/youtube-tv-logo-vecteezy.jpg')}
-              style={styles.fill}
-            />
-          </HubTile>,
-          'tv-location',
-        ),
-        cell(
-          tiles.length + 1,
+          plusIndex,
           <HubTile
             hint="Opens the team picker"
             label="Add team"

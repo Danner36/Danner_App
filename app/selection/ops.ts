@@ -1,14 +1,44 @@
 import { SPORT_ORDER } from '../leagues/sports.ts';
 import type { SportKey, TeamKey, TeamRef } from '../leagues/types.ts';
 import { CYCLONES_TILE, PRESET_TILES } from './presets.ts';
-import type { ProTile, SchoolTile, SelectionV1, Tile } from './types.ts';
+import type { ModuleKey, ProTile, SchoolTile, SelectionV1, Tile } from './types.ts';
 
 export const MAX_TEAM_TILES = 30;
+export const YOUTUBE_TV_MODULE: ModuleKey = 'youtube-tv';
 
 export type MoveDirection = 'front' | 'earlier' | 'later';
 
 export function emptySelection(now: string): SelectionV1 {
-  return { schema: 1, tiles: [], updatedAt: now };
+  return { modules: [], schema: 1, tiles: [], updatedAt: now };
+}
+
+export function hasModule(selection: SelectionV1, key: ModuleKey): boolean {
+  return selection.modules?.includes(key) ?? false;
+}
+
+export function addModule(
+  selection: SelectionV1,
+  key: ModuleKey,
+  now: string,
+): SelectionV1 {
+  return hasModule(selection, key)
+    ? selection
+    : { ...selection, modules: [...(selection.modules ?? []), key], updatedAt: now };
+}
+
+// Only the hub tile goes away; what the module saved on the phone stays for when it is added back.
+export function removeModule(
+  selection: SelectionV1,
+  key: ModuleKey,
+  now: string,
+): SelectionV1 {
+  return hasModule(selection, key)
+    ? {
+        ...selection,
+        modules: (selection.modules ?? []).filter((entry) => entry !== key),
+        updatedAt: now,
+      }
+    : selection;
 }
 
 export function isHubFull(selection: SelectionV1): boolean {
@@ -22,8 +52,8 @@ export function findTile(
   return selection.tiles.find((tile) => tile.key === key);
 }
 
-function withTiles(tiles: Tile[], now: string): SelectionV1 {
-  return { schema: 1, tiles, updatedAt: now };
+function withTiles(selection: SelectionV1, tiles: Tile[], now: string): SelectionV1 {
+  return { ...selection, tiles, updatedAt: now };
 }
 
 function orderedSports(sports: readonly SportKey[]): SportKey[] {
@@ -43,7 +73,7 @@ export function addPro(
   if (findTile(selection, tile.key) || isHubFull(selection)) {
     return selection;
   }
-  return withTiles([...selection.tiles, tile], now);
+  return withTiles(selection, [...selection.tiles, tile], now);
 }
 
 // Unions the sports into the school's tile, else appends a new tile. A new tile past the cap is
@@ -63,6 +93,7 @@ export function addSchoolSports(
       return selection;
     }
     return withTiles(
+      selection,
       selection.tiles.map((tile) =>
         tile.key === school.key ? { ...existing, sports } : tile,
       ),
@@ -73,7 +104,7 @@ export function addSchoolSports(
   if (sports.length === 0 || isHubFull(selection)) {
     return selection;
   }
-  return withTiles([...selection.tiles, { ...school, sports }], now);
+  return withTiles(selection, [...selection.tiles, { ...school, sports }], now);
 }
 
 // Replaces a school tile's sports. An empty list removes the tile.
@@ -95,6 +126,7 @@ export function setSchoolSports(
     return selection;
   }
   return withTiles(
+    selection,
     selection.tiles.map((tile) =>
       tile.key === key ? { ...existing, sports: ordered } : tile,
     ),
@@ -111,6 +143,7 @@ export function removeTile(
     return selection;
   }
   return withTiles(
+    selection,
     selection.tiles.filter((tile) => tile.key !== key),
     now,
   );
@@ -134,7 +167,7 @@ export function moveTile(
   const tiles = [...selection.tiles];
   const [moved] = tiles.splice(from, 1);
   tiles.splice(to, 0, moved);
-  return withTiles(tiles, now);
+  return withTiles(selection, tiles, now);
 }
 
 // Appends the missing presets in the order Guardians, Patriots, Cyclones and merges the Cyclones
@@ -170,5 +203,5 @@ export function refreshTeamRefs(
     changed = true;
     return { ...tile, team };
   });
-  return changed ? withTiles(tiles, now) : selection;
+  return changed ? withTiles(selection, tiles, now) : selection;
 }

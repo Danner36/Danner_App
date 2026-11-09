@@ -1,4 +1,4 @@
-// Hub grid math. `cells` counts every tile: the team tiles, TV Location, and `+`.
+// Hub grid math. `cells` counts every tile: the team tiles, any custom module, and `+`.
 
 const GAP_RATIO = 28 / 101.2;
 const MAX_TILE = 101.2;
@@ -53,8 +53,9 @@ function rowsFor(cells: number, cols: number): number {
   return Math.ceil(cells / cols);
 }
 
+// A lone `+` gets one column so it sits centered.
 function naturalColumns(cells: number): number {
-  return Math.max(2, Math.ceil(Math.sqrt(cells)));
+  return cells === 1 ? 1 : Math.max(2, Math.ceil(Math.sqrt(cells)));
 }
 
 // The largest column count, no more than `cols`, whose tile is still at least the minimum.

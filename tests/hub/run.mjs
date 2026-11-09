@@ -76,6 +76,8 @@ const [phone, small, landscape, tablet] = SIZES;
 // 412x840 phone.
 near(at(phone, 2).tile, 101.2, 'phone n=2');
 assert.equal(at(phone, 2).cols, 2);
+assert.equal(at(phone, 1).cols, 1);
+near(at(phone, 1).grid.left + at(phone, 1).tile / 2, phone.width / 2, 'phone n=1 is centered');
 near(at(phone, 5).tile, 101.2, 'phone n=5');
 assert.equal(at(phone, 5).cols, 3);
 assert.equal(at(phone, 5).rows, 2);

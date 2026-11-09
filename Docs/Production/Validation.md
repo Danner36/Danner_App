@@ -134,7 +134,7 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 ## Current behavior confirmed
 
 - Android and iOS share the Danner app hub, the team picker, the one team screen and its players, the `TV Location` flow, the offline map, and the verification implementation. Physical-device results for v2 are the Pending rows above.
-- The hub shows the teams chosen on that phone in stored order, then YouTube TV, which opens `TV Location`, then `+`. A long press opens the move and remove actions. A phone updating from `v1.x` is seeded with Cleveland Guardians, New England Patriots, and Iowa State Cyclones; a fresh install starts empty.
+- The hub shows the teams chosen on that phone in stored order, then YouTube TV when it has been added from `+` under `Custom modules`, which opens `TV Location`, then `+`. A long press opens the move and remove actions. A phone updating from `v1.x` is seeded with Cleveland Guardians, New England Patriots, and Iowa State Cyclones; a fresh install starts empty.
 - The picker offers MLB, NFL, NCAA football, NCAA men's basketball, and NCAA women's basketball. Other leagues stay hidden until their probes and fixtures pass.
 - Every team logo is the ESPN image named in the catalog, cached on the phone and shown contained on white with 12% padding, with the abbreviation as the fallback.
 - Opening a team fetches its games from MLB statsapi or ESPN JSON and its `streams/<league>/<espnId>.json`; today's, a live, or today's completed game receives a featured card and is omitted from the remaining schedule. A school tile gives each game today its own card.
