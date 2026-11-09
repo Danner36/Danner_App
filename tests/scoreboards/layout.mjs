@@ -206,7 +206,14 @@ assert.equal(clockWords(undefined), 'clock not available');
 assert.equal(clockWords('1:2'), 'clock 1:2');
 
 function flags(overrides = {}) {
-  return basketballRulesFor('ncaa/womens-basketball', overrides).flags;
+  return basketballRulesFor('ncaa/womens-basketball', {
+    bonus: false,
+    lastFoul: false,
+    players: false,
+    rebounds: false,
+    teamFouls: false,
+    ...overrides,
+  }).flags;
 }
 
 const LAUNCH_FLAGS = flags();

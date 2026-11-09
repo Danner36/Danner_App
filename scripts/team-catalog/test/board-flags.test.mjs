@@ -26,7 +26,7 @@ function livePoll(capturedAt, extra = {}) {
   return { capturedAt, header: { competitions: [{ status: { type: { state: 'in' } } }] }, ...extra };
 }
 
-test('the committed men\'s capture supports the current flags and the women\'s have none', async () => {
+test('the committed men\'s and women\'s captures support the current flags', async () => {
   const report = await evaluateBoardFlags(REPO_ROOT);
   const mens = report['ncaa/mens-basketball'];
   assert.equal(mens.newestCapture, '401909771');
@@ -40,9 +40,12 @@ test('the committed men\'s capture supports the current flags and the women\'s h
   assert.equal(mens.flags.activeLineup, false);
   assert.equal(mens.flags.possessionArrow, false);
   const womens = report['ncaa/womens-basketball'];
-  assert.equal(womens.newestCapture, null);
+  assert.equal(womens.newestCapture, '401916017');
   assert.equal(womens.agrees, true);
-  assert.ok(Object.values(womens.flags).every((value) => value === false));
+  for (const flag of ['players', 'rebounds', 'teamFouls', 'bonus', 'lastFoul']) {
+    assert.equal(womens.flags[flag], true, `${flag} is on`);
+    assert.equal(womens.evidence[flag], true, `${flag} is backed by the capture`);
+  }
 });
 
 test('newestLiveCapture takes the latest in-progress poll and ignores pregame and final captures', () => {
@@ -92,9 +95,11 @@ test('the flag check refuses a weak capture for an adapter whose flags are on', 
     assert.equal(FLAG_CONTRADICTION_EXIT, 2);
     assert.match(lines[0], /capture 500 has no evidence for .*players/);
 
-    // Women's flags are all off, so a weak capture contradicts nothing.
     writePoll(root, 'ncaa-womens-basketball', '501', 1, livePoll('2026-11-10T00:00:00.000Z'));
-    assert.equal(await runFlagCheck({ adapter: 'ncaa/womens-basketball', log: () => {}, root }), 0);
+    assert.equal(
+      await runFlagCheck({ adapter: 'ncaa/womens-basketball', log: () => {}, root }),
+      FLAG_CONTRADICTION_EXIT,
+    );
     // An adapter without board flags has nothing to contradict.
     assert.equal(await runFlagCheck({ adapter: 'nfl', log: () => {}, root }), 0);
   } finally {
