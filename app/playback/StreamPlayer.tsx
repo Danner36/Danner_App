@@ -4,16 +4,24 @@ import { NavigationBar } from 'expo-navigation-bar';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
+  BackHandler,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
+import {
+  enterPictureInPicture,
+  onPictureInPictureClosed,
+  pictureInPictureSupported,
+  setPictureInPictureArmed,
+} from '../modules/danner-picture-in-picture/src';
 import type { PlayableStream } from '../streams/sources.ts';
 import {
   CastButton,
@@ -258,6 +266,9 @@ function PlayerKeepAwake() {
   return null;
 }
 
+// Android's picture-in-picture window is far smaller than any phone screen in either orientation.
+const PICTURE_IN_PICTURE_MAX_DP = 500;
+
 // Memoized so the pre-game countdown does not re-render an open player every second.
 export const StreamPlayer = memo(function StreamPlayer({
   accent,
@@ -280,17 +291,36 @@ export const StreamPlayer = memo(function StreamPlayer({
     onClose();
   };
 
-  // A page's fullscreen video draws in the activity window behind this modal, and current Android
-  // ignores the WebView's own request to hide the bars there. Hiding the activity's navigation bar
-  // while a player is open hides it in fullscreen only; the modal keeps its own bar.
+  const { height, width } = useWindowDimensions();
+  const isAndroid = Platform.OS === 'android';
+  const inPictureInPicture =
+    isAndroid && width < PICTURE_IN_PICTURE_MAX_DP && height < PICTURE_IN_PICTURE_MAX_DP;
+  const [canPopOut] = useState(() => pictureInPictureSupported());
+  const closeRef = useRef(closePlayer);
+  closeRef.current = closePlayer;
+
+  // On Android the player is drawn in the app's own window rather than a modal, because
+  // picture-in-picture shows only that window. Current Android ignores the WebView's own request
+  // to hide the system bars in fullscreen, so the navigation bar is hidden while a player is open.
   const playerOpen = Boolean(stream);
   useEffect(() => {
-    if (Platform.OS !== 'android' || !playerOpen) {
+    if (!isAndroid || !playerOpen) {
       return;
     }
     NavigationBar.setHidden(true);
-    return () => NavigationBar.setHidden(false);
-  }, [playerOpen]);
+    setPictureInPictureArmed(true);
+    const closed = onPictureInPictureClosed(() => closeRef.current());
+    const back = BackHandler.addEventListener('hardwareBackPress', () => {
+      closeRef.current();
+      return true;
+    });
+    return () => {
+      NavigationBar.setHidden(false);
+      setPictureInPictureArmed(false);
+      closed.remove();
+      back.remove();
+    };
+  }, [isAndroid, playerOpen]);
 
   useEffect(() => {
     setMedia(undefined);
@@ -298,62 +328,72 @@ export const StreamPlayer = memo(function StreamPlayer({
     setTvError(undefined);
   }, [stream?.playbackUrl]);
 
-  return (
-    <Modal
-      animationType="slide"
-      onRequestClose={closePlayer}
-      presentationStyle="fullScreen"
-      visible={Boolean(stream)}
+  const content = (
+    <View
+      style={[
+        styles.playerScreen,
+        isAndroid ? null : { paddingBottom: insets.bottom, paddingTop: insets.top },
+      ]}
     >
-      <View
-        style={[
-          styles.playerScreen,
-          { paddingBottom: insets.bottom, paddingTop: insets.top },
-        ]}
-      >
-        <View style={styles.playerHeader}>
-          <Pressable
-            accessibilityLabel="Close video"
-            accessibilityRole="button"
-            hitSlop={12}
-            onPress={closePlayer}
-            style={({ pressed }) => [
-              styles.headerButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.headerButtonText}>Close</Text>
-          </Pressable>
-          <Text numberOfLines={1} style={styles.playerTitle}>
-            {nickname} game
-          </Text>
-          {stream?.kind === 'direct' ? (
-            <CastButton
-              contentType={castContentTypeForUrl(stream.playbackUrl)}
-              onFailed={setTvError}
-              playbackUrl={stream.playbackUrl}
-              streamType={castStreamTypeForUrl(stream.playbackUrl)}
-              visible
-            />
-          ) : stream?.kind === 'web' ? (
-            <TvRouteButton
-              key={stream.playbackUrl}
-              media={media}
-              onFailed={setTvError}
-              onPhoneHeld={setPhoneHeld}
-              pageUrl={stream.playbackUrl}
-              visible
-            />
-          ) : (
-            <View style={styles.headerSpacer} />
-          )}
-        </View>
-        {tvError ? (
-          <Text accessibilityRole="alert" style={styles.tvErrorText}>
-            {tvError}
-          </Text>
-        ) : null}
-
+      {inPictureInPicture ? null : (
+        <>
+          <View style={styles.playerHeader}>
+            <Pressable
+              accessibilityLabel="Close video"
+              accessibilityRole="button"
+              hitSlop={12}
+              onPress={closePlayer}
+              style={({ pressed }) => [
+                styles.headerButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.headerButtonText}>Close</Text>
+            </Pressable>
+            <Text numberOfLines={1} style={styles.playerTitle}>
+              {nickname} game
+            </Text>
+            {canPopOut ? (
+              <Pressable
+                accessibilityHint="Keeps the game playing in a small window over other apps"
+                accessibilityLabel="Pop out video"
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => void enterPictureInPicture()}
+                style={({ pressed }) => [styles.popOutButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.headerButtonText}>Pop out</Text>
+              </Pressable>
+            ) : null}
+            {stream?.kind === 'direct' ? (
+              <CastButton
+                contentType={castContentTypeForUrl(stream.playbackUrl)}
+                onFailed={setTvError}
+                playbackUrl={stream.playbackUrl}
+                streamType={castStreamTypeForUrl(stream.playbackUrl)}
+                visible
+              />
+            ) : stream?.kind === 'web' ? (
+              <TvRouteButton
+                key={stream.playbackUrl}
+                media={media}
+                onFailed={setTvError}
+                onPhoneHeld={setPhoneHeld}
+                pageUrl={stream.playbackUrl}
+                visible
+              />
+            ) : (
+              <View style={styles.headerSpacer} />
+            )}
+          </View>
+          {tvError ? (
+            <Text accessibilityRole="alert" style={styles.tvErrorText}>
+              {tvError}
+            </Text>
+          ) : null}
+  
+        </>
+      )}
         {stream ? <PlayerKeepAwake /> : null}
         {stream ? (
           stream.kind === 'direct' ? (
@@ -370,12 +410,34 @@ export const StreamPlayer = memo(function StreamPlayer({
             />
           )
         ) : null}
-      </View>
+    </View>
+  );
+
+  if (isAndroid) {
+    return stream ? <View style={styles.androidPlayer}>{content}</View> : null;
+  }
+
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={closePlayer}
+      presentationStyle="fullScreen"
+      visible={Boolean(stream)}
+    >
+      {content}
     </Modal>
   );
 });
 
 const styles = StyleSheet.create({
+  androidPlayer: {
+    bottom: 0,
+    left: 0,
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    zIndex: 10,
+  },
   directVideo: {
     backgroundColor: '#000000',
     flex: 1,
@@ -389,6 +451,11 @@ const styles = StyleSheet.create({
     color: '#0B2B4C',
     fontSize: 18,
     fontWeight: '800',
+  },
+  popOutButton: {
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 8,
   },
   headerSpacer: {
     width: 72,
