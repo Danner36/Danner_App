@@ -380,6 +380,34 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  // The provider's Android player (Clappr 0.3, as the listing pages load it) on a public test
+  // stream, so the tap and fullscreen behavior can be checked without a live game.
+  if (request.method === 'GET' && request.url === '/clappr-player') {
+    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    response.end(`<!doctype html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <style>html, body, #player { background: #000; height: 100%; margin: 0; width: 100%; }</style>
+          <script src="https://cdn.jsdelivr.net/npm/clappr@0.3.13/dist/clappr.min.js"></script>
+        </head>
+        <body>
+          <div id="player"></div>
+          <script>
+            new Clappr.Player({
+              autoPlay: false,
+              height: '100%',
+              mimeType: 'application/x-mpegURL',
+              parentId: '#player',
+              source: '${appleMediaRoot.href}master.m3u8',
+              width: '100%',
+            });
+          </script>
+        </body>
+      </html>`);
+    return;
+  }
+
   if (request.method === 'GET' && request.url === '/popup-player') {
     response.writeHead(200, {
       'Content-Security-Policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'",

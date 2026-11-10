@@ -87,6 +87,11 @@
       "allowInsecureHttp": true,
       "kind": "web",
       "url": "http://10.0.2.2:8108/popup-player"
+    },
+    {
+      "allowInsecureHttp": true,
+      "kind": "web",
+      "url": "http://10.0.2.2:8108/clappr-player"
     }
   ]
 }
