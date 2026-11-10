@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useKeepAwake } from 'expo-keep-awake';
+import { NavigationBar } from 'expo-navigation-bar';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import {
   ActivityIndicator,
@@ -29,6 +30,7 @@ import {
   webMediaDiscoveryInjection,
 } from './webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from './webPlayerUserAgent';
+import { WEB_TAP_GUARD_INJECTION } from './webTapGuardInjection';
 
 // The YouTube wrapper HTML loads at this base URL. Only that exact document is allowed; the host is
 // not a navigation or popup target.
@@ -155,7 +157,7 @@ function IsolatedWebStreamPlayer({
     [stream.playbackUrl, promotedPopupUrl],
   );
   const webInjection = isWeb
-    ? `${WEB_AIRPLAY_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
+    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_TAP_GUARD_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
     : undefined;
 
   useEffect(() => {
@@ -277,6 +279,18 @@ export const StreamPlayer = memo(function StreamPlayer({
     void stopHlsProxy();
     onClose();
   };
+
+  // A page's fullscreen video draws in the activity window behind this modal, and current Android
+  // ignores the WebView's own request to hide the bars there. Hiding the activity's navigation bar
+  // while a player is open hides it in fullscreen only; the modal keeps its own bar.
+  const playerOpen = Boolean(stream);
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !playerOpen) {
+      return;
+    }
+    NavigationBar.setHidden(true);
+    return () => NavigationBar.setHidden(false);
+  }, [playerOpen]);
 
   useEffect(() => {
     setMedia(undefined);
