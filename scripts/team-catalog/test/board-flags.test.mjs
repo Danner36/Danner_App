@@ -29,7 +29,7 @@ function livePoll(capturedAt, extra = {}) {
 test('the committed men\'s and women\'s captures support the current flags', async () => {
   const report = await evaluateBoardFlags(REPO_ROOT);
   const mens = report['ncaa/mens-basketball'];
-  assert.equal(mens.newestCapture, '401909771');
+  assert.equal(mens.newestCapture, '401909773');
   assert.equal(mens.agrees, true);
   assert.deepEqual(mens.onWithoutEvidence, []);
   for (const flag of ['players', 'rebounds', 'teamFouls', 'bonus', 'lastFoul']) {
