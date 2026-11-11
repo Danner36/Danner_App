@@ -1531,6 +1531,12 @@ for (const capture of liveCaptures()) {
         .filter((entry) => entry.active === true)
         .map((entry) => String(entry.athlete.id))
         .sort();
+      // ESPN sometimes marks fewer than five players active mid-substitution (401909773 poll 030
+      // lists four for one team), so only a full five is a lineup to compare against.
+      if (active.length !== 5) {
+        assert.equal(side.players.length, 5, `${side.teamId} floor size`);
+        continue;
+      }
       assert.deepEqual(side.players.map((player) => String(player.athleteId)).sort(), active);
     }
   });
