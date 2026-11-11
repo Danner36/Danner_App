@@ -28,4 +28,4 @@ Install only from the in-app update or this repository's releases. Any other cop
 - TV Location with a default and current location on each phone, and each person's own YouTube TV sign-in
 - Offline United States location map
 - Launch check for a newer GitHub release, with Yes installing the Android APK or opening SideStore for the iPhone IPA
-- Android player: a tap on a playing video shows its controls instead of pausing it, fullscreen hides the bottom bar, and `Pop out` (or leaving the app) keeps the game playing in a small window over other apps
+- Android player: a tap on a playing video shows its controls instead of pausing it, fullscreen hides the bottom bar, and the `Pop out` button in the video's control bar (or leaving the app) keeps the game playing in a small window over other apps that shows only the video
