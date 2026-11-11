@@ -17,6 +17,7 @@ import expo.modules.kotlin.modules.ModuleDefinition
 class DannerPictureInPictureModule : Module() {
   private var armed = false
   private var inPictureInPicture = false
+  private var reportedActive = false
   private var callbacks: Application.ActivityLifecycleCallbacks? = null
 
   private fun supported(activity: Activity?): Boolean =
@@ -36,10 +37,22 @@ class DannerPictureInPictureModule : Module() {
     if (!supported(activity)) {
       return false
     }
-    return try {
+    val entered = try {
       activity.enterPictureInPictureMode(params())
     } catch (error: Exception) {
       false
+    }
+    if (entered) {
+      report(true)
+    }
+    return entered
+  }
+
+  // Tells the player when the small window opens or closes, so it shows only the video there.
+  private fun report(active: Boolean) {
+    if (active != reportedActive) {
+      reportedActive = active
+      sendEvent("onPictureInPictureChanged", mapOf("active" to active))
     }
   }
 
@@ -54,18 +67,21 @@ class DannerPictureInPictureModule : Module() {
       override fun onActivityPaused(activity: Activity) {
         if (inPictureInPicture(activity)) {
           inPictureInPicture = true
+          report(true)
         }
       }
 
       override fun onActivityResumed(activity: Activity) {
         if (!inPictureInPicture(activity)) {
           inPictureInPicture = false
+          report(false)
         }
       }
 
       override fun onActivityStopped(activity: Activity) {
         if (inPictureInPicture) {
           inPictureInPicture = false
+          report(false)
           sendEvent("onPictureInPictureClosed", emptyMap<String, Any>())
         }
       }
@@ -82,7 +98,7 @@ class DannerPictureInPictureModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("DannerPictureInPicture")
 
-    Events("onPictureInPictureClosed")
+    Events("onPictureInPictureChanged", "onPictureInPictureClosed")
 
     OnCreate { register() }
 
@@ -93,6 +109,11 @@ class DannerPictureInPictureModule : Module() {
     }
 
     Function("isSupported") { supported(appContext.currentActivity) }
+
+    Function("isActive") {
+      val activity = appContext.currentActivity
+      activity != null && inPictureInPicture(activity)
+    }
 
     AsyncFunction("setArmed") { value: Boolean ->
       armed = value

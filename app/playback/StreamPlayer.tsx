@@ -10,7 +10,6 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,7 +17,9 @@ import { WebView } from 'react-native-webview';
 import { stopHlsProxy } from '../modules/danner-live-hls/src';
 import {
   enterPictureInPicture,
+  onPictureInPictureChanged,
   onPictureInPictureClosed,
+  pictureInPictureActive,
   pictureInPictureSupported,
   setPictureInPictureArmed,
 } from '../modules/danner-picture-in-picture/src';
@@ -39,6 +40,12 @@ import {
 } from './webMediaDiscoveryInjection';
 import { webPlayerUserAgent } from './webPlayerUserAgent';
 import { WEB_TAP_GUARD_INJECTION } from './webTapGuardInjection';
+import { webPictureInPictureScript } from './webPictureInPictureScript';
+import {
+  POP_OUT_MESSAGE,
+  parsePopOutMessage,
+  webPopOutButtonInjection,
+} from './webPopOutButtonInjection';
 
 // The YouTube wrapper HTML loads at this base URL. Only that exact document is allowed; the host is
 // not a navigation or popup target.
@@ -117,10 +124,16 @@ function IsolatedWebStreamPlayer({
   holdPlayback,
   nickname,
   onMedia,
+  onPopOut,
+  onPopOutInBar,
+  pictureInPicture,
   stream,
 }: {
   accent: string;
   holdPlayback?: boolean;
+  onPopOut?: () => void;
+  onPopOutInBar?: (inBar: boolean) => void;
+  pictureInPicture?: boolean;
   nickname: string;
   onMedia?: (media: DiscoveredMedia) => void;
   stream: PlayableStream;
@@ -128,6 +141,8 @@ function IsolatedWebStreamPlayer({
   const webViewRef = useRef<WebView>(null);
   const holdPlaybackRef = useRef(holdPlayback === true);
   holdPlaybackRef.current = holdPlayback === true;
+  const pictureInPictureRef = useRef(pictureInPicture === true);
+  pictureInPictureRef.current = pictureInPicture === true;
   const [promotedPopupUrl, setPromotedPopupUrl] = useState<string>();
   const [playerKey, setPlayerKey] = useState(0);
   const isYoutube = stream.kind === 'youtube';
@@ -164,9 +179,15 @@ function IsolatedWebStreamPlayer({
     () => newDiscoveryNonce(),
     [stream.playbackUrl, promotedPopupUrl],
   );
+  const popOutInjection = onPopOut ? `\n${webPopOutButtonInjection(discoveryNonce)}` : '';
   const webInjection = isWeb
-    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_TAP_GUARD_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}`
+    ? `${WEB_AIRPLAY_INJECTION}\n${WEB_TAP_GUARD_INJECTION}\n${webMediaDiscoveryInjection(discoveryNonce)}${popOutInjection}`
     : undefined;
+
+  // Each new page starts without the bar button until it reports one.
+  useEffect(() => {
+    onPopOutInBar?.(false);
+  }, [discoveryNonce, playerKey]);
 
   useEffect(() => {
     setPromotedPopupUrl(undefined);
@@ -180,6 +201,11 @@ function IsolatedWebStreamPlayer({
       pagePlaybackHoldScript(holdPlayback === true),
     );
   }, [holdPlayback, isWeb, playerKey, promotedPopupUrl, stream.playbackUrl]);
+
+  // The small window shows the whole page, so the page's video is stretched over it there.
+  useEffect(() => {
+    webViewRef.current?.injectJavaScript(webPictureInPictureScript(pictureInPicture === true));
+  }, [pictureInPicture, playerKey, promotedPopupUrl, stream.playbackUrl]);
 
   return (
     <WebView
@@ -199,6 +225,15 @@ function IsolatedWebStreamPlayer({
       injectedJavaScript={webInjection}
       injectedJavaScriptBeforeContentLoaded={webInjection}
       onMessage={(event) => {
+        const popOut = parsePopOutMessage(event.nativeEvent.data, discoveryNonce);
+        if (popOut) {
+          if (popOut === POP_OUT_MESSAGE) {
+            onPopOut?.();
+          } else {
+            onPopOutInBar?.(true);
+          }
+          return;
+        }
         const media = parseDiscoveredMediaMessage(
           event.nativeEvent.data,
           discoveryNonce,
@@ -225,6 +260,9 @@ function IsolatedWebStreamPlayer({
         allowNavigation(request.url)
       }
       onLoadEnd={() => {
+        if (pictureInPictureRef.current) {
+          webViewRef.current?.injectJavaScript(webPictureInPictureScript(true));
+        }
         if (!isWeb) {
           return;
         }
@@ -266,9 +304,6 @@ function PlayerKeepAwake() {
   return null;
 }
 
-// Android's picture-in-picture window is far smaller than any phone screen in either orientation.
-const PICTURE_IN_PICTURE_MAX_DP = 500;
-
 // Memoized so the pre-game countdown does not re-render an open player every second.
 export const StreamPlayer = memo(function StreamPlayer({
   accent,
@@ -291,11 +326,11 @@ export const StreamPlayer = memo(function StreamPlayer({
     onClose();
   };
 
-  const { height, width } = useWindowDimensions();
   const isAndroid = Platform.OS === 'android';
-  const inPictureInPicture =
-    isAndroid && width < PICTURE_IN_PICTURE_MAX_DP && height < PICTURE_IN_PICTURE_MAX_DP;
+  const [inPictureInPicture, setInPictureInPicture] = useState(false);
   const [canPopOut] = useState(() => pictureInPictureSupported());
+  // A web player whose control bar holds the Pop out button needs no header button.
+  const [popOutInBar, setPopOutInBar] = useState(false);
   const closeRef = useRef(closePlayer);
   closeRef.current = closePlayer;
 
@@ -309,6 +344,8 @@ export const StreamPlayer = memo(function StreamPlayer({
     }
     NavigationBar.setHidden(true);
     setPictureInPictureArmed(true);
+    setInPictureInPicture(pictureInPictureActive());
+    const changed = onPictureInPictureChanged(setInPictureInPicture);
     const closed = onPictureInPictureClosed(() => closeRef.current());
     const back = BackHandler.addEventListener('hardwareBackPress', () => {
       closeRef.current();
@@ -317,6 +354,8 @@ export const StreamPlayer = memo(function StreamPlayer({
     return () => {
       NavigationBar.setHidden(false);
       setPictureInPictureArmed(false);
+      setInPictureInPicture(false);
+      changed.remove();
       closed.remove();
       back.remove();
     };
@@ -353,7 +392,7 @@ export const StreamPlayer = memo(function StreamPlayer({
             <Text numberOfLines={1} style={styles.playerTitle}>
               {nickname} game
             </Text>
-            {canPopOut ? (
+            {canPopOut && !popOutInBar ? (
               <Pressable
                 accessibilityHint="Keeps the game playing in a small window over other apps"
                 accessibilityLabel="Pop out video"
@@ -403,6 +442,9 @@ export const StreamPlayer = memo(function StreamPlayer({
               accent={accent}
               holdPlayback={phoneHeld}
               nickname={nickname}
+              onPopOut={canPopOut ? () => void enterPictureInPicture() : undefined}
+              onPopOutInBar={setPopOutInBar}
+              pictureInPicture={inPictureInPicture}
               onMedia={(next) => {
                 setMedia((current) => preferDiscoveredMedia(current, next));
               }}
@@ -414,7 +456,18 @@ export const StreamPlayer = memo(function StreamPlayer({
   );
 
   if (isAndroid) {
-    return stream ? <View style={styles.androidPlayer}>{content}</View> : null;
+    // The app's safe-area padding keeps the phone's bar heights around the player; the small
+    // window has no bars, so the player reaches past that padding there.
+    return stream ? (
+      <View
+        style={[
+          styles.androidPlayer,
+          inPictureInPicture ? { bottom: -insets.bottom, top: -insets.top } : null,
+        ]}
+      >
+        {content}
+      </View>
+    ) : null;
   }
 
   return (
