@@ -100,7 +100,7 @@ Last updated: 2026-11-08
 | Physical iPhone and TV | Pending | Requires the target iPhone to validate profile parsing, silent SideStore renewal over any working Wi-Fi, automatic step return, and the target TV's welcome and reloaded-channel results |
 | iOS native module discovery | Pass | Expo autolinking resolves package `danner-provisioning-profile`, pod `DannerProvisioningProfile`, Swift module `DannerProvisioningProfile`, and class `DannerProvisioningProfileModule` only for Apple |
 | iOS native build | Pass | GitHub's macOS job generated the native project, built the unsigned Release device app with Xcode, packaged a valid IPA archive, and uploaded it for SideStore installation |
-| GitHub release publication | Pass | [`v2.0.1`](https://github.com/Danner36/Danner_App/releases/tag/v2.0.1), published 2026-11-08, is the first v2 release. [`v2.0.8`](https://github.com/Danner36/Danner_App/releases/tag/v2.0.8), published 2026-11-10, is the latest published release. `v2.0.4` was a failed tag with no release. It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed. `v2.0.0` was a failed tag with no release. |
+| GitHub release publication | Pass | [`v2.0.1`](https://github.com/Danner36/Danner_App/releases/tag/v2.0.1), published 2026-11-08, is the first v2 release. [`v2.0.10`](https://github.com/Danner36/Danner_App/releases/tag/v2.0.10), published 2026-11-10, is the latest published release. `v2.0.4` and `v2.0.9` were failed tags with no release. It contains the APK, IPA, iPhone setup guide, SHA-256 checksum file, `version-manifest.json`, and `sidestore-source.json` after both platform jobs passed. `v2.0.0` was a failed tag with no release. |
 | Release version bake | Pass | `app.config.js` sets `expo.version`, Android `versionCode`, and iOS `buildNumber` from `RELEASE_TAG` (`v2.0.1` → `2.0.1` / `20001`). Local builds without that env stay `1.0` / 1 |
 | Win chance bar | Review | 2026-10-13: the fetch and parse code returned ESPN's own numbers for CLE at TB (Guardians 36.2, Rays 63.8, the same as the ESPN odds page), NE vs NYJ (Patriots 79.3, Jets 20.5), and ISU at Arizona (Cyclones 24.4, Arizona 75.6), and read the final probability of finished MLB, NFL, and college football games. Not yet seen on a phone, in a live game, or for college basketball |
 | Android WebView cookie flush | Review | 2026-11-08 the module with `clearYouTubeSession` and `youTubeSessionState` compiles in a release `assembleRelease`, and `youTubeSessionState` returned `signed-out` on an emulator with cleared app data. Not yet checked on a phone: sign in, leave with Steps, swipe the app away, reopen TV Location |
@@ -121,7 +121,7 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 
 ## GitHub release artifacts checked
 
-- Release: [Danner Apps v2.0.8](https://github.com/Danner36/Danner_App/releases/tag/v2.0.8)
+- Release: [Danner Apps v2.0.10](https://github.com/Danner36/Danner_App/releases/tag/v2.0.10)
 - Android asset: `Danner-Apps-Android.apk`
 - Android asset size: 95,417,194 bytes
 - iPhone asset: `Danner-Apps-iOS.ipa`
@@ -150,4 +150,4 @@ The generated `app/android/` directory is intentionally ignored and can be regen
 - The app does not launch Fake GPS, modify device sensors, or request location permission. Android Cast uses Nearby Wi-Fi marked `neverForLocation`.
 - Verification replaces browser geolocation inside the WebView with the saved pair.
 - Android live testing proves that YouTube requested and accepted the selected coordinates.
-- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. The latest published release is `v2.0.8`, which also publishes `version-manifest.json` and `sidestore-source.json`. A new major version is a draft that the owner publishes; minor and patch versions publish directly. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
+- Distribution is direct-to-device only: a signed APK for Android and a SideStore-compatible IPA for iPhone. The latest published release is `v2.0.10`, which also publishes `version-manifest.json` and `sidestore-source.json`. A new major version is a draft that the owner publishes; minor and patch versions publish directly. SideStore renewal can use any working Wi-Fi network; cellular data alone is not supported by its current documentation.
