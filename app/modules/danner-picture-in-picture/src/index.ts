@@ -4,8 +4,13 @@ import { requireOptionalNativeModule } from 'expo';
 type Subscription = { remove: () => void };
 
 type DannerPictureInPictureModule = {
-  addListener: (event: 'onPictureInPictureClosed', listener: () => void) => Subscription;
+  addListener(event: 'onPictureInPictureClosed', listener: () => void): Subscription;
+  addListener(
+    event: 'onPictureInPictureChanged',
+    listener: (change: { active: boolean }) => void,
+  ): Subscription;
   enter: () => Promise<boolean>;
+  isActive: () => boolean;
   isSupported: () => boolean;
   setArmed: (armed: boolean) => Promise<void>;
 };
@@ -35,6 +40,23 @@ export async function enterPictureInPicture(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export function pictureInPictureActive(): boolean {
+  try {
+    return nativeModule?.isActive() === true;
+  } catch {
+    return false;
+  }
+}
+
+// Called with true when the game moves into the small window and false when it leaves it.
+export function onPictureInPictureChanged(listener: (active: boolean) => void): Subscription {
+  return (
+    nativeModule?.addListener('onPictureInPictureChanged', (change) =>
+      listener(change.active === true),
+    ) ?? { remove: () => {} }
+  );
 }
 
 // Called when the person closes the small window.
