@@ -35,6 +35,20 @@
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "source": "pipeline"
+    },
+    {
+      "eventId": "401873053",
+      "gameDates": [
+        "2026-11-15"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/60146?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
     }
   ]
 }
