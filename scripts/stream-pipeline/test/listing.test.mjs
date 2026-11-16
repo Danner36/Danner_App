@@ -6,6 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { EventEmitter } from 'node:events';
 import {
   EXTRACT_USER_AGENT,
+  browserChannel,
+  browserMajorVersion,
+  chromeUserAgent,
+  isUnscannedBody,
+  newExtractContext,
   browserEnvironment,
   createPlayerCapture,
   isMaskableHost,
@@ -375,4 +380,69 @@ test('provider URLs seen on the listing are dropped once the game page commits',
   // A later same-document navigation does not reset again.
   page.emit('framenavigated', page.mainFrame());
   assert.deepEqual(capture.urls(), [gameEmbed]);
+});
+
+test('only EXTRACT_BROWSER_CHANNEL=chrome picks a browser channel', () => {
+  assert.equal(browserChannel({ EXTRACT_BROWSER_CHANNEL: 'chrome' }), 'chrome');
+  assert.equal(browserChannel({ EXTRACT_BROWSER_CHANNEL: ' chrome ' }), 'chrome');
+  assert.equal(browserChannel({ EXTRACT_BROWSER_CHANNEL: 'msedge' }), undefined);
+  assert.equal(browserChannel({}), undefined);
+});
+
+test('the chrome channel is tried first and the bundled browser is the fallback', async () => {
+  const launches = [];
+  const browser = {};
+  const chromium = {
+    launch: async (options) => {
+      launches.push(options.channel);
+      if (options.channel) {
+        throw new Error('chrome is not installed');
+      }
+      return browser;
+    },
+  };
+  const launched = await launchExtractBrowser({
+    chromium,
+    env: { EXTRACT_BROWSER_CHANNEL: 'chrome', PATH: '/usr/bin' },
+  });
+  assert.equal(launched, browser);
+  assert.deepEqual(launches, ['chrome', undefined]);
+
+  launches.length = 0;
+  await launchExtractBrowser({ chromium, env: { PATH: '/usr/bin' } });
+  assert.deepEqual(launches, [undefined]);
+});
+
+test('the user agent names the major version the browser reports', async () => {
+  assert.equal(browserMajorVersion({ version: () => '151.0.7390.54' }), 151);
+  assert.equal(browserMajorVersion({ version: () => 'unknown' }), undefined);
+  assert.equal(browserMajorVersion({}), undefined);
+  assert.equal(chromeUserAgent(), EXTRACT_USER_AGENT);
+
+  let options;
+  const browser = {
+    newContext: async (received) => {
+      options = received;
+      return {};
+    },
+    version: () => '151.0.7390.54',
+  };
+  await newExtractContext(browser);
+  assert.match(options.userAgent, /Windows NT 10\.0/);
+  assert.match(options.userAgent, /Chrome\/151\.0\.0\.0 /);
+
+  await newExtractContext({ ...browser, version: () => '' });
+  assert.equal(options.userAgent, EXTRACT_USER_AGENT);
+});
+
+test('media and binary response bodies are never scanned', () => {
+  const typed = (type) => ({ headers: () => ({ 'content-type': type }) });
+  for (const type of ['image/png', 'video/mp2t', 'audio/aac', 'font/woff2', 'application/octet-stream', 'application/vnd.apple.mpegurl', 'application/dash+xml', 'application/wasm']) {
+    assert.equal(isUnscannedBody(typed(type)), true, type);
+  }
+  for (const type of ['text/html; charset=utf-8', 'application/javascript', 'application/json', '']) {
+    assert.equal(isUnscannedBody(typed(type)), false, type);
+  }
+  assert.equal(isUnscannedBody({}), false);
+  assert.equal(isUnscannedBody({ headers: () => { throw new Error('gone'); } }), false);
 });

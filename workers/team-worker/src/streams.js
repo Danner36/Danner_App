@@ -25,14 +25,15 @@ export function createStreamsStore({ blobs, client, log, now }) {
     return index;
   }
 
-  async function shaFor(env, league, espnId) {
-    return (await indexFor(league).read(env)).get(`${espnId}.json`);
+  async function shaFor(env, league, espnId, options) {
+    return (await indexFor(league).read(env, options)).get(`${espnId}.json`);
   }
 
   return {
     // { sha, text } of the team's file, or undefined when it has none.
-    async read(env, league, espnId) {
-      const sha = await shaFor(env, league, espnId);
+    // `options.maxAgeMs` re-reads the folder index when it is older than that.
+    async read(env, league, espnId, options) {
+      const sha = await shaFor(env, league, espnId, options);
       return sha ? { sha, text: await blobs.text(env, sha) } : undefined;
     },
 

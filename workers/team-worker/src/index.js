@@ -11,4 +11,9 @@ export default {
   fetch(request, env, ctx) {
     return app.fetch(request, env, ctx);
   },
+
+  // The prefetch cron in wrangler.toml.
+  scheduled(controller, env, ctx) {
+    ctx.waitUntil(app.scheduled(env));
+  },
 };

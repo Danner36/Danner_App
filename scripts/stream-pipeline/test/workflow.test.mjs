@@ -81,7 +81,7 @@ test('the extract job checks the request first, then masks, then installs and op
     'Write pipeline config',
     'Check pipeline config',
   ]);
-  for (const later of ['Install pipeline packages', 'Install xvfb', 'Run pipeline']) {
+  for (const later of ['Install pipeline packages', 'Find system Chrome', 'Run pipeline']) {
     assert.ok(names.indexOf(later) > names.indexOf('Write pipeline config'), later);
   }
   assert.ok(names.indexOf('Run pipeline') > names.indexOf('Check pipeline config'));
@@ -116,9 +116,24 @@ test('the Playwright cache is saved after install and before any page is opened'
   assert.match(step(extract, 'Restore Playwright browser'), /uses: actions\/cache\/restore@v4/);
   const save = step(extract, 'Save Playwright browser');
   assert.match(save, /uses: actions\/cache\/save@v4/);
-  assert.match(save, /if: steps\.playwright-cache\.outputs\.cache-hit != 'true'/);
+  assert.match(save, /if: steps\.system-chrome\.outputs\.found != 'true' && steps\.playwright-cache\.outputs\.cache-hit != 'true'/);
   assert.equal(names.indexOf('Save Playwright browser'), names.indexOf('Install Playwright browser') + 1);
   assert.ok(names.indexOf('Save Playwright browser') < names.indexOf('Run pipeline'));
+});
+
+test('the runner image Chrome is used when present, and the Playwright browser is only the fallback', () => {
+  const extract = job('extract');
+  const names = stepNames(extract);
+  const find = step(extract, 'Find system Chrome');
+  assert.match(find, /id: system-chrome/);
+  assert.match(find, /command -v google-chrome/);
+  assert.match(find, /EXTRACT_BROWSER_CHANNEL=chrome' >> "\$GITHUB_ENV"/);
+  assert.ok(names.indexOf('Find system Chrome') < names.indexOf('Restore Playwright browser'));
+  for (const name of ['Restore Playwright browser', 'Install Playwright browser', 'Save Playwright browser']) {
+    assert.match(step(extract, name), /if: steps.system-chrome.outputs.found != 'true'/, name);
+  }
+  assert.match(step(extract, 'Install Playwright browser'), /npx playwright install chromium --with-deps/);
+  assert.doesNotMatch(extract, /install-deps|apt-get/, 'the image already has xvfb and the browser libraries');
 });
 
 test('candidate.json is written as is, without the log redactor', () => {

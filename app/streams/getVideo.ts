@@ -6,7 +6,9 @@ import {
 import type { PlayableStream } from './sources.ts';
 import { appKey, getVideoEndpoint, isGetVideoAvailable } from './workerConfig.ts';
 
-export const POLL_INTERVAL_MS = 5_000;
+// The Worker can hand over an entry the moment a run finds it, so a short poll is what the phone
+// waits on. 20 reads a minute stays well inside the Worker's 120 per minute per IP.
+export const POLL_INTERVAL_MS = 3_000;
 // The longest a Get video session waits for the run's result.
 export const POLL_TIMEOUT_MS = 900_000;
 // Nothing new for this long reads `Still looking…`.

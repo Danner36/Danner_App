@@ -155,7 +155,30 @@ test('the entry module re-exports both Durable Object classes', () => {
 });
 
 test('the pure modules never import the Cloudflare runtime module', () => {
-  for (const file of ['app.js', 'catalog.js', 'events.js', 'gates.js', 'github.js', 'streams.js']) {
+  for (const file of ['app.js', 'catalog.js', 'events.js', 'gates.js', 'github.js', 'prefetch.js', 'streams.js']) {
     assert.doesNotMatch(read(WORKER_DIR, 'src', file), /cloudflare:workers/, file);
+  }
+});
+
+test('wrangler.toml runs the prefetch cron every 5 minutes and watches the top 10 pairs', () => {
+  assert.ok(WRANGLER.includes('[triggers]\ncrons = ["*/5 * * * *"]\n'));
+  assert.match(WRANGLER, /^PREFETCH_TOP_TEAMS = 10$/m);
+  assert.ok(read(WORKER_DIR, 'src', 'index.js').includes('scheduled(controller, env, ctx) {\n    ctx.waitUntil(app.scheduled(env));'));
+});
+
+test('the modules the Worker shares with the pipeline import nothing from Node', () => {
+  const shared = [
+    ['scripts', 'stream-pipeline', 'lib', 'candidateCheck.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'teamSpec.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'playableStream.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'playerUrl.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'gameWindow.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'extract', 'providers.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'schedule', 'espn.mjs'],
+    ['scripts', 'stream-pipeline', 'lib', 'schedule', 'mlbStatsapi.mjs'],
+  ];
+  for (const segments of shared) {
+    const text = read(REPO_ROOT, ...segments);
+    assert.doesNotMatch(text, /from 'node:|require\(/, segments.at(-1));
   }
 });

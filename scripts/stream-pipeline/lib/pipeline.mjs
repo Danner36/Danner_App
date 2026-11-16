@@ -195,6 +195,22 @@ export async function runPipeline(options = {}) {
   const leadMinutes = config.timing.leadMinutes;
   const graceMinutes = graceMinutesFor(config, team);
 
+  // The branch's streams file does not depend on the game, so it is read while the schedule
+  // loads. Its log lines wait in their own list so they still follow the game line.
+  const validation = validationForTeam(team);
+  const token = options.githubToken?.trim() || undefined;
+  const github = githubTarget(team, options.repository);
+  const documentLog = [];
+  const documentRead = readCurrentDocument({
+    fetchImpl,
+    github,
+    log: (message) => documentLog.push(message),
+    team,
+    token,
+  });
+  // An early stop never awaits it; a rejection there must not go unhandled.
+  documentRead.catch(() => {});
+
   let games;
   try {
     games = await SCHEDULE_PROVIDERS[team.schedule.provider].fetchGames(team, now, fetchImpl);
@@ -219,10 +235,10 @@ export async function runPipeline(options = {}) {
     return finish('game_over', 'Game is final; pipeline skipped.', true, { game });
   }
 
-  const validation = validationForTeam(team);
-  const token = options.githubToken?.trim() || undefined;
-  const github = githubTarget(team, options.repository);
-  const document = await readCurrentDocument({ fetchImpl, github, log, team, token });
+  const document = await documentRead;
+  for (const message of documentLog) {
+    log(message);
+  }
   const existing = findPlayableStreamForGame(document, game, validation);
   if (existing && game.resumed) {
     log(`Resumed game; replacing the entry for ${game.officialDate} game ${game.gameNumber}.`);

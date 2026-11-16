@@ -8,9 +8,12 @@ import {
   isSchool,
   splitTeamKey,
 } from './catalog.js';
+import { validateFoundCandidate } from '../../../scripts/stream-pipeline/lib/candidateCheck.mjs';
+import { checkedTeamSpec } from '../../../scripts/stream-pipeline/lib/teamSpec.mjs';
 import { createEventChecker } from './events.js';
 import { createLocalGates, rateLimitKey } from './gates.js';
 import { UpstreamError, createGithubClient, dispatchTeamGetVideo } from './github.js';
+import { createPrefetcher } from './prefetch.js';
 import { createStreamsStore, emptyDocumentText, hasReadyEntry } from './streams.js';
 
 const CONTRACT_VERSION = 2;
@@ -28,6 +31,11 @@ const READ_LIMIT = 120;
 const READ_WINDOW_MS = 60 * 1000;
 const READ_BUCKET_MAX = 10_000;
 const GATE_RETRY_SECONDS = 60;
+// How stale the streams folder index may be once a run for the polled game has published.
+const PUBLISHED_REFRESH_MS = 2 * 1000;
+const DEMAND_LIST_DEFAULT = 20;
+const DEMAND_LIST_MAX = 50;
+const APP_KEY_HEADER = 'X-App-Key';
 
 function reply(status, code, message, { retryAfterSeconds = null, sport = null, team = null } = {}) {
   const headers = { 'Cache-Control': 'no-store', 'Content-Type': JSON_TYPE };
@@ -331,15 +339,35 @@ export function createApp({
     }
   }
 
-  async function runStateHeaders(env, teamKey, eventId) {
+  // { headers, state } for the game; `state` is undefined when the event id is malformed.
+  async function runState(env, teamKey, eventId) {
     if (!EVENT_ID_PATTERN.test(eventId)) {
-      return { 'X-Run-State': 'none' };
+      return { headers: { 'X-Run-State': 'none' } };
     }
     const { value } = await teamGate(env, teamKey, 'readState', eventId);
     return {
-      'X-Run-State': value.state,
-      ...(value.progress ? { 'X-Run-Progress': JSON.stringify(value.progress) } : {}),
+      headers: {
+        'X-Run-State': value.state,
+        ...(value.progress ? { 'X-Run-Progress': JSON.stringify(value.progress) } : {}),
+      },
+      state: value,
     };
+  }
+
+  // The served document with the early entry appended, unless the file already holds a ready
+  // entry for the game. The phone reads the last 200 objects, so an appended entry is in scope.
+  async function withEarlyEntry(request, text, earlyEntry, headers) {
+    const document = parseJsonObject(text);
+    const game = { eventId: earlyEntry.eventId, officialDate: earlyEntry.gameDates[0], sport: earlyEntry.sport };
+    if (!document || hasReadyEntry(document, game)) {
+      return undefined;
+    }
+    const merged = `${JSON.stringify({
+      ...document,
+      streams: [...(Array.isArray(document.streams) ? document.streams : []), earlyEntry],
+    })}\n`;
+    const etag = `"early-${(await sha256Hex(merged)).slice(0, 32)}"`;
+    return documentResponse(request, merged, etag, { ...headers, 'X-Streams-State': 'early' });
   }
 
   async function handleStreams(request, env, url) {
@@ -361,13 +389,22 @@ export function createApp({
         return reply(400, 'bad_team', 'Unknown team.', scope);
       }
       const eventId = url.searchParams.get('event');
-      const stateHeaders = eventId === null ? {} : await runStateHeaders(env, teamKey, eventId);
+      const { headers: stateHeaders, state } = eventId === null ? { headers: {} } : await runState(env, teamKey, eventId);
       const { espnId, league } = splitTeamKey(teamKey);
-      const file = await streams.read(env, league, espnId);
+      // Right after a run publishes, the folder index is re-read instead of waiting out its cache;
+      // a conditional read that finds nothing new costs no rate limit.
+      const justPublished = state?.state === 'published' || state?.entry !== undefined;
+      const file = await streams.read(env, league, espnId, justPublished ? { maxAgeMs: PUBLISHED_REFRESH_MS } : {});
+      const text = file ? file.text : emptyDocumentText(entry);
+      if (state?.entry) {
+        const early = await withEarlyEntry(request, text, state.entry, stateHeaders);
+        if (early) {
+          return early;
+        }
+      }
       if (file) {
         return documentResponse(request, file.text, `"${file.sha}"`, stateHeaders);
       }
-      const text = emptyDocumentText(entry);
       const etag = `"empty-${(await sha256Hex(text)).slice(0, 32)}"`;
       return documentResponse(request, text, etag, {
         ...stateHeaders,
@@ -452,6 +489,13 @@ export function createApp({
     if (event.outcome === 'bad_event') {
       return reply(400, 'bad_event', 'Unknown event.', scope);
     }
+    // Every keyed request for a real game ranks its team and sport for prefetch, whatever happens
+    // next. A failed count only loses one vote.
+    try {
+      await globalGate(env, 'recordDemand', { eventId, ip, sport, team: teamKey });
+    } catch (error) {
+      log('demand count failed', error instanceof Error ? error.name : 'error');
+    }
     if (event.outcome === 'not_in_window') {
       return reply(409, 'not_in_window', 'The game is not inside the video window.', scope);
     }
@@ -470,19 +514,27 @@ export function createApp({
       }
     }
 
+    const started = await startRun(env, { eventId, ip, origin: 'phone', sport, teamKey });
+    return reply(started.status, started.code, started.message, {
+      ...scope,
+      ...(started.retryAfterSeconds === undefined ? {} : { retryAfterSeconds: started.retryAfterSeconds }),
+    });
+  }
+
+  // Reserves the team and global gates and sends the dispatch. Shared by a phone's Get video and
+  // the prefetcher, so both pass the same limits. Returns { status, code, message, retryAfterSeconds }.
+  async function startRun(env, { eventId, ip, origin, sport, teamKey }) {
+    const unavailable = { code: 'busy', message: 'Too many requests.', retryAfterSeconds: GATE_RETRY_SECONDS, status: 503 };
     const teamReserve = await strictTeamGate(env, teamKey, 'reserve', ip, eventId);
     if (teamReserve.unavailable) {
-      return gateUnavailable(scope);
+      return unavailable;
     }
     if (!teamReserve.value.ok) {
       const { code, retryAfterSeconds } = teamReserve.value;
       if (code === 'in_progress') {
-        return reply(202, 'in_progress', 'A run for this game was just started.', {
-          ...scope,
-          retryAfterSeconds,
-        });
+        return { code, message: 'A run for this game was just started.', retryAfterSeconds, status: 202 };
       }
-      return reply(429, code, 'Too many requests.', { ...scope, retryAfterSeconds });
+      return { code, message: 'Too many requests.', retryAfterSeconds, status: 429 };
     }
 
     const runKey = `${teamKey}|${eventId}`;
@@ -494,13 +546,12 @@ export function createApp({
       );
     if (globalReserve.unavailable) {
       await releaseTeam();
-      return gateUnavailable(scope);
+      return unavailable;
     }
     if (!globalReserve.value.ok) {
       await releaseTeam();
       const { code, retryAfterSeconds } = globalReserve.value;
-      const status = code === 'busy' ? 503 : 429;
-      return reply(status, code, 'Too many requests.', { ...scope, retryAfterSeconds });
+      return { code, message: 'Too many requests.', retryAfterSeconds, status: code === 'busy' ? 503 : 429 };
     }
     const releaseGlobal = () =>
       releaseQuietly(
@@ -515,7 +566,7 @@ export function createApp({
         env,
         {
           eventId,
-          origin: 'phone',
+          origin,
           requestedAt: new Date(now()).toISOString(),
           ...(sport === undefined ? {} : { sport }),
           team: teamKey,
@@ -528,7 +579,7 @@ export function createApp({
     if (!dispatched) {
       await releaseGlobal();
       await releaseTeam();
-      return reply(502, 'dispatch_failed', 'Could not start the run.', scope);
+      return { code: 'dispatch_failed', message: 'Could not start the run.', status: 502 };
     }
 
     try {
@@ -536,7 +587,7 @@ export function createApp({
     } catch (error) {
       log('could not record the queued state', error instanceof Error ? error.name : 'error');
     }
-    return reply(202, 'started', 'Run started.', scope);
+    return { code: 'started', message: 'Run started.', status: 202 };
   }
 
   // Verifies the signature before the body is parsed. Returns { body } or { response }.
@@ -643,6 +694,119 @@ export function createApp({
     return new Response(null, { status: 204 });
   }
 
+  // The extract job's found entry, handed over before publish commits it. Signed with the progress
+  // key, which the extract job already holds, and re-checked here with the publish job's own rules
+  // against the catalog spec, so it can be no less checked than the entry publish would commit.
+  async function handleRunEntry(request, env) {
+    if (!env.RUN_PROGRESS_KEY || !env.GITHUB_TOKEN) {
+      return notConfigured();
+    }
+    const { body, response } = await verifiedBody(request, env.RUN_PROGRESS_KEY);
+    if (response) {
+      return response;
+    }
+    const fields = runFields(body);
+    const sport = sportField(body.sport);
+    if (
+      !fields ||
+      (sport !== undefined && (typeof sport !== 'string' || !SPORT_SHAPE_PATTERN.test(sport))) ||
+      typeof body.candidate !== 'object' ||
+      body.candidate === null
+    ) {
+      return reply(400, 'bad_request', 'Malformed entry report.');
+    }
+    const refusal = await reportTeamRefusal(env, fields.team);
+    if (refusal) {
+      return refusal;
+    }
+    const { league } = splitTeamKey(fields.team);
+    const [teamEntry, leagueRow] = await Promise.all([catalog.team(env, fields.team), catalog.leagueRow(env, league)]);
+    const spec = checkedTeamSpec(leagueRow, teamEntry, sport);
+    const validated = spec ? validateFoundCandidate(body.candidate, spec, fields.eventId) : undefined;
+    if (!validated) {
+      return reply(400, 'bad_entry', 'The entry failed its checks.', { team: fields.team });
+    }
+    const { value } = await teamGate(env, fields.team, 'recordEntry', {
+      entry: validated.entry,
+      eventId: fields.eventId,
+      runId: fields.runId,
+    });
+    if (!value.ok) {
+      return reply(409, 'not_running', 'No run was started for this game.', { team: fields.team });
+    }
+    return new Response(null, { status: 204 });
+  }
+
+  // The most requested team and sport pairs, which the prefetcher watches, and the same scores
+  // summed per league and sport. Needs the app key in the X-App-Key header and counts failed keys
+  // like Get video does.
+  async function handleDemand(request, env, url) {
+    if (!env.APP_KEY) {
+      return notConfigured();
+    }
+    if (!(await readAllowed(env, request))) {
+      return readLimited();
+    }
+    const ip = rateLimitKey(request);
+    const attempt = await strictGlobalGate(env, 'consumeKeyAttempt', ip);
+    if (attempt.unavailable) {
+      return gateUnavailable({});
+    }
+    if (!attempt.value.ok) {
+      return reply(429, 'rate_limited', 'Too many requests.', { retryAfterSeconds: attempt.value.retryAfterSeconds });
+    }
+    if (!appKeyMatches(request.headers.get(APP_KEY_HEADER) ?? undefined, env)) {
+      return reply(401, 'unauthorized', 'Unauthorized.');
+    }
+    try {
+      const gate = attempt.local ? localGates.global(env) : globalStub(env)();
+      await gate.refundKeyAttempt(ip, attempt.value.at);
+    } catch (error) {
+      log('key attempt refund failed', error instanceof Error ? error.name : 'error');
+    }
+
+    const asked = Number(url.searchParams.get('limit') ?? DEMAND_LIST_DEFAULT);
+    const limit = Number.isInteger(asked) && asked > 0 ? Math.min(asked, DEMAND_LIST_MAX) : DEMAND_LIST_DEFAULT;
+    const { value: all } = await globalGate(env, 'topDemand', 1000);
+    const round = (score) => Math.round(score * 100) / 100;
+    const sports = new Map();
+    for (const row of all) {
+      const key = `${splitTeamKey(row.team).league}|${row.sport ?? ''}`;
+      sports.set(key, (sports.get(key) ?? 0) + row.score);
+    }
+    const document = {
+      halfLifeDays: 14,
+      prefetchTopTeams: prefetcher.settings(env).topTeams,
+      sports: [...sports]
+        .map(([key, score]) => {
+          const [league, sport] = key.split('|');
+          return { league, score: round(score), ...(sport ? { sport } : {}) };
+        })
+        .sort((first, second) => second.score - first.score)
+        .slice(0, limit),
+      teams: all.slice(0, limit).map((row) => ({
+        lastRequestedAt: new Date(row.lastAt).toISOString(),
+        score: round(row.score),
+        ...(row.sport ? { sport: row.sport } : {}),
+        team: row.team,
+      })),
+    };
+    return new Response(`${JSON.stringify(document)}\n`, {
+      headers: { 'Cache-Control': 'no-store', 'Content-Type': JSON_TYPE },
+    });
+  }
+
+  const prefetcher = createPrefetcher({
+    catalog,
+    fetchImpl,
+    globalGate,
+    log,
+    now,
+    startRun,
+    streams,
+    teamGate,
+  });
+
   async function route(request, env) {
     const url = new URL(request.url);
     const { method } = request;
@@ -669,6 +833,12 @@ export function createApp({
     if (method === 'POST' && pathname === '/run-progress') {
       return handleRunProgress(request, env);
     }
+    if (method === 'POST' && pathname === '/run-entry') {
+      return handleRunEntry(request, env);
+    }
+    if (method === 'GET' && pathname === '/demand') {
+      return handleDemand(request, env, url);
+    }
     return reply(404, 'not_found', 'Not found.');
   }
 
@@ -679,6 +849,23 @@ export function createApp({
       } catch (error) {
         log('unhandled worker error', error instanceof Error ? error.name : 'error');
         return reply(500, 'internal_error', 'Worker error.');
+      }
+    },
+
+    // The cron tick. Logs only team keys, event ids and codes.
+    async scheduled(env) {
+      if (!env.GITHUB_TOKEN || !env.RUN_STATUS_KEY) {
+        return { off: true };
+      }
+      try {
+        const summary = await prefetcher.run(env);
+        if (summary.dispatched.length > 0 || summary.refreshed > 0) {
+          log('prefetch tick', JSON.stringify(summary));
+        }
+        return summary;
+      } catch (error) {
+        log('prefetch tick failed', error instanceof Error ? error.name : 'error');
+        return { failed: true };
       }
     },
   };

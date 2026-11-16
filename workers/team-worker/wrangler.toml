@@ -14,6 +14,13 @@ IP_DISPATCH_PER_HOUR = 20
 IP_FAILED_KEY_PER_HOUR = 10
 GLOBAL_DISPATCH_PER_HOUR = 60
 GLOBAL_IN_FLIGHT_MAX = 15
+# How many of the most requested team and sport pairs the prefetch cron watches; 0 turns it off.
+# Prefetch runs use the rate-limit key `prefetch`, so IP_DISPATCH_PER_HOUR also caps them per hour.
+PREFETCH_TOP_TEAMS = 10
+
+# The prefetch tick. Staging runs it too, but its GLOBAL_DISPATCH_PER_HOUR of 0 turns prefetch off.
+[triggers]
+crons = ["*/5 * * * *"]
 
 [[durable_objects.bindings]]
 name = "TEAM_GATE"

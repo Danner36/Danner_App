@@ -1,12 +1,14 @@
 # team-worker
 
-Source for the Worker v2 contract: `GET /health`, `GET /catalog[/<league>]`, `GET /streams?team=<key>[&event=<id>]`, `POST /get-video`, `POST /run-status` and `POST /run-progress`. The contract, codes and limits are in `Docs/Production/ModularTeams.md` under Worker v2.
+Source for the Worker v2 contract: `GET /health`, `GET /catalog[/<league>]`, `GET /streams?team=<key>[&event=<id>]`, `POST /get-video`, `POST /run-status`, `POST /run-progress`, `POST /run-entry` and `GET /demand`, plus the prefetch cron. The contract, codes and limits are in `Docs/Production/ModularTeams.md` under Worker v2.
 
 - `src/index.js` is the Cloudflare entry. It exports the handler and the two Durable Object classes.
 - `src/app.js` holds the routes and the order of checks. `catalog.js`, `streams.js`, `events.js`, `gates.js` and `github.js` are pure modules that run under plain Node.
 - `src/durable.js` holds the `TeamGate` and `GlobalGate` shells and imports `cloudflare:workers`, so the Node tests do not load it.
 - `/get-video` checks the app key before any GitHub, ESPN or statsapi call. Shape checks run first; the catalog entry and sport are checked right after the key.
-- `/run-status` and `/run-progress` take the hex HMAC-SHA256 of the exact body in header `X-Signature`, and an `at` field (epoch seconds, epoch milliseconds or ISO 8601) within 300 s. A team outside the catalog is refused before any Durable Object call.
+- `src/prefetch.js` is the cron tick: it ranks team and sport pairs by decayed Get video requests, keeps their schedules, and starts runs through the same gates as a phone. `index.js` exports `scheduled` for the `[triggers]` cron in `wrangler.toml`; `PREFETCH_TOP_TEAMS` sets how many pairs it watches.
+- `app.js` and `prefetch.js` import the pipeline's pure modules (`candidateCheck.mjs`, `teamSpec.mjs`, `schedule/*.mjs`) from `scripts/stream-pipeline/lib`, so the early entry and the schedules follow the pipeline's own rules. Wrangler bundles them; they must stay free of Node imports.
+- `/run-status`, `/run-progress` and `/run-entry` take the hex HMAC-SHA256 of the exact body in header `X-Signature`, and an `at` field (epoch seconds, epoch milliseconds or ISO 8601) within 300 s. A team outside the catalog is refused before any Durable Object call.
 - Without Durable Object bindings, the same gates run in memory per isolate with the same limits. A bound Durable Object that fails on a key attempt or a reservation answers `503 busy`. Without the `READ_LIMITER` binding, or when it fails, reads use a per-isolate count of 120 per 60 s per IP.
 
 ## Tests

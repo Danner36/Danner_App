@@ -52,6 +52,16 @@ export class TeamGate extends GateShell {
   readState(eventId) {
     return this.gate.readState(eventId);
   }
+
+  async recordEntry(report) {
+    await this.scheduleSweep();
+    return this.gate.recordEntry(report);
+  }
+
+  async claimPrefetch(eventId, options) {
+    await this.scheduleSweep();
+    return this.gate.claimPrefetch(eventId, options);
+  }
 }
 
 export class GlobalGate extends GateShell {
@@ -80,5 +90,18 @@ export class GlobalGate extends GateShell {
 
   completeRun(runKey) {
     return this.gate.completeRun(runKey);
+  }
+
+  async recordDemand(report) {
+    await this.scheduleSweep();
+    return this.gate.recordDemand(report);
+  }
+
+  topDemand(limit, options) {
+    return this.gate.topDemand(limit, options);
+  }
+
+  storeSchedules(records) {
+    return this.gate.storeSchedules(records);
   }
 }

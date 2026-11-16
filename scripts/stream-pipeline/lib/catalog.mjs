@@ -6,10 +6,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { EVENT_ID_PATTERN } from './playableStream.mjs';
+import { SCHEDULE_PROVIDERS, streamsPathForKey, teamSpec, validationForTeam } from './teamSpec.mjs';
+
+export { streamsPathForKey, validationForTeam };
 
 export const TEAM_KEY_PATTERN = /^[a-z]{2,8}-\d{1,8}$/;
-const DEFAULT_OFFICIAL_DATE_ZONE = 'America/New_York';
-const SCHEDULE_PROVIDERS = new Set(['espn', 'mlb-statsapi']);
 
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const repoRoot = path.resolve(packageDir, '../..');
@@ -55,29 +56,6 @@ export async function loadCatalog(catalogDir = catalogDirectory()) {
     }
   }
   return { leagues, teams };
-}
-
-export function streamsPathForKey(teamKey) {
-  const [league, espnId] = teamKey.split('-');
-  return `streams/${league}/${espnId}.json`;
-}
-
-function teamSpec(league, team, sport) {
-  const row = sport ? league.sports.find((candidate) => candidate.key === sport) : league;
-  return {
-    adapter: sport ? `${league.key}/${sport}` : league.key,
-    espnId: team.espnId,
-    hrefNeedles: Array.isArray(team.hrefNeedles) ? team.hrefNeedles : [],
-    key: team.key,
-    kind: league.kind,
-    league: league.key,
-    name: team.name,
-    officialDateZone: league.officialDateZone ?? DEFAULT_OFFICIAL_DATE_ZONE,
-    schedule: row.schedule,
-    ...(sport ? { sport, sports: team.sports } : {}),
-    ...(team.statsapi ? { statsapi: team.statsapi } : {}),
-    streamsPath: streamsPathForKey(team.key),
-  };
 }
 
 const rejected = (code, message) => ({ code, message });
@@ -132,9 +110,4 @@ export async function checkRequest(request, catalogDir = catalogDirectory()) {
 
 export function requestFromEnv(env = process.env) {
   return { eventId: env.EVENT_ID, sport: env.TEAM_SPORT, team: env.TEAM_KEY };
-}
-
-// Entries in a school file must carry one of the school's sports; pro entries must carry none.
-export function validationForTeam(spec) {
-  return spec.kind === 'school' ? { sports: spec.sports } : {};
 }
