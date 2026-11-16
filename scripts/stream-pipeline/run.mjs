@@ -5,6 +5,7 @@ import path from 'node:path';
 import { checkRequest, requestFromEnv } from './lib/catalog.mjs';
 import { EXTRACT_FAILED, SUCCESS_CODES } from './lib/outcomes.mjs';
 import { candidateFromResult, loadRunConfig, runPipeline } from './lib/pipeline.mjs';
+import { postFoundEntry } from './lib/progress.mjs';
 import { createRedactor, githubMaskEmitter } from './lib/redact.mjs';
 import { formatRunSummary, rawSourceUrls } from './lib/sources.mjs';
 
@@ -185,6 +186,19 @@ async function main() {
     workerUrl: process.env.WORKER_URL,
   });
 
+  // Before anything else, so the phone can play the entry while the publish job commits it. A dry
+  // run never reports, and a Worker that does not answer changes nothing.
+  const candidate = candidateFromResult(result, request);
+  if (!options.dryRun && candidate.outcome === 'found') {
+    const handed = await postFoundEntry({
+      candidate,
+      key: process.env.RUN_PROGRESS_KEY,
+      runId: process.env.GITHUB_RUN_ID,
+      workerUrl: process.env.WORKER_URL,
+    });
+    log(handed.ok ? 'The entry was handed to the Worker.' : 'The Worker did not take the entry; publish will deliver it.');
+  }
+
   for (const step of result.steps ?? []) {
     log(step.message);
   }
@@ -193,7 +207,7 @@ async function main() {
     log(JSON.stringify(result.entry, null, 2));
   }
 
-  await writeCandidate(candidateFromResult(result, request));
+  await writeCandidate(candidate);
   // A key the catalog rejected is unchecked input and stays out of the summary.
   if (!result.outcome.startsWith('bad_')) {
     await writeRunSummary(request.team, result);

@@ -10,18 +10,33 @@ import {
 } from './providers.mjs';
 import { redactHosts } from '../redact.mjs';
 
-const EMBED_IFRAME_SELECTOR = PROVIDERS.map((provider) => provider.iframeSelector).join(', ');
 const PROVIDER_HOSTS = PROVIDERS.map((provider) => provider.host);
 const PROVIDER_URL_PATTERN = new RegExp(
   `https?:\\/\\/(?:[a-z0-9-]+\\.)*(?:${PROVIDER_HOSTS.map(escapeRegExp).join('|')})[^\\s"'<>)]*`,
   'gi',
 );
-export const EXTRACT_USER_AGENT =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
+const FALLBACK_CHROME_MAJOR = 140;
+
+// A desktop Chrome on Windows, at the given major version.
+export function chromeUserAgent(major = FALLBACK_CHROME_MAJOR) {
+  return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36`;
+}
+
+export const EXTRACT_USER_AGENT = chromeUserAgent();
 export const PLAYER_EMBED_WAIT_MS = 20_000;
-export const EMBED_IFRAME_WAIT_MS = 8_000;
+// How long play may take to bring up the player, counted from the press.
+export const PLAYER_SCAN_MS = 16_000;
+// A lower-scored player URL is accepted only after this long, in case the full one follows.
 export const POST_PLAY_WAIT_MS = 5_000;
+export const POLL_MS = 500;
 const LINK_NAVIGATION_WAIT_MS = 15_000;
+// A listing with no matching link ends its wait early once it has loaded, shows no challenge and
+// its anchor count has held still this long, but never before LINK_SETTLED_MIN_MS.
+export const LINK_SETTLED_MIN_MS = 6_000;
+export const LINK_STABLE_MS = 3_000;
+const TOP_PLAYER_SCORE = 13;
+// Response bodies of these types are media or binary and never carry a player URL.
+const UNSCANNED_BODY_TYPE = /^(image|video|audio|font)\/|octet-stream|mpegurl|dash\+xml|wasm/i;
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -283,7 +298,7 @@ async function readPlayerFromLoadedPage(page, pageUrl, networkUrls) {
     ...currentUrls(networkUrls),
   ]);
   const playerUrl = bestUrl ? httpsProviderUrl(bestUrl) : undefined;
-  return { found: Boolean(playerUrl), playerUrl };
+  return { found: Boolean(playerUrl), playerUrl, score: playerUrl ? scorePlayerUrl(playerUrl) : -1 };
 }
 
 // An empty result is reported as config_missing, never widened to another team.
@@ -458,29 +473,76 @@ export function browserEnvironment(env = process.env) {
   );
 }
 
+// Only the installed Google Chrome may be named; anything else uses the bundled Chromium.
+export function browserChannel(env = process.env) {
+  return String(env.EXTRACT_BROWSER_CHANNEL ?? '').trim() === 'chrome' ? 'chrome' : undefined;
+}
+
+// EXTRACT_BROWSER_CHANNEL=chrome launches the runner image's Chrome. When that launch fails, the
+// bundled Chromium is tried, so a missing system browser costs a retry and not the run.
 export async function launchExtractBrowser({ chromium, env = process.env } = {}) {
   const browserType = chromium ?? (await import('playwright')).chromium;
-  return browserType.launch({
+  const options = {
     args: ['--disable-blink-features=AutomationControlled'],
     env: browserEnvironment(env),
     headless: !extractRunsHeaded(),
-  });
+  };
+  const channel = browserChannel(env);
+  if (channel) {
+    try {
+      return await browserType.launch({ ...options, channel });
+    } catch {}
+  }
+  return browserType.launch(options);
+}
+
+// The major version the browser reports, so the user agent names the release actually answering.
+// Undefined when it cannot be read.
+export function browserMajorVersion(browser) {
+  try {
+    const major = Number(String(browser?.version?.() ?? '').split('.')[0]);
+    return Number.isInteger(major) && major > 0 ? major : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export async function newExtractContext(browser) {
   return browser.newContext({
     locale: 'en-US',
     timezoneId: 'America/New_York',
-    userAgent: EXTRACT_USER_AGENT,
+    userAgent: chromeUserAgent(browserMajorVersion(browser)),
     viewport: { width: 1280, height: 720 },
   });
 }
 
+async function listingLoadState(page) {
+  return settle(
+    () =>
+      page.evaluate(() => ({
+        linkCount: document.querySelectorAll('a[href]').length,
+        readyState: document.readyState,
+      })),
+    { linkCount: 0, readyState: 'loading' },
+  );
+}
+
 // Polls until the listing yields a usable link or a definite ambiguity. A listing still loading
-// rows, or mid-navigation through a challenge, keeps polling until the deadline. A closed page
-// or an abandoned attempt ends the wait, because the poll's sleep rejects at once on a closed page.
-async function waitForListingLink(page, options, timeoutMs = 15_000, isAbandoned = () => false) {
-  const deadline = Date.now() + timeoutMs;
+// rows, or mid-navigation through a challenge, keeps polling until the deadline. A listing that has
+// finished loading, shows no challenge and has held the same anchor count for LINK_STABLE_MS ends a
+// link_not_found wait early, but not before LINK_SETTLED_MIN_MS. A closed page or an abandoned
+// attempt ends the wait, because the poll's sleep rejects at once on a closed page.
+async function waitForListingLink(
+  page,
+  options,
+  timeoutMs = 15_000,
+  isAbandoned = () => false,
+  { settledMinMs = LINK_SETTLED_MIN_MS, stableMs = LINK_STABLE_MS } = {},
+) {
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
+  let lastCount;
+  let stableSince = startedAt;
   let selection = selectListingLink(await findInnerLinks(page, options), options);
   while (
     !selection.link &&
@@ -489,7 +551,23 @@ async function waitForListingLink(page, options, timeoutMs = 15_000, isAbandoned
     !page.isClosed() &&
     !isAbandoned()
   ) {
-    await settle(() => page.waitForTimeout(1_000), undefined);
+    if (selection.failure === 'link_not_found') {
+      const state = await listingLoadState(page);
+      if (state.linkCount !== lastCount) {
+        lastCount = state.linkCount;
+        stableSince = Date.now();
+      }
+      if (
+        Date.now() - startedAt >= settledMinMs &&
+        Date.now() - stableSince >= stableMs &&
+        state.readyState === 'complete' &&
+        state.linkCount > 0 &&
+        !(await pageShowsChallenge(page))
+      ) {
+        break;
+      }
+    }
+    await settle(() => page.waitForTimeout(POLL_MS), undefined);
     selection = selectListingLink(await findInnerLinks(page, options), options);
   }
   return selection;
@@ -624,17 +702,27 @@ function pageHasProviderFrame(page) {
   });
 }
 
-export async function waitForPlayerEmbeds(page, networkUrls, timeoutMs = PLAYER_EMBED_WAIT_MS) {
+// Polls until a provider player shows up, or any other frame does while no challenge is showing.
+// A challenge's own frame never ends the wait, so a game-page challenge gets the whole wait to
+// clear. `isBlocked` says whether the page is still behind a challenge.
+export async function waitForPlayerEmbeds(
+  page,
+  networkUrls,
+  timeoutMs = PLAYER_EMBED_WAIT_MS,
+  isBlocked = async () => false,
+) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (networkHasPlayer(networkUrls) || pageHasProviderFrame(page)) {
       return true;
     }
-    const summary = await playerPageSummary(page);
-    if (summary.iframes.length > 0 || summary.frameUrls.length > 1) {
-      return true;
+    if (!(await isBlocked())) {
+      const summary = await playerPageSummary(page);
+      if (summary.iframes.some((url) => !isIgnoredPlayerFrame(url)) || summary.frameUrls.length > 1) {
+        return true;
+      }
     }
-    await page.waitForTimeout(1_000);
+    await page.waitForTimeout(POLL_MS);
   }
   return false;
 }
@@ -700,8 +788,6 @@ async function openInnerPageFromLink(page, innerLink, options, capture) {
       timeout: timeoutMs,
     });
   }
-
-  await settle(() => page.waitForTimeout(3_000), undefined);
 }
 
 async function listingPageSummary(page) {
@@ -836,29 +922,50 @@ async function pressPlayEverywhere(page) {
       pressed = true;
     }
   }
-
-  try {
-    await page.waitForSelector(EMBED_IFRAME_SELECTOR, { timeout: EMBED_IFRAME_WAIT_MS });
-  } catch {}
-
-  await page.waitForTimeout(POST_PLAY_WAIT_MS);
   return pressed;
 }
 
-async function readPlayerWithRetry(page, pageUrl, networkUrls) {
-  const firstPass = await readPlayerFromLoadedPage(page, pageUrl, networkUrls);
-  if (firstPass.found) {
-    return firstPass;
-  }
+// https plus the provider's ad parameter: the most complete player URL a page gives.
+export function isTopPlayerScore(score) {
+  return score >= TOP_PLAYER_SCORE;
+}
 
-  await settle(() => page.waitForTimeout(3_000), undefined);
-  return readPlayerFromLoadedPage(page, pageUrl, networkUrls);
+// Polls the page after play until the best player URL appears, for up to `scanMs` from `playedAt`.
+// A top-scored URL ends the wait at once; a lower-scored one is accepted once POST_PLAY_WAIT_MS has
+// passed since play, in case the full URL is still on its way.
+async function waitForPlayerUrl(page, pageUrl, networkUrls, { playedAt, scanMs }) {
+  const deadline = playedAt + scanMs;
+  const acceptAfter = playedAt + Math.min(POST_PLAY_WAIT_MS, scanMs);
+  let best = { found: false, score: -1 };
+  for (;;) {
+    const read = await readPlayerFromLoadedPage(page, pageUrl, networkUrls);
+    if (read.found && read.score >= best.score) {
+      best = read;
+    }
+    if (best.found && (isTopPlayerScore(best.score) || Date.now() >= acceptAfter)) {
+      return best;
+    }
+    if (Date.now() >= deadline || page.isClosed()) {
+      return best;
+    }
+    await settle(() => page.waitForTimeout(POLL_MS), undefined);
+  }
 }
 
 // Collects provider URLs seen on the network. Every URL is tagged with the main-frame document it
 // belongs to; armForNavigation() makes the next main-frame commit start a new document, and
 // urls() returns only the current document's URLs. So a listing page's requests, including
 // responses that finish after the game page commits, never count as the game page's player.
+// Media and binary bodies are skipped: they never hold a player URL, and reading a video segment
+// in full costs time on every response.
+export function isUnscannedBody(response) {
+  try {
+    return UNSCANNED_BODY_TYPE.test(String(response.headers?.()?.['content-type'] ?? ''));
+  } catch {
+    return false;
+  }
+}
+
 export function createPlayerCapture(page, pageUrl) {
   let armed = false;
   let documentIndex = 0;
@@ -907,6 +1014,9 @@ export function createPlayerCapture(page, pageUrl) {
     const index = documentForRequest(response.request());
     remember(response.url(), index, pageUrl);
     rememberStatus(response);
+    if (isUnscannedBody(response)) {
+      return;
+    }
     try {
       const body = await response.text();
       for (const match of findProviderUrlsInText(body, response.url())) {
@@ -956,11 +1066,11 @@ async function openPageWithCapture(context, pageUrl, options) {
     });
   }
 
+  // No fixed settle: the link wait polls the listing, and a challenge still clearing keeps it polling.
   const response = await page.goto(pageUrl, {
     waitUntil: 'domcontentloaded',
     timeout: (options.timeoutSeconds ?? 90) * 1000,
   });
-  await settle(() => page.waitForTimeout(POST_PLAY_WAIT_MS), undefined);
 
   return { capture, page, response };
 }
@@ -1061,6 +1171,7 @@ export async function extractFromListing(baseUrl, options = {}) {
       selectionOptions,
       attempt.linkWaitMs,
       attempt.isAbandoned,
+      attempt.linkSettle,
     );
     const innerLink = selection.link;
     for (const match of selection.matches ?? []) {
@@ -1114,7 +1225,9 @@ export async function extractFromListing(baseUrl, options = {}) {
       return failureResult('game_nav');
     }
 
-    const embedsReady = await waitForPlayerEmbeds(innerPage, capture.urls, attempt.embedWaitMs);
+    const gameBlocked = async () =>
+      Boolean(httpFailureCode(capture.documentResponse()?.status?.())) || (await pageShowsChallenge(innerPage));
+    const embedsReady = await waitForPlayerEmbeds(innerPage, capture.urls, attempt.embedWaitMs, gameBlocked);
     // A challenge that cleared during the wait replaced the document with a successful one.
     if (httpFailureCode(capture.documentResponse()?.status?.())) {
       remember('Video page returned an error.');
@@ -1131,15 +1244,24 @@ export async function extractFromListing(baseUrl, options = {}) {
       }
     }
 
-    remember('Pressing play on the video player...');
-    remember(
-      (await pressPlayEverywhere(innerPage))
-        ? 'Play activated using: player control'
-        : 'No play control was found; scanning anyway.',
-    );
+    // A full player URL already on the page needs no play press and no post-play wait.
+    let extraction = await readPlayerFromLoadedPage(innerPage, innerLink.href, capture.urls);
+    if (extraction.found && isTopPlayerScore(extraction.score)) {
+      remember('The player URL was already present; play was not needed.');
+    } else {
+      remember('Pressing play on the video player...');
+      remember(
+        (await pressPlayEverywhere(innerPage))
+          ? 'Play activated using: player control'
+          : 'No play control was found; scanning anyway.',
+      );
 
-    remember('Scanning video page for a provider player URL...');
-    const extraction = await readPlayerWithRetry(innerPage, innerLink.href, capture.urls);
+      remember('Scanning video page for a provider player URL...');
+      extraction = await waitForPlayerUrl(innerPage, innerLink.href, capture.urls, {
+        playedAt: Date.now(),
+        scanMs: attempt.playerScanMs ?? PLAYER_SCAN_MS,
+      });
+    }
     rememberGame();
 
     if (!extraction.playerUrl) {

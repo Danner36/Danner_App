@@ -48,7 +48,12 @@ class FakePage extends EventEmitter {
     this.mainFrameValue = new FakeFrame('about:blank');
     this.extraFrames = [];
     this.titleValue = script.listingTitle ?? 'Listing';
-    this.mouse = { click: async () => {} };
+    this.mouseClicks = 0;
+    this.mouse = {
+      click: async () => {
+        this.mouseClicks += 1;
+      },
+    };
     this.gameLoaded = false;
   }
   mainFrame() {
@@ -138,6 +143,9 @@ class FakePage extends EventEmitter {
       this.script.onLinkPoll?.(this.linkPolls);
       return this.script.links ?? [];
     }
+    if (source.includes('readyState')) {
+      return { linkCount: this.script.linkCount ?? 0, readyState: this.script.readyState ?? 'loading' };
+    }
     if (source.includes('anchorCount')) {
       return { anchorCount: 0, title: this.titleValue, url: this.currentUrl };
     }
@@ -172,7 +180,8 @@ async function attempt(script) {
     requireOpponent: script.requireOpponent === true,
     sourceAttempt: {
       context: { newPage: async () => page },
-      embedWaitMs: 0,
+      embedWaitMs: script.embedWaitMs ?? 0,
+      playerScanMs: script.playerScanMs ?? 0,
       linkWaitMs: 0,
       onHost: (host) => hosts.push(host),
       onStage: (stage) => stages.push(stage),
@@ -340,6 +349,7 @@ test('a game-page challenge that clears during the embed wait is not a failure',
     game: { headers: { 'cf-mitigated': 'challenge' }, status: 403 },
     gameHtml: EMBED_URL,
     clearGameChallenge: true,
+    embedWaitMs: 200,
   });
   assert.equal(result.failure, undefined);
   assert.equal(result.playerUrl, EMBED_URL);
@@ -406,6 +416,7 @@ test('a provider offline marker makes an embed unplayable', async () => {
         sourceAttempt: {
           context: { newPage: async () => page },
           embedWaitMs: 0,
+          playerScanMs: 0,
           linkWaitMs: 0,
           privateHosts: new Set(),
         },
@@ -468,7 +479,7 @@ test('a found player keeps its host out of the private list and out of the log',
   const page = new FakePage({ links: [goodLink()], gameHtml: EMBED_URL });
   const result = await extractFromListing(LISTING_URL, {
     hrefNeedles: ['cleveland-guardians'],
-    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, linkWaitMs: 0, privateHosts },
+    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, playerScanMs: 0, linkWaitMs: 0, privateHosts },
     timeoutSeconds: 30,
   });
   assert.equal(result.playerUrl, EMBED_URL);
@@ -540,6 +551,7 @@ async function attemptWithHints(leagueHints) {
     sourceAttempt: {
       context: { newPage: async () => page },
       embedWaitMs: 0,
+      playerScanMs: 0,
       linkWaitMs: 0,
       privateHosts: new Set(),
     },
@@ -556,7 +568,7 @@ test('a listing anchor with another scheme is never followed', async () => {
   const page = new DomPage({}, anchors);
   const result = await extractFromListing(LISTING_URL, {
     hrefNeedles: ['cleveland-guardians'],
-    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, linkWaitMs: 0, privateHosts: new Set() },
+    sourceAttempt: { context: { newPage: async () => page }, embedWaitMs: 0, playerScanMs: 0, linkWaitMs: 0, privateHosts: new Set() },
     timeoutSeconds: 30,
   });
   assert.equal(result.failure, 'link_not_found');
@@ -570,4 +582,53 @@ test('the configured league hints, not a fixed list, set the listing-folder scor
   assert.equal(other.page.url(), 'https://listing-one.test/other/cleveland-guardians-b');
   const none = await attemptWithHints([]);
   assert.equal(none.result.failure, 'ambiguous_link');
+});
+
+async function attemptWithSettle(script, linkWaitMs) {
+  const page = new FakePage(script);
+  const startedAt = Date.now();
+  const result = await extractFromListing(LISTING_URL, {
+    hrefNeedles: ['cleveland-guardians'],
+    sourceAttempt: {
+      context: { newPage: async () => page },
+      linkSettle: { settledMinMs: 20, stableMs: 10 },
+      linkWaitMs,
+      privateHosts: new Set(),
+    },
+  });
+  return { elapsedMs: Date.now() - startedAt, page, result };
+}
+
+test('a loaded listing with no match ends the link wait once its anchors hold still', async () => {
+  const { elapsedMs, result } = await attemptWithSettle({ linkCount: 40, readyState: 'complete' }, 60_000);
+  assert.equal(result.failure, 'link_not_found');
+  assert.ok(elapsedMs < 5_000);
+});
+
+test('a listing still loading, empty, or behind a challenge keeps the whole link wait', async () => {
+  for (const script of [
+    { linkCount: 40, readyState: 'interactive' },
+    { linkCount: 0, readyState: 'complete' },
+    { linkCount: 40, listingTitle: 'Just a moment...', readyState: 'complete' },
+  ]) {
+    const { elapsedMs } = await attemptWithSettle(script, 300);
+    assert.ok(elapsedMs >= 300, JSON.stringify(script));
+  }
+});
+
+test('a full player URL already on the game page needs no play press', async () => {
+  const full = `${EMBED_URL}?ad=12`;
+  const { page, result } = await attempt({ links: [goodLink()], gameHtml: full });
+  assert.equal(result.playerUrl, full);
+  assert.equal(page.mouseClicks, 0);
+  const log = result.logLines.join('\n');
+  assert.match(log, /play was not needed/);
+  assert.doesNotMatch(log, /Pressing play/);
+});
+
+test('a player URL without the ad parameter still gets the play press', async () => {
+  const { page, result } = await attempt({ links: [goodLink()], gameHtml: EMBED_URL });
+  assert.equal(result.playerUrl, EMBED_URL);
+  assert.equal(page.mouseClicks, 1);
+  assert.match(result.logLines.join('\n'), /Pressing play on the video player/);
 });

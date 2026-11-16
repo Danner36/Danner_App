@@ -180,9 +180,14 @@ Phone TeamScreen (only while open)
   stream-pipeline.yml (one concurrency group per team+sport)
     extract (read-only token): check request -> config -> schedule -> event window -> sources 1..N -> candidate
                                each step -> POST /run-progress (HMAC, progress only) -> Worker
+                               found -> POST /run-entry (HMAC, re-checked with publish's rules) -> Worker serves it at once
     publish (write token, no browser): re-validate -> one commit to streams/<league>/<espnId>.json
                                        -> POST /run-status (HMAC) -> Worker
-  Phone polls GET /streams?team=<key>&event=<id> every 5 s (X-Run-Progress shows site k of N) until an entry matches, X-Run-State is final, or 900 s
+  Phone polls GET /streams?team=<key>&event=<id> every 3 s (X-Run-Progress shows site k of N) until an entry matches, X-Run-State is final, or 900 s
+
+Worker cron, every 5 min: the PREFETCH_TOP_TEAMS most requested team+sport pairs (decayed Get video counts)
+  -> cached schedule per pair -> a game 14 min from its start to 45 min after it, with no entry and no run
+  -> the same gates and repository_dispatch as a phone, rate-limit key `prefetch`, up to 4 tries 10 min apart
 ```
 
 ## App
@@ -791,7 +796,8 @@ jobs:
       - name: Write pipeline config      # fails on an empty secret; umask 077 under $RUNNER_TEMP; ::add-mask:: every source host
         env: { STREAM_PIPELINE_CONFIG: "${{ secrets.STREAM_PIPELINE_CONFIG }}" }
       - run: node scripts/stream-pipeline/run.mjs --check-config
-      # npm ci, Playwright cache, install-deps, xvfb: as today
+      # npm ci; the runner's google-chrome when present (EXTRACT_BROWSER_CHANNEL=chrome), else the Playwright cache;
+      # no install-deps or xvfb install, because the runner image already has both
       - run: xvfb-run -a node scripts/stream-pipeline/run.mjs    # EXTRACT_HEADED=1; GITHUB_TOKEN read-only for the readiness read
       # uploads candidate.json (entry or outcome code) as artifact candidate-<run id>
   publish:                # needs: extract, if: always(), timeout-minutes: 15, permissions: contents: write; no browser
@@ -805,6 +811,7 @@ jobs:
 - Each team+sport has its own concurrency group, so different teams run in parallel and each team+sport has at most one running and one pending run (`guardians-stream-pipeline.yml:22-27`). Two sports of one school can run together; both write `streams/ncaa/66.json` through the SHA retry.
 - The pipeline fetches only the dispatched sport (today Cyclones fetches 9 lists, `lib/ncaaSchedule.mjs:189-204`) and computes the season month in America/New_York, not the process zone (`lib/nflSchedule.mjs:17-19`, `lib/ncaaSchedule.mjs:26-32`). No workflow sets `TZ`.
 - The `extract` job posts each progress step to `POST /run-progress` with `RUN_PROGRESS_KEY` (Get video progress).
+- A found entry is also posted to `POST /run-entry` with `RUN_PROGRESS_KEY`, before the candidate upload. The Worker re-checks it with `lib/candidateCheck.mjs`, the module `publish.mjs` uses, against the catalog spec from `lib/teamSpec.mjs`, and serves it on `/streams?event=` until the file holds it or the run state expires. Publish still commits it, and `invalid_entry` from publish withdraws it.
 - `publish.mjs` posts `{team, sport, eventId, runId, code, at}` to `POST /run-status` with an HMAC-SHA256 signature made with `RUN_STATUS_KEY` (not on dry runs or runs without `eventId`).
 
 Code map: the module table and config checks (`lib/pipeline.mjs:49-67,84-95,151-202`) become `lib/catalog.mjs` (TeamSpec) and `lib/config.mjs`; `lib/mlbSchedule.mjs` becomes `lib/schedule/mlbStatsapi.mjs` (team from `statsapi.teamId`, `eventId` = `gamePk`); the duplicated NFL and NCAA helpers (`nflSchedule.mjs:21-77` = `ncaaSchedule.mjs:38-94`) become one `lib/schedule/espn.mjs`; `lib/extractGooz.mjs` splits into `lib/extract/listing.mjs` and `lib/extract/providers.mjs`, with `lib/sources.mjs` and `lib/redact.mjs` around them; the streams and publish modules gain the v2 schema, event-id match, `source` ownership and template creation, and publishing moves to `publish.mjs`. Env `GUARDIANS_STREAM_CONFIG`, `PIPELINE_MODULE`, `DISPATCH_SPORT` and `TZ` become `STREAM_PIPELINE_CONFIG_PATH`, `TEAM_KEY`, `TEAM_SPORT`, `EVENT_ID`, `DRY_RUN`, `FORCE` and `SOURCE_ONLY`.
@@ -819,7 +826,11 @@ Code map: the module table and config checks (`lib/pipeline.mjs:49-67,84-95,151-
 | `POST /get-video` | `{"appKey": "<app key>", "team": "ncaa-66", "sport": "football", "eventId": "<id>"}`; `sport` only for schools | 202 `started` or `in_progress`; 200 `video_ready` | below |
 | `POST /run-status` | signed body from `publish.mjs` | 204 | 401 `bad_signature`, 400 `bad_request` |
 | `POST /run-progress` | signed body from the `extract` job (Get video progress) | 204 | 401 `bad_signature`, 400 `bad_request` |
+| `POST /run-entry` | signed `{team, sport?, eventId, runId, at, candidate}` from the `extract` job | 204; the entry is appended to `/streams?event=` with `X-Streams-State: early` | 401 `bad_signature`, 400 `bad_request` or `bad_entry`, 409 `not_running` |
+| `GET /demand?limit=<n>` | header `X-App-Key`; failed keys count like Get video | 200 `{teams, sports, halfLifeDays, prefetchTopTeams}` | 401 `unauthorized`, 429 `rate_limited` |
 | anything else | | | 404 `not_found` |
+
+Prefetch: every keyed `/get-video` for a real game adds 1 to its team+sport score, once per event and IP; scores halve every 14 days and the 1000 highest are kept. The cron reads the top `PREFETCH_TOP_TEAMS` (default 10, 0 turns it off, at most 50), re-reads each schedule every 6 h (30 min when a game is within 3 h, 30 min after a failure, at most 4 reads a tick) and starts at most 3 runs a tick. It is off wherever `GLOBAL_DISPATCH_PER_HOUR` is 0, so the staging Worker never prefetches. After a run publishes, `/streams?event=` re-reads the league index once it is 2 s old instead of 10 s.
 
 Every reply that is not a document has the same fields: `ok`, `code`, `message`, `team`, `sport`, `retryAfterSeconds`. The empty document is `schemaVersion` 2, `team` (`key`, `name`) and an empty `streams` list; today a missing file answers 502 (`index.js:204-207`).
 

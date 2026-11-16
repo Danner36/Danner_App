@@ -50,7 +50,7 @@ export const DEFAULT_TIMING = {
 };
 
 export const MIN_SECONDS_FOR_NEXT_SOURCE = 45;
-// What a backup needs to reach the link stage: 30 s navigation plus the 5 s settle after it.
+// What a backup needs to reach the link stage: 30 s navigation plus a few seconds of link polling.
 export const MIN_BACKUP_BUDGET_SECONDS = 35;
 export const MAX_SOURCES = 5;
 

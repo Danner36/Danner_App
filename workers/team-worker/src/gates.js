@@ -10,6 +10,29 @@ const GAME_RECORD_TTL_MS = 48 * HOUR_MS;
 const GAME_LIMIT_RETRY_SECONDS = 3600;
 const SEEN_RUNS_MAX = 20;
 const REQUESTED_STEP = { k: 0, n: 0, step: 'requested' };
+const DAY_MS = 24 * HOUR_MS;
+// Demand halves every two weeks, so a team people stopped asking for drops out on its own.
+export const DEMAND_HALF_LIFE_MS = 14 * DAY_MS;
+const DEMAND_MIN_SCORE = 0.05;
+const DEMAND_KEYS_MAX = 1000;
+const DEMAND_SEEN_MAX = 30;
+const SCHEDULE_RECORD_TTL_MS = 2 * DAY_MS;
+// States in which a run for the game has already been started or has already succeeded.
+const ACTIVE_OR_DONE_STATES = new Set(['queued', 'published', 'video_ready', 'unchanged']);
+
+function decayedScore(record, nowMs) {
+  const age = Math.max(0, nowMs - (record?.at ?? nowMs));
+  return (record?.score ?? 0) * 0.5 ** (age / DEMAND_HALF_LIFE_MS);
+}
+
+function demandKey(team, sport) {
+  return `demand:${team}|${sport ?? ''}`;
+}
+
+function splitDemandKey(key) {
+  const [team, sport] = key.slice('demand:'.length).split('|');
+  return { sport: sport || undefined, team };
+}
 
 export const DEFAULT_LIMITS = Object.freeze({
   cooldownSeconds: 180,
@@ -179,6 +202,10 @@ export class TeamGateCore {
     game.seenRuns = [...seenRuns, runId].slice(-SEEN_RUNS_MAX);
 
     const resolved = code === 'published' || code === 'video_ready' || code === 'unchanged';
+    // Publish refused the entry the extract job handed over early, so the phone must stop seeing it.
+    if (code === 'invalid_entry') {
+      delete game.entry;
+    }
     const queued = game.state?.code === 'queued' && this.fresh(game.state, nowMs) ? game.state : undefined;
     const alreadyPublished = game.state?.code === 'published' && this.fresh(game.state, nowMs);
     if (queued && !resolved && queued.outstanding > 1) {
@@ -196,11 +223,50 @@ export class TeamGateCore {
     await this.storage.put(this.gameKey(eventId), game);
   }
 
-  // { state, progress } for the game. `progress` is undefined when no step is recorded.
+  // Keeps the entry a running extract job found, so the phone can play it before publish commits
+  // it. The caller has already re-checked the entry. Refused unless a run for the game was started
+  // within the run-state window, so a leaked signing key cannot plant entries for idle games.
+  async recordEntry({ entry, eventId, runId }) {
+    const nowMs = this.now();
+    const game = await this.game(eventId);
+    if (!(game.lastDispatchAt > 0 && nowMs - game.lastDispatchAt < RUN_STATE_TTL_MS)) {
+      return { ok: false };
+    }
+    game.entry = { at: nowMs, entry, runId };
+    await this.storage.put(this.gameKey(eventId), game);
+    return { ok: true };
+  }
+
+  // One prefetch attempt for the game, claimed atomically. Refused while a run is queued or after
+  // one succeeded, after `maxAttempts`, and until `retryMs` has passed since the last attempt.
+  async claimPrefetch(eventId, { maxAttempts, retryMs }) {
+    const nowMs = this.now();
+    const game = await this.game(eventId);
+    if (this.fresh(game.state, nowMs) && ACTIVE_OR_DONE_STATES.has(game.state.code)) {
+      return { ok: false, reason: game.state.code };
+    }
+    if (this.fresh(game.entry, nowMs)) {
+      return { ok: false, reason: 'entry' };
+    }
+    const attempts = game.prefetch?.attempts ?? 0;
+    if (attempts >= maxAttempts) {
+      return { ok: false, reason: 'attempts' };
+    }
+    if (nowMs - (game.prefetch?.at ?? 0) < retryMs) {
+      return { ok: false, reason: 'waiting' };
+    }
+    game.prefetch = { at: nowMs, attempts: attempts + 1 };
+    await this.storage.put(this.gameKey(eventId), game);
+    return { attempt: attempts + 1, ok: true };
+  }
+
+  // { state, progress, entry } for the game. `progress` is undefined when no step is recorded, and
+  // `entry` when no running extract job handed one over.
   async readState(eventId) {
     const nowMs = this.now();
     const game = await this.game(eventId);
     return {
+      ...(this.fresh(game.entry, nowMs) ? { entry: game.entry.entry } : {}),
       progress: this.fresh(game.progress, nowMs)
         ? {
             k: game.progress.k,
@@ -218,7 +284,13 @@ export class TeamGateCore {
     const nowMs = this.now();
     let remaining = 0;
     for (const [key, game] of await this.storage.list({ prefix: 'game:' })) {
-      const newest = Math.max(game.lastDispatchAt, game.state?.at ?? 0, game.progress?.at ?? 0);
+      const newest = Math.max(
+        game.lastDispatchAt,
+        game.state?.at ?? 0,
+        game.progress?.at ?? 0,
+        game.entry?.at ?? 0,
+        game.prefetch?.at ?? 0,
+      );
       if (nowMs - newest >= GAME_RECORD_TTL_MS) {
         await this.storage.delete(key);
       } else {
@@ -329,10 +401,79 @@ export class GlobalGateCore {
     await storeList(this.storage, 'flight', flight);
   }
 
+  // Counts one Get video request toward the team and sport's demand score. Each event and IP pair
+  // counts once, so repeated taps from one phone for one game do not inflate the ranking.
+  async recordDemand({ eventId, ip, sport, team }) {
+    const nowMs = this.now();
+    const key = demandKey(team, sport);
+    const record = await this.storage.get(key);
+    const token = `${eventId}|${ip}`;
+    if (record?.seen?.includes(token)) {
+      return { counted: false };
+    }
+    await this.storage.put(key, {
+      at: nowMs,
+      score: decayedScore(record, nowMs) + 1,
+      seen: [...(record?.seen ?? []), token].slice(-DEMAND_SEEN_MAX),
+    });
+    return { counted: true };
+  }
+
+  // The most requested team and sport pairs, highest score first. With `withSchedules`, each row
+  // also carries the cached schedule the prefetcher stored for it.
+  async topDemand(limit, { withSchedules = false } = {}) {
+    const nowMs = this.now();
+    const rows = [];
+    for (const [key, record] of await this.storage.list({ prefix: 'demand:' })) {
+      const score = decayedScore(record, nowMs);
+      if (score >= DEMAND_MIN_SCORE) {
+        rows.push({ ...splitDemandKey(key), key: key.slice('demand:'.length), lastAt: record.at, score });
+      }
+    }
+    rows.sort((first, second) => second.score - first.score || first.key.localeCompare(second.key));
+    const top = rows.slice(0, Math.max(0, limit));
+    if (withSchedules) {
+      for (const row of top) {
+        const schedule = await this.storage.get(`schedule:${row.key}`);
+        if (schedule) {
+          row.schedule = schedule;
+        }
+      }
+    }
+    return top;
+  }
+
+  // Stores the prefetcher's schedule reads, one record per team and sport key.
+  async storeSchedules(records) {
+    for (const { key, schedule } of records) {
+      await this.storage.put(`schedule:${key}`, schedule);
+    }
+  }
+
   // Deletes expired records. Returns true while any remain.
   async sweep() {
     const nowMs = this.now();
     let remaining = 0;
+    const demand = [];
+    for (const [key, record] of await this.storage.list({ prefix: 'demand:' })) {
+      const score = decayedScore(record, nowMs);
+      if (score < DEMAND_MIN_SCORE) {
+        await this.storage.delete(key);
+      } else {
+        demand.push({ key, score });
+      }
+    }
+    demand.sort((first, second) => second.score - first.score);
+    for (const { key } of demand.slice(DEMAND_KEYS_MAX)) {
+      await this.storage.delete(key);
+    }
+    const kept = new Set(demand.slice(0, DEMAND_KEYS_MAX).map(({ key }) => key.slice('demand:'.length)));
+    remaining += kept.size;
+    for (const [key, schedule] of await this.storage.list({ prefix: 'schedule:' })) {
+      if (!kept.has(key.slice('schedule:'.length)) || nowMs - (schedule?.fetchedAt ?? 0) >= SCHEDULE_RECORD_TTL_MS) {
+        await this.storage.delete(key);
+      }
+    }
     for (const prefix of ['ip:', 'failed:']) {
       for (const [key, stamps] of await this.storage.list({ prefix })) {
         if (recent(stamps, nowMs, HOUR_MS).length === 0) {

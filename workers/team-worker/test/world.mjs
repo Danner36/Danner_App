@@ -33,7 +33,7 @@ export const LEAGUES_DOC = {
       label: 'NFL',
       officialDateZone: 'America/New_York',
       pickable: true,
-      schedule: { provider: 'espn', sitePath: 'football/nfl' },
+      schedule: { provider: 'espn', seasonTypes: [2], seasonYear: { shiftBackThroughMonth: 2 }, sitePath: 'football/nfl' },
     },
     {
       key: 'ncaa',
@@ -42,7 +42,7 @@ export const LEAGUES_DOC = {
       officialDateZone: 'America/New_York',
       sports: [
         { key: 'football', label: 'NCAA football', pickable: true, schedule: { provider: 'espn', sitePath: 'football/college-football' } },
-        { key: 'mens-basketball', label: "NCAA men's basketball", pickable: true, schedule: { provider: 'espn', sitePath: 'basketball/mens-college-basketball' } },
+        { key: 'mens-basketball', label: "NCAA men's basketball", pickable: true, schedule: { provider: 'espn', seasonTypes: [2], seasonYear: { shiftForwardFromMonth: 7 }, sitePath: 'basketball/mens-college-basketball' } },
       ],
     },
   ],
@@ -142,6 +142,26 @@ export function pipelineEntry(overrides = {}) {
   };
 }
 
+// One event in the shape of ESPN's team schedule list.
+export function espnScheduleEvent({
+  date = '2026-11-08T18:00:00Z',
+  id = '401',
+  opponent = { id: '2', name: 'Buffalo Bills' },
+  state = 'pre',
+  team = { id: '17', name: 'New England Patriots' },
+} = {}) {
+  return {
+    competitions: [
+      {
+        competitors: [team, opponent].map((side) => ({ id: side.id, team: { displayName: side.name, id: side.id } })),
+        status: { type: { name: state === 'pre' ? 'STATUS_SCHEDULED' : 'STATUS_IN_PROGRESS', state } },
+      },
+    ],
+    date,
+    id,
+  };
+}
+
 export function streamsDocument(entries) {
   return JSON.stringify({
     schemaVersion: 2,
@@ -157,6 +177,7 @@ export function createWorld({ now = START_MS } = {}) {
     clock: { now },
     dispatches: [],
     espn: new Map(),
+    espnSchedules: new Map(),
     failures: new Map(),
     folders: new Map(),
     logs: [],
@@ -192,6 +213,9 @@ export function createWorld({ now = START_MS } = {}) {
   world.setStreams = (league, files) => world.setFolder(`streams/${league}`, files);
 
   world.setEspn = (eventId, value, status = 200) => world.espn.set(eventId, { status, value });
+
+  // Events for one team's ESPN schedule list, keyed by the team's ESPN id.
+  world.setEspnSchedule = (teamId, events, status = 200) => world.espnSchedules.set(teamId, { events, status });
 
   world.setStatsapi = (eventId, value, status = 200) => world.statsapi.set(eventId, { status, value });
 
@@ -238,6 +262,11 @@ export function createWorld({ now = START_MS } = {}) {
       return new Response('<html>not json</html>', { status: 200 });
     }
 
+    if (stage === 'espn' && url.pathname.endsWith('/schedule')) {
+      const teamId = url.pathname.split('/').at(-2);
+      const answer = world.espnSchedules.get(teamId);
+      return answer ? jsonResponse({ events: answer.events }, answer.status) : jsonResponse({ events: [] });
+    }
     if (stage === 'espn') {
       const answer = world.espn.get(url.searchParams.get('event'));
       return answer ? jsonResponse(answer.value, answer.status) : jsonResponse({ code: 404 }, 404);

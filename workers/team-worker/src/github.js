@@ -78,8 +78,11 @@ export class FolderIndex {
     this.ttlMs = ttlMs;
   }
 
-  async read(env) {
-    if (this.entries && this.now() < this.freshUntil) {
+  // `maxAgeMs` shortens the cache for one read: an index older than that is re-read even while
+  // its normal TTL has time left.
+  async read(env, { maxAgeMs } = {}) {
+    const young = maxAgeMs === undefined || this.now() - (this.fetchedAt ?? 0) < maxAgeMs;
+    if (this.entries && this.now() < this.freshUntil && young) {
       return this.entries;
     }
     const pending = sharedRead({
@@ -116,12 +119,14 @@ export class FolderIndex {
     }
 
     if (response.status === 304 && this.entries) {
+      this.fetchedAt = this.now();
       this.freshUntil = this.now() + this.ttlMs;
       return this.entries;
     }
     if (response.status === 404) {
       this.entries = new Map();
       this.etag = undefined;
+      this.fetchedAt = this.now();
       this.freshUntil = this.now() + this.missingTtlMs;
       return this.entries;
     }
@@ -145,6 +150,7 @@ export class FolderIndex {
         .map((item) => [item.name, item.sha]),
     );
     this.etag = response.headers.get('ETag') ?? undefined;
+    this.fetchedAt = this.now();
     this.freshUntil = this.now() + this.ttlMs;
     return this.entries;
   }
@@ -153,6 +159,8 @@ export class FolderIndex {
     this.log('github folder read failed', this.path, detail);
     if (this.entries) {
       this.freshUntil = this.now() + REFRESH_AFTER_ERROR_MS;
+      // A forced re-read waits out the same pause, so a failing GitHub is not asked on every poll.
+      this.fetchedAt = this.now();
       return this.entries;
     }
     throw new UpstreamError(`folder ${this.path}`, detail);
