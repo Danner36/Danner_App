@@ -37,6 +37,21 @@
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "source": "pipeline"
+    },
+    {
+      "sport": "mens-basketball",
+      "eventId": "401921816",
+      "gameDates": [
+        "2026-11-18"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/60431?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
     }
   ]
 }
