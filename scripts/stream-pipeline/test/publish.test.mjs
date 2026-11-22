@@ -265,6 +265,7 @@ test('the run status is signed and holds only the agreed fields', async () => {
       at: Math.floor(NOW.getTime() / 1000),
       code: 'published',
       eventId: '401',
+      officialDate: '2026-11-08',
       runId: '77',
       team: 'nfl-17',
     });

@@ -828,7 +828,10 @@ Code map: the module table and config checks (`lib/pipeline.mjs:49-67,84-95,151-
 | `POST /run-progress` | signed body from the `extract` job (Get video progress) | 204 | 401 `bad_signature`, 400 `bad_request` |
 | `POST /run-entry` | signed `{team, sport?, eventId, runId, at, candidate}` from the `extract` job | 204; the entry is appended to `/streams?event=` with `X-Streams-State: early` | 401 `bad_signature`, 400 `bad_request` or `bad_entry`, 409 `not_running` |
 | `GET /demand?limit=<n>` | header `X-App-Key`; failed keys count like Get video | 200 `{teams, sports, halfLifeDays, prefetchTopTeams}` | 401 `unauthorized`, 429 `rate_limited` |
+| `GET /missed?days=<1-30>` | header `X-App-Key` | 200 `{days, stillMissing, games}`: each game whose run ended `no_video`, `sources_unreachable`, `ambiguous_link` or `deadline`, with attempts per origin (`phone`, `prefetch`, `manual`), opponent, and `foundLaterAt` once a later run published | 401 `unauthorized`, 429 `rate_limited` |
 | anything else | | | 404 `not_found` |
+
+Missed games: `publish.mjs` adds `origin`, `officialDate` and `opponent` to its `/run-status` report; the Worker keeps one record per game for 30 days. `node scripts/missed-games.mjs [days]` prints the list with `WORKER_URL` and `APP_KEY` from the environment. A prefetch run that ends with one of those miss codes exits 0, so it sends no failure email; phone and manual runs still fail on them.
 
 Prefetch: every keyed `/get-video` for a real game adds 1 to its team+sport score, once per event and IP; scores halve every 14 days and the 1000 highest are kept. The cron reads the top `PREFETCH_TOP_TEAMS` (default 10, 0 turns it off, at most 50), re-reads each schedule every 6 h (30 min when a game is within 3 h, 30 min after a failure, at most 4 reads a tick) and starts at most 3 runs a tick. It is off wherever `GLOBAL_DISPATCH_PER_HOUR` is 0, so the staging Worker never prefetches. After a run publishes, `/streams?event=` re-reads the league index once it is 2 s old instead of 10 s.
 

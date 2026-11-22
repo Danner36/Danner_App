@@ -136,7 +136,7 @@ export async function runPublish(options) {
     team,
   };
   if (eventId && !options.dryRun && code !== 'dry_run') {
-    const posted = await postRunStatus({ ...options, code, eventId, now, team });
+    const posted = await postRunStatus({ ...options, code, eventId, game: result.game, now, opponent: opponentText(candidate), team });
     result.posted = posted.ok;
   }
   return result;
@@ -195,7 +195,16 @@ function gameKey(candidate) {
     : undefined;
 }
 
-async function postRunStatus({ code, eventId, fetchImpl, now, runId, sleep, statusKey, team, workerUrl }) {
+// The opponent's name from the candidate, for the Worker's missed-games list. It comes from the
+// job that opens untrusted pages, so only a short plain name passes.
+const OPPONENT_TEXT = /^[\p{L}\p{N} .&'()-]{1,60}$/u;
+
+export function opponentText(candidate) {
+  const value = candidate?.game?.opponentName;
+  return typeof value === 'string' && OPPONENT_TEXT.test(value) ? value : undefined;
+}
+
+async function postRunStatus({ code, eventId, fetchImpl, game, now, opponent, origin, runId, sleep, statusKey, team, workerUrl }) {
   if (!statusKey || !workerUrl) {
     return { ok: false };
   }
@@ -208,6 +217,9 @@ async function postRunStatus({ code, eventId, fetchImpl, now, runId, sleep, stat
       at: epochSeconds(now),
       code,
       eventId,
+      ...(game?.officialDate ? { officialDate: game.officialDate } : {}),
+      ...(opponent ? { opponent } : {}),
+      ...(origin ? { origin } : {}),
       runId,
       ...(team.sport ? { sport: team.sport } : {}),
       team: team.key,

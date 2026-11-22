@@ -36,6 +36,12 @@ const PUBLISHED_REFRESH_MS = 2 * 1000;
 const DEMAND_LIST_DEFAULT = 20;
 const DEMAND_LIST_MAX = 50;
 const APP_KEY_HEADER = 'X-App-Key';
+// Run codes that mean the sources had no video for the game, and codes that mean a video exists.
+const MISS_CODES = new Set(['ambiguous_link', 'deadline', 'no_video', 'sources_unreachable']);
+const FOUND_CODES = new Set(['published', 'unchanged', 'video_ready']);
+const RUN_ORIGINS = new Set(['manual', 'phone', 'prefetch']);
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const OPPONENT_PATTERN = /^[\p{L}\p{N} .&'()-]{1,60}$/u;
 
 function reply(status, code, message, { retryAfterSeconds = null, sport = null, team = null } = {}) {
   const headers = { 'Cache-Control': 'no-store', 'Content-Type': JSON_TYPE };
@@ -636,6 +642,85 @@ export function createApp({
     }
   }
 
+  // Keeps the developer's missed-games list: a miss code adds the game, a later success marks it
+  // found. Optional fields that fail their shape are dropped, never trusted.
+  async function recordOutcome(env, body, fields) {
+    const sport = typeof body.sport === 'string' && SPORT_SHAPE_PATTERN.test(body.sport) ? body.sport : undefined;
+    const game = { eventId: fields.eventId, sport, team: fields.team };
+    try {
+      if (MISS_CODES.has(body.code)) {
+        await globalGate(env, 'recordMiss', {
+          ...game,
+          code: body.code,
+          officialDate: typeof body.officialDate === 'string' && DATE_PATTERN.test(body.officialDate) ? body.officialDate : undefined,
+          opponent: typeof body.opponent === 'string' && OPPONENT_PATTERN.test(body.opponent) ? body.opponent : undefined,
+          origin: RUN_ORIGINS.has(body.origin) ? body.origin : 'manual',
+        });
+      } else if (FOUND_CODES.has(body.code)) {
+        await globalGate(env, 'resolveMiss', game);
+      }
+    } catch (error) {
+      log('missed-games update failed', error instanceof Error ? error.name : 'error');
+    }
+  }
+
+  // Checks the X-App-Key header the way Get video checks its key. Returns a refusal or undefined.
+  async function keyedReadRefusal(request, env) {
+    if (!env.APP_KEY) {
+      return notConfigured();
+    }
+    if (!(await readAllowed(env, request))) {
+      return readLimited();
+    }
+    const ip = rateLimitKey(request);
+    const attempt = await strictGlobalGate(env, 'consumeKeyAttempt', ip);
+    if (attempt.unavailable) {
+      return gateUnavailable({});
+    }
+    if (!attempt.value.ok) {
+      return reply(429, 'rate_limited', 'Too many requests.', { retryAfterSeconds: attempt.value.retryAfterSeconds });
+    }
+    if (!appKeyMatches(request.headers.get(APP_KEY_HEADER) ?? undefined, env)) {
+      return reply(401, 'unauthorized', 'Unauthorized.');
+    }
+    try {
+      const gate = attempt.local ? localGates.global(env) : globalStub(env)();
+      await gate.refundKeyAttempt(ip, attempt.value.at);
+    } catch (error) {
+      log('key attempt refund failed', error instanceof Error ? error.name : 'error');
+    }
+    return undefined;
+  }
+
+  // Games whose runs found no video, with who asked (phone, prefetch, manual) and whether a later
+  // run found it. `days` is 1 to 30, default 7.
+  async function handleMissed(request, env, url) {
+    const refusal = await keyedReadRefusal(request, env);
+    if (refusal) {
+      return refusal;
+    }
+    const asked = Number(url.searchParams.get('days') ?? 7);
+    const days = Number.isInteger(asked) && asked >= 1 ? Math.min(asked, 30) : 7;
+    const { value: rows } = await globalGate(env, 'listMisses', days);
+    const iso = (ms) => new Date(ms).toISOString();
+    const games = rows.map((row) => ({
+      attempts: row.attempts,
+      eventId: row.eventId,
+      firstMissAt: iso(row.firstAt),
+      ...(row.foundAt ? { foundLaterAt: iso(row.foundAt) } : {}),
+      lastCode: row.lastCode,
+      lastMissAt: iso(row.lastAt),
+      ...(row.officialDate ? { officialDate: row.officialDate } : {}),
+      ...(row.opponent ? { opponent: row.opponent } : {}),
+      origins: row.origins,
+      ...(row.sport ? { sport: row.sport } : {}),
+      team: row.team,
+    }));
+    return new Response(`${JSON.stringify({ days, games, stillMissing: games.filter((game) => !game.foundLaterAt).length })}\n`, {
+      headers: { 'Cache-Control': 'no-store', 'Content-Type': JSON_TYPE },
+    });
+  }
+
   async function handleRunStatus(request, env) {
     if (!env.RUN_STATUS_KEY || !env.GITHUB_TOKEN) {
       return notConfigured();
@@ -659,6 +744,7 @@ export function createApp({
     });
     if (value.fresh) {
       await globalGate(env, 'completeRun', `${fields.team}|${fields.eventId}`);
+      await recordOutcome(env, body, fields);
     }
     return new Response(null, { status: 204 });
   }
@@ -741,28 +827,9 @@ export function createApp({
   // summed per league and sport. Needs the app key in the X-App-Key header and counts failed keys
   // like Get video does.
   async function handleDemand(request, env, url) {
-    if (!env.APP_KEY) {
-      return notConfigured();
-    }
-    if (!(await readAllowed(env, request))) {
-      return readLimited();
-    }
-    const ip = rateLimitKey(request);
-    const attempt = await strictGlobalGate(env, 'consumeKeyAttempt', ip);
-    if (attempt.unavailable) {
-      return gateUnavailable({});
-    }
-    if (!attempt.value.ok) {
-      return reply(429, 'rate_limited', 'Too many requests.', { retryAfterSeconds: attempt.value.retryAfterSeconds });
-    }
-    if (!appKeyMatches(request.headers.get(APP_KEY_HEADER) ?? undefined, env)) {
-      return reply(401, 'unauthorized', 'Unauthorized.');
-    }
-    try {
-      const gate = attempt.local ? localGates.global(env) : globalStub(env)();
-      await gate.refundKeyAttempt(ip, attempt.value.at);
-    } catch (error) {
-      log('key attempt refund failed', error instanceof Error ? error.name : 'error');
+    const refusal = await keyedReadRefusal(request, env);
+    if (refusal) {
+      return refusal;
     }
 
     const asked = Number(url.searchParams.get('limit') ?? DEMAND_LIST_DEFAULT);
@@ -838,6 +905,9 @@ export function createApp({
     }
     if (method === 'GET' && pathname === '/demand') {
       return handleDemand(request, env, url);
+    }
+    if (method === 'GET' && pathname === '/missed') {
+      return handleMissed(request, env, url);
     }
     return reply(404, 'not_found', 'Not found.');
   }

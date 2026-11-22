@@ -57,6 +57,8 @@ jobs:
       TEAM_KEY: ${{ github.event.client_payload.team || inputs.team }}
       TEAM_SPORT: ${{ github.event.client_payload.sport || inputs.sport }}
       EVENT_ID: ${{ github.event.client_payload.eventId || inputs.event }}
+      # phone or prefetch from the Worker; anything else is treated as manual.
+      RUN_ORIGIN: ${{ github.event.client_payload.origin || 'manual' }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
       SOURCE_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.source || '' }}
@@ -158,6 +160,8 @@ jobs:
       TEAM_KEY: ${{ github.event.client_payload.team || inputs.team }}
       TEAM_SPORT: ${{ github.event.client_payload.sport || inputs.sport }}
       EVENT_ID: ${{ github.event.client_payload.eventId || inputs.event }}
+      # phone or prefetch from the Worker; anything else is treated as manual.
+      RUN_ORIGIN: ${{ github.event.client_payload.origin || 'manual' }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
       FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force && '1' || '0' }}
     steps:

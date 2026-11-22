@@ -37,6 +37,24 @@ export const FAILURE_CODES = new Set([
   'sources_unreachable',
 ]);
 
+// The run worked and the listing sources simply had no video for the game. These are reported to
+// the Worker's missed-games list for every origin.
+export const MISS_CODES = new Set(['ambiguous_link', 'deadline', 'no_video', 'sources_unreachable']);
+
+const ORIGINS = new Set(['manual', 'phone', 'prefetch']);
+
+// Who started the run: the dispatch payload's origin, or `manual` for anything else.
+export function runOrigin(env = process.env) {
+  const value = String(env.RUN_ORIGIN ?? '').trim();
+  return ORIGINS.has(value) ? value : 'manual';
+}
+
+// A prefetch run nobody asked for ends cleanly on a miss, so it sends no failure email; the miss
+// still reaches the missed-games list. Every other unsuccessful code fails the job.
+export function failsJob(code, origin) {
+  return !SUCCESS_CODES.has(code) && !(origin === 'prefetch' && MISS_CODES.has(code));
+}
+
 // Why nothing was tried: only the schedule check knows these, and none of them claims a video.
 const CANDIDATE_STOP_CODES = new Set(['blocked', 'game_over', 'no_game', 'too_early']);
 

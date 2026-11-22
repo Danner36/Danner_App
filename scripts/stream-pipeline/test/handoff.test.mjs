@@ -114,3 +114,24 @@ test('checkedTeamSpec refuses a sport mismatch and a broken entry', async () => 
   assert.equal(checkedTeamSpec(undefined, patriots, undefined), undefined);
   assert.equal(checkedTeamSpec({ ...nfl, schedule: { provider: 'other' } }, patriots, undefined), undefined);
 });
+
+test('a prefetch miss ends the job cleanly; every other failure and origin still fails it', async () => {
+  const { failsJob, runOrigin } = await import('../lib/outcomes.mjs');
+  const { opponentText } = await import('../lib/publishRun.mjs');
+  for (const code of ['no_video', 'sources_unreachable', 'ambiguous_link', 'deadline']) {
+    assert.equal(failsJob(code, 'prefetch'), false, code);
+    assert.equal(failsJob(code, 'phone'), true, code);
+    assert.equal(failsJob(code, 'manual'), true, code);
+  }
+  for (const code of ['publish_failed', 'browser_failed', 'config_invalid', 'invalid_entry', 'extract_failed']) {
+    assert.equal(failsJob(code, 'prefetch'), true, code);
+  }
+  assert.equal(failsJob('published', 'phone'), false);
+  assert.equal(runOrigin({ RUN_ORIGIN: 'prefetch' }), 'prefetch');
+  assert.equal(runOrigin({ RUN_ORIGIN: 'phone' }), 'phone');
+  assert.equal(runOrigin({ RUN_ORIGIN: 'x; rm' }), 'manual');
+  assert.equal(runOrigin({}), 'manual');
+  assert.equal(opponentText({ game: { opponentName: "Saint Mary's Gaels" } }), "Saint Mary's Gaels");
+  assert.equal(opponentText({ game: { opponentName: '<b>x</b>' } }), undefined);
+  assert.equal(opponentText({}), undefined);
+});

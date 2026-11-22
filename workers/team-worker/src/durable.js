@@ -101,6 +101,19 @@ export class GlobalGate extends GateShell {
     return this.gate.topDemand(limit, options);
   }
 
+  async recordMiss(report) {
+    await this.scheduleSweep();
+    return this.gate.recordMiss(report);
+  }
+
+  resolveMiss(report) {
+    return this.gate.resolveMiss(report);
+  }
+
+  listMisses(days) {
+    return this.gate.listMisses(days);
+  }
+
   storeSchedules(records) {
     return this.gate.storeSchedules(records);
   }
