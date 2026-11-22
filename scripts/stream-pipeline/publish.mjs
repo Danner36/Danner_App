@@ -2,6 +2,7 @@ import { appendFile, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import { failsJob, runOrigin } from './lib/outcomes.mjs';
 import { publishSummary, resultDocument, runPublish } from './lib/publishRun.mjs';
 
 const directory = path.join(process.env.RUNNER_TEMP?.trim() || os.tmpdir(), 'stream-pipeline');
@@ -10,6 +11,7 @@ async function main() {
   const result = await runPublish({
     candidatePath: path.join(directory, 'candidate.json'),
     dryRun: process.env.DRY_RUN === '1',
+    origin: runOrigin(),
     force: process.env.FORCE === '1',
     repository: process.env.GITHUB_REPOSITORY,
     runId: process.env.GITHUB_RUN_ID,
@@ -26,7 +28,7 @@ async function main() {
   if (summaryPath && result.team) {
     await appendFile(summaryPath, publishSummary(result));
   }
-  if (!result.success) {
+  if (failsJob(result.code, runOrigin())) {
     process.exitCode = 1;
   }
 }

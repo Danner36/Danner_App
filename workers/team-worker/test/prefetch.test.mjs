@@ -384,3 +384,48 @@ test('team gate: a prefetch claim is refused while a run is queued or an entry i
   assert.deepEqual(await gate.claimPrefetch('2', options), { ok: false, reason: 'entry' });
   assert.deepEqual((await gate.readState('2')).entry, { url: 'x' });
 });
+
+// --- Missed games ---------------------------------------------------------------------------
+
+async function missed(w, query = '') {
+  const response = await w.request(`/missed${query}`, { headers: { 'X-App-Key': APP_KEY } });
+  return { body: JSON.parse(await response.text()), status: response.status };
+}
+
+test('missed: a run that finds no video lists the game with its origin, and a later publish marks it found', async () => {
+  const w = world();
+  await w.getVideo();
+  const report = (code, runId, extra = {}) =>
+    w.signed('/run-status', { code, eventId: '401', runId, team: 'nfl-17', ...extra }, STATUS_KEY);
+  await report('no_video', 1, { officialDate: OFFICIAL_DATE, opponent: 'Buffalo Bills', origin: 'prefetch' });
+  await report('sources_unreachable', 2, { origin: 'phone' });
+  await report('no_video', 2, { origin: 'phone' });
+
+  let { body } = await missed(w);
+  assert.equal(body.stillMissing, 1);
+  assert.deepEqual(
+    body.games.map(({ attempts, lastCode, officialDate, opponent, origins, team }) => ({ attempts, lastCode, officialDate, opponent, origins, team })),
+    [{ attempts: 2, lastCode: 'sources_unreachable', officialDate: OFFICIAL_DATE, opponent: 'Buffalo Bills', origins: { phone: 1, prefetch: 1 }, team: 'nfl-17' }],
+    'a replayed run id counts once',
+  );
+
+  await report('published', 3);
+  ({ body } = await missed(w));
+  assert.equal(body.stillMissing, 0);
+  assert.ok(body.games[0].foundLaterAt);
+});
+
+test('missed: other failures, bad origins and bad opponents are not trusted, and the list needs the key', async () => {
+  const w = world();
+  await w.signed('/run-status', { code: 'publish_failed', eventId: '401', runId: 1, team: 'nfl-17' }, STATUS_KEY);
+  await w.signed('/run-status', { code: 'no_video', eventId: '402', opponent: '<script>', origin: 'evil', runId: 2, team: 'nfl-17' }, STATUS_KEY);
+  const { body } = await missed(w);
+  assert.equal(body.games.length, 1);
+  assert.equal(body.games[0].eventId, '402');
+  assert.deepEqual(body.games[0].origins, { manual: 1 });
+  assert.equal(body.games[0].opponent, undefined);
+  assert.equal((await w.request('/missed')).status, 401);
+  w.clock.now += 8 * 24 * 60 * MINUTE;
+  assert.equal((await missed(w)).body.games.length, 0, 'older than 7 days');
+  assert.equal((await missed(w, '?days=30')).body.games.length, 1);
+});

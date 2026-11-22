@@ -538,7 +538,7 @@ test('the found candidate holds a schema 2 pipeline entry and no listing URL', a
       trustedHosts: [],
       source: 'pipeline',
     });
-    assert.deepEqual(candidate.game, { eventId: '900001', gameNumber: 1, officialDate: '2026-09-26' });
+    assert.deepEqual(candidate.game, { eventId: '900001', gameNumber: 1, officialDate: '2026-09-26', opponentName: 'Detroit Tigers' });
     assert.equal(candidate.team, 'mlb-5');
     const text = JSON.stringify(candidate);
     for (const host of HOSTS) {

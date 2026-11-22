@@ -367,6 +367,7 @@ export function candidateFromResult(result, request) {
             eventId: String(game.gamePk),
             gameNumber: game.gameNumber,
             officialDate: game.officialDate,
+            ...(typeof game.opponentName === 'string' && game.opponentName ? { opponentName: game.opponentName } : {}),
           },
         }
       : {}),

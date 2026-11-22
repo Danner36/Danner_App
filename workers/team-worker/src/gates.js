@@ -17,6 +17,8 @@ const DEMAND_MIN_SCORE = 0.05;
 const DEMAND_KEYS_MAX = 1000;
 const DEMAND_SEEN_MAX = 30;
 const SCHEDULE_RECORD_TTL_MS = 2 * DAY_MS;
+export const MISS_RECORD_TTL_MS = 30 * DAY_MS;
+const MISSES_MAX = 500;
 // States in which a run for the game has already been started or has already succeeded.
 const ACTIVE_OR_DONE_STATES = new Set(['queued', 'published', 'video_ready', 'unchanged']);
 
@@ -443,6 +445,46 @@ export class GlobalGateCore {
     return top;
   }
 
+  // Records a run that worked but found no video, one record per game, for the developer's
+  // missed-games list. A later run that publishes marks the game found instead of deleting it.
+  async recordMiss({ code, eventId, officialDate, opponent, origin, sport, team }) {
+    const nowMs = this.now();
+    const key = `miss:${team}|${sport ?? ''}|${eventId}`;
+    const record = (await this.storage.get(key)) ?? { attempts: 0, firstAt: nowMs, origins: {} };
+    await this.storage.put(key, {
+      ...record,
+      attempts: record.attempts + 1,
+      eventId,
+      lastAt: nowMs,
+      lastCode: code,
+      ...(officialDate ? { officialDate } : {}),
+      ...(opponent ? { opponent } : {}),
+      origins: { ...record.origins, [origin]: (record.origins[origin] ?? 0) + 1 },
+      ...(sport ? { sport } : {}),
+      team,
+    });
+  }
+
+  async resolveMiss({ eventId, sport, team }) {
+    const key = `miss:${team}|${sport ?? ''}|${eventId}`;
+    const record = await this.storage.get(key);
+    if (record && !record.foundAt) {
+      await this.storage.put(key, { ...record, foundAt: this.now() });
+    }
+  }
+
+  // Games with a miss in the last `days`, newest miss first.
+  async listMisses(days) {
+    const nowMs = this.now();
+    const rows = [];
+    for (const [, record] of await this.storage.list({ prefix: 'miss:' })) {
+      if (nowMs - record.lastAt < days * DAY_MS) {
+        rows.push(record);
+      }
+    }
+    return rows.sort((first, second) => second.lastAt - first.lastAt).slice(0, MISSES_MAX);
+  }
+
   // Stores the prefetcher's schedule reads, one record per team and sport key.
   async storeSchedules(records) {
     for (const { key, schedule } of records) {
@@ -469,6 +511,13 @@ export class GlobalGateCore {
     }
     const kept = new Set(demand.slice(0, DEMAND_KEYS_MAX).map(({ key }) => key.slice('demand:'.length)));
     remaining += kept.size;
+    for (const [key, record] of await this.storage.list({ prefix: 'miss:' })) {
+      if (nowMs - record.lastAt >= MISS_RECORD_TTL_MS) {
+        await this.storage.delete(key);
+      } else {
+        remaining += 1;
+      }
+    }
     for (const [key, schedule] of await this.storage.list({ prefix: 'schedule:' })) {
       if (!kept.has(key.slice('schedule:'.length)) || nowMs - (schedule?.fetchedAt ?? 0) >= SCHEDULE_RECORD_TTL_MS) {
         await this.storage.delete(key);

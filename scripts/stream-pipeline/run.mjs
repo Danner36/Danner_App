@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { checkRequest, requestFromEnv } from './lib/catalog.mjs';
-import { EXTRACT_FAILED, SUCCESS_CODES } from './lib/outcomes.mjs';
+import { EXTRACT_FAILED, failsJob, runOrigin } from './lib/outcomes.mjs';
 import { candidateFromResult, loadRunConfig, runPipeline } from './lib/pipeline.mjs';
 import { postFoundEntry } from './lib/progress.mjs';
 import { createRedactor, githubMaskEmitter } from './lib/redact.mjs';
@@ -212,7 +212,7 @@ async function main() {
   if (!result.outcome.startsWith('bad_')) {
     await writeRunSummary(request.team, result);
   }
-  if (!SUCCESS_CODES.has(result.outcome)) {
+  if (failsJob(result.outcome, runOrigin())) {
     process.exitCode = 1;
   }
 }
