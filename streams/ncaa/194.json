@@ -37,6 +37,21 @@
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "source": "pipeline"
+    },
+    {
+      "sport": "womens-basketball",
+      "eventId": "401918844",
+      "gameDates": [
+        "2026-11-22"
+      ],
+      "gameNumbers": [
+        1
+      ],
+      "kind": "web",
+      "url": "https://gooz.aapmains.net/new-stream-embed/60757?ad=111",
+      "allowInsecureHttp": false,
+      "trustedHosts": [],
+      "source": "pipeline"
     }
   ]
 }
