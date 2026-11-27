@@ -24,15 +24,15 @@
     },
     {
       "sport": "mens-basketball",
-      "eventId": "401909774",
+      "eventId": "401920533",
       "gameDates": [
-        "2026-11-15"
+        "2026-11-27"
       ],
       "gameNumbers": [
         1
       ],
       "kind": "web",
-      "url": "https://gooz.aapmains.net/new-stream-embed/60180?ad=111",
+      "url": "https://gooz.aapmains.net/new-stream-embed/61140?ad=111",
       "allowInsecureHttp": false,
       "trustedHosts": [],
       "source": "pipeline"
